@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-16):** Phase 0 code written and reviewed, **not yet compiled** — waiting on OWNER_TASKS #1 (Android Studio). Next: build, tests, lint, install on phone.
+**Status (2026-10-17):** Phase 0 complete — builds, tests and lint pass; verified on the emulator. Not yet on the phone (by choice). Next: Phase 1, starting with the on-phone AI model benchmark.
 
 - Product & tech spec: [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md)
 - UI prototype (design source of truth): https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ
@@ -22,16 +22,17 @@ Target device: Xiaomi Poco F5, 12 GB RAM (Snapdragon 7+ Gen 2). Android only.
 - [x] Verify current stable versions of all build tools and libraries
 - [x] ADR 0002 (on-device LLM) and ADR 0007 (customizable UI)
 - [x] Gradle project: wrapper (jar SHA-256 verified against gradle.org), version catalog, pinned versions, network-isolation build check
-- [ ] Gradle dependency verification metadata (needs a JDK to generate)
-- [ ] Regenerate `gradlew`/`gradlew.bat` with `./gradlew wrapper` (current scripts come from Gradle's source repo, not the release)
+- [x] Gradle dependency verification metadata (523 components, SHA-256, enforced on a clean build)
+- [x] Regenerate `gradlew`/`gradlew.bat` with `./gradlew wrapper` (jar hash unchanged)
 - [x] Modules `:app` and `:core:designsystem`
 - [x] Token-based design system: `UiConfig` theme tokens (colors, light/dark, font pairing, type scale, density, radius), bundled Bodoni Moda + Instrument Sans, base components — no hard-coded colors/fonts in screens (ADR 0007)
 - [x] Five-tab navigation shell (Today, Train, Fuel, You, Coach) with tab order read from `UiConfig`
 - [x] Today screen rendered from a card registry + ordered card list in `UiConfig` (placeholder cards)
 - [x] `UiConfig` guardrails in code (contrast ≥ 4.5:1, type-scale range, required tabs) + unit tests, plus You → Customize demo with Undo and "Simulate a Coach change"
 - [x] Manifest hardening: no INTERNET permission, `allowBackup=false`, data-extraction rules, `FLAG_SECURE`
-- [ ] Debug build + lint + unit tests pass (code reviewed by reading only so far)
-- [ ] App installs and opens on the Poco F5
+- [x] Debug + release build, lint (0 errors) and unit tests (20/20) pass
+- [x] App installs and runs on the emulator (API 37): all 5 tabs render, Customize works, simulated Coach change + Undo + lock verified, 0 crashes
+- [ ] ~~App installs on the Poco F5~~ → deferred by owner to the Phase 1 model benchmark (first install that's worth it)
 
 ### Phase 1 — Foundation + Fitness (v0.1)
 Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 3n), workout plan generator, workout logging, progressive overload, offline exercise database, phone step counter. *(Split into tasks when the phase starts.)*
@@ -72,6 +73,10 @@ M3/
 | 2026-10-16 | Native Android, Kotlin + Compose, Android-only | On-device AI, camera and Keystore are first-class there ([ADR 0001](docs/adr/0001-native-android-kotlin-compose.md)) |
 | 2026-10-16 | LiteRT-LM runtime; Gemma 3n E4B int4 as baseline, re-benchmarked vs newer small Gemma at Phase 1 start | MediaPipe LLM API is maintenance-only; LiteRT-LM is Google's supported path with GPU + image input ([ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md)) |
 | 2026-10-16 | Toolchain: Gradle 9.8.1, AGP 9.4.1 (built-in Kotlin), Kotlin 2.4.21, KSP 2.3.12, compileSdk 37, targetSdk 36, minSdk 33 | Latest stable versions verified against Maven/Gradle metadata. compileSdk 37 is required: core-ktx 1.19.1, Compose UI 1.12.1, lifecycle 2.11.0 and hilt 1.4.0 declare `minCompileSdk=37` in their AAR metadata. targetSdk stays 36 until Android 17 behaviour changes are reviewed; minSdk 33 because the Poco F5 shipped with Android 13 |
+| 2026-10-17 | Keep targetSdk 36 for now and accept lint's `OldTargetApi` warning | Owner's phone runs Android 15 (AQ3A.250226.002); targeting 37 means adopting Android 17 behaviour changes, which can wait until there's a reason |
+| 2026-10-17 | Don't install on the phone until there's something worth testing; first phone install is the Phase 1 model benchmark. Use the emulator meanwhile | Owner's call: the Phase 0 shell is mostly empty; the emulator covers UI checks without touching the daily phone |
+| 2026-10-17 | Automated UI checks read the accessibility tree (`uiautomator dump`), not screenshots | `FLAG_SECURE` makes screenshots black — by design |
+| 2026-10-17 | Strict "leave no trace" rules for the owner's phone (only `com.m3.app`, no settings changes, no leftover files/processes) | It's the owner's daily phone; recorded in CLAUDE.md |
 | 2026-10-16 | Gradle wrapper jar taken from the official 9.8.1 distribution (embedded in `gradle-wrapper-main-9.8.1.jar`), SHA-256 matched gradle.org | The jar in Gradle's source repo at the release tag is not the published wrapper and failed checksum verification |
 | 2026-10-16 | Navigation Compose 2.x with type-safe routes (not Navigation 3) | Mature, documented, enough for 5 tabs; Nav3 can be revisited if needed |
 | 2026-10-16 | Room 2.8.x + SQLCipher `SupportOpenHelperFactory` planned for Phase 1 (not Room 3) | The Room 2 + SQLCipher path is documented; Room 3's SQLCipher driver integration could not be verified |
@@ -97,5 +102,7 @@ M3/
 | UI customizations are lost when the app restarts | Persistence belongs in the encrypted DB, which arrives in Phase 1 (ADR 0004) | Phase 1: store `UiConfig` + history in SQLCipher |
 | Card options (`SetCardOption`) aren't validated | No card reads options yet | Per-card option schemas when real cards are built |
 | Accent-vs-background contrast isn't checked (only text pairs are) | Accent is used for fills and small marks, not body text | Add accent/ground check if accent is ever used for text |
+| Screenshots and screen recording of the app are impossible (black) | `FLAG_SECURE` protects body photos and health data | An owner setting to allow screenshots, if ever wanted |
+| Dark mode, colours and fonts were only checked structurally on the emulator, not visually | `FLAG_SECURE` blocks screenshots in automated checks | The owner's visual check on the phone in Phase 1 |
 | Dark mode may flash light for a moment at app start | Window background is the light ground colour before Compose draws | Day/night window background resources (`values-night`) |
 | No wearable data (heart rate, sleep tracking) | Owner has no watch/band | Health Connect integration if a wearable is added |

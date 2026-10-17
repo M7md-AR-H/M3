@@ -1,5 +1,7 @@
 package com.m3.core.designsystem.config
 
+import java.util.Locale
+
 sealed class UiConfigError(val message: String) {
     class InvalidColor(scheme: ThemeScheme, token: ColorTokenName, value: String) :
         UiConfigError("${scheme.label} ${token.label} color \"$value\" is not a valid #RRGGBB value")
@@ -11,7 +13,7 @@ sealed class UiConfigError(val message: String) {
         ratio: Double,
     ) : UiConfigError(
         "${scheme.label} ${foreground.label} on ${background.label} has contrast " +
-            "${String.format("%.1f", ratio)}:1, needs at least ${UiConfigValidator.MIN_CONTRAST}:1",
+            "${String.format(Locale.ROOT, "%.1f", ratio)}:1, needs at least ${UiConfigValidator.MIN_CONTRAST}:1",
     )
 
     class TypeScaleOutOfRange(value: Float) :

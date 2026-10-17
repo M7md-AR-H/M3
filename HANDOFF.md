@@ -1,39 +1,41 @@
-# HANDOFF — 2026-10-16 (end of session 1)
+# HANDOFF — 2026-10-17 (end of session 2)
 
 ## What was done
-- Product brainstorm → `docs/PRODUCT_SPEC.md`; interactive UI prototype (6 screens) at https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ — the design source of truth.
-- Owner's process rules copied to `docs/WORKING_RULES.md`; project rules in `CLAUDE.md`.
-- ADRs 0001–0007 in `docs/adr/` (native Kotlin/Compose; LiteRT-LM + Gemma; one Coach + "model proposes, code decides"; SQLCipher/Tink/Keystore; research-only networking; small module layout; agent-customizable UI via `UiConfig`).
-- Library/toolchain versions researched and spot-verified against Maven/Gradle metadata (see README decision log).
-- Phase 0 Android skeleton written (Sonnet from an Opus spec), reviewed by a second Sonnet pass (3 fixes), permission/undo logic and manifest checked by Opus:
-  - `:core:designsystem` — `UiConfig` model, `UiChange` (future agent `ui.*` tools), `Permissions`, `UiConfigValidator` (WCAG contrast etc.), `UiConfigStore` (apply/undo/history/locks), theme tokens → `M3Theme`, fonts (Bodoni Moda + Instrument Sans, OFL), components, unit tests.
-  - `:app` — Hilt app, `MainActivity` (FLAG_SECURE, edge-to-edge), type-safe nav with 5 tabs from config, Today card registry, placeholder screens, You → Customize demo (theme, accent, font, text size, radius, card order/visibility, locks, Undo, Reset, "Simulate a Coach change").
-  - Root build: version catalog, network-isolation check (only `:research` may use OkHttp/Retrofit/jsoup/Ktor).
-  - Gradle wrapper jar extracted from the official 9.8.1 distribution; SHA-256 `3b8a2577…8e98` matches gradle.org.
+- **Session 1 (2026-10-16):** product spec, UI prototype (https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ), ADRs 0001–0007, Phase 0 code written and reviewed.
+- **Session 2 (2026-10-17):**
+  - Owner installed Android Studio (SDK Platform 37, build-tools 36.0.0; bundled JDK 25 at `C:/Program Files/Android/Android Studio/jbr`).
+  - Wrapper scripts regenerated with `./gradlew wrapper` (jar hash unchanged).
+  - First build passed with no code changes. Fixed: `local.properties` escaping (lint `PropertyEscape`), `String.format` locale in `UiConfigValidator`.
+  - Generated `gradle/verification-metadata.xml` (523 components, SHA-256). A clean `assembleDebug assembleRelease test lint` passes with verification enforced. 20/20 unit tests pass; lint shows 0 errors and 1 accepted warning (`OldTargetApi`, targetSdk 36).
+  - Verified on the emulator (`Medium_Phone_API_37.0`): all 5 tabs render; Customize works; simulated Coach change moves Fuel to the top and shows the notice; Undo works; the Today-layout lock blocks the Coach with the right message; 0 crashes. Emulator, temp file and adb all cleaned up.
+  - Paired with the owner's phone over Wireless debugging (Poco F5 `23049PCD8G`, Android 15). The install was blocked by Xiaomi's "Install via USB" setting, and **nothing was installed or changed on the phone**. The owner then chose to defer phone installs until something is worth testing.
 
 ## Current state
-- **Nothing has been compiled.** No JDK/Android SDK on this PC yet. All code is reviewed by reading only.
-- Work is on branch `chore/phase-0-setup` (see git log for whether it was pushed / PR opened).
-- Expected-risky APIs if the first build fails: `FontVariation` in `M3Typography.kt`, `ImageVector.Builder.addPath` in `M3Icons.kt`, type-safe nav `hasRoute` in `M3BottomBar.kt`, the root `build.gradle.kts` network check under configuration cache, Hilt 2.60.1 with AGP 9 built-in Kotlin, KSP 2.3.12 with Kotlin 2.4.21.
+- Phase 0 is complete. Branch `chore/phase-0-setup`, PR #1 (https://github.com/M7md-AR-H/M3/pull/1) is ready for review. **Merging needs the owner's approval.**
+- Nothing is installed on the owner's phone.
 
 ## Next steps, in order
-1. Confirm owner finished OWNER_TASKS #1 (Android Studio + SDK Platform 37). Check `C:\Users\moham\AppData\Local\Android\Sdk\platforms\android-37` exists.
-2. Create `local.properties` with `sdk.dir=C\:\\Users\\moham\\AppData\\Local\\Android\\Sdk` (it's git-ignored). Use Android Studio's bundled JDK: `JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"`.
-3. Haiku: `./gradlew wrapper --gradle-version 9.8.1` (regenerates official `gradlew` scripts; confirm the jar hash is unchanged), then `./gradlew :app:assembleDebug test lint` — report exact output.
-4. Fix failures (Sonnet diagnoses; Opus final check). Then generate dependency verification: `./gradlew --write-verification-metadata sha256 help`, re-run the build, commit `gradle/verification-metadata.xml`.
-5. Owner does OWNER_TASKS #2 (USB debugging). `./gradlew :app:installDebug`, then owner runs the Phase 0 "Try it yourself" list.
-6. Tick the remaining Phase 0 boxes in README, update status, ask owner to approve merging the PR (squash).
-7. Start Phase 1: split it into README checkboxes; first task is re-checking Gemma model options (ADR 0002) and giving the owner the exact Hugging Face link for OWNER_TASKS #3.
+1. Get the owner's OK to squash-merge PR #1, merge it, and start Phase 1 on a new branch.
+2. **Phase 1 kickoff:** split Phase 1 into README checkboxes. First task is the **model benchmark** (ADR 0002):
+   - Re-check the newest small multimodal Gemma `.litertlm` builds (Gemma 4 small variants vs Gemma 3n E4B/E2B).
+   - Give the owner the exact Hugging Face links for OWNER_TASKS #3 (license + download, about 4.9 GB).
+   - Build a minimal `:ai` benchmark screen (LiteRT-LM 0.18.0, GPU backend, `<uses-native-library>` for libOpenCL/libvndksupport).
+   - The owner enables "Install via USB" and Wireless debugging. Install, run the benchmark, record the results in ADR 0002, clean up.
+3. Then the Phase 1 foundation: `:core:security` (Keystore/Tink, biometric lock), `:core:data` (Room 2.8.5 + SQLCipher 4.19.1 `SupportOpenHelperFactory`; persist `UiConfig` + history), onboarding, then fitness features.
 
 ## Open questions for the owner
-- Phone's Android version (OWNER_TASKS #2 step 1).
+- Approve merging PR #1?
 - Units: metric or imperial? Equipment: gym, home, or both? (Phase 1 onboarding.)
 
 ## Traps found
-- **Gradle wrapper jar:** the one in Gradle's GitHub repo at the release tag is NOT the published wrapper (checksum mismatch). Take it from the distribution (`lib/plugins/gradle-wrapper-main-<v>.jar` → `gradle-wrapper.jar`) or run `gradle wrapper`.
-- **compileSdk must be 37:** current AndroidX AARs declare `minCompileSdk=37`; 36 fails `checkAarMetadata`.
-- **AGP 9 built-in Kotlin:** never apply `org.jetbrains.kotlin.android`; use `kotlin { compilerOptions {} }`; no kapt.
-- **`hiltViewModel`** now lives in `androidx.hilt.lifecycle.viewmodel.compose` (old import is deprecated).
-- **MediaPipe LLM Inference is maintenance-only** — use LiteRT-LM. Gemma 3n E4B `.litertlm` is ~4.9 GB and gated on Hugging Face.
-- **No Python on this PC** — use bash/sed or the Edit tool for scripted edits.
-- `gradlew` executable bit: run `git update-index --chmod=+x gradlew` when committing from Windows.
+- **Phone rules (CLAUDE.md):** touch only `com.m3.app`, no settings changes, temp files in `/data/local/tmp/m3-*` deleted immediately, `adb disconnect` + `adb kill-server` when done, report what was done.
+- **Xiaomi installs:** need Developer options → "Install via USB" (Mi account), plus tapping Install on the phone's popup. Otherwise you get `INSTALL_FAILED_USER_RESTRICTED`.
+- **Wireless debugging:** `adb pair IP:PORT CODE` uses the pairing port; the connect port is different. Find it with `adb mdns services`. It switches off when the phone changes Wi-Fi.
+- **Git Bash mangles device paths** (`/data/local/tmp` → `C:/Program Files/Git/...`): set `MSYS_NO_PATHCONV=1` for adb commands.
+- **FLAG_SECURE makes screenshots black:** use `uiautomator dump` and read text/bounds. Wait about 2 seconds after taps before dumping.
+- **The emulator leaves a `emulator -kill <pid> -sleep 20` helper** that exits on its own about 20 s after `adb emu kill`.
+- **`local.properties`** must escape the drive colon: `sdk.dir=C\:/Users/...`.
+- **Builds:** prefix with `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"`. A cold first build takes about 7 minutes.
+- **After any dependency change:** regenerate verification metadata with `./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:assembleRelease test lint`.
+- **Gradle prints "deprecated features… incompatible with Gradle 10":** not yet investigated (`--warning-mode all`). It's harmless on 9.x.
+- See also the session 1 traps in git history: the wrapper jar source, compileSdk 37 being required, AGP 9 built-in Kotlin, the `hiltViewModel` package, and LiteRT-LM vs MediaPipe.

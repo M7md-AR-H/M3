@@ -6,7 +6,7 @@ Never paste keys, tokens or passwords into the chat or into any file in this rep
 ---
 
 ## 1. Install Android Studio  — **needed now (blocks building the app)**
-- [ ] Done
+- [x] Done (2026-10-17 — SDK Platform 37 and build-tools 36.0.0 confirmed installed)
 
 1. Open https://developer.android.com/studio in your browser.
 2. Click **Download Android Studio**, tick the box to accept the terms, and click download.
@@ -23,7 +23,9 @@ Tell Claude "Android Studio is installed" so the build can be checked.
 ---
 
 ## 2. Prepare your Poco F5 for installing the app
-- [ ] Done
+- [x] Done (2026-10-17 — Android 15, paired over Wireless debugging; Wireless debugging can stay off until Claude asks)
+
+**Still needed before the first install (Phase 1):** in **Developer options**, turn on **Install via USB** (works over Wi-Fi too; Xiaomi may ask for a Mi account sign-in). When Claude installs, a popup appears on the phone — tap **Install**.
 
 1. On the phone: **Settings → About phone**. Note the **Android version** (tell Claude what it says).
 2. Tap **OS version** (or "HyperOS version") **7 times** quickly until it says "You are now a developer".
@@ -48,7 +50,7 @@ Tell Claude "Android Studio is installed" so the build can be checked.
 
 ## Try it yourself
 
-### Phase 0 — app shell (available once Claude has built and installed it on your phone)
+### Phase 0 — app shell (Claude verified this on the emulator on 2026-10-17; run it on your phone once the app is first installed in Phase 1)
 1. Find **M³** in your app drawer and open it. **Expect:** an off-white screen with a big "M³" masthead and five tabs at the bottom: TODAY, TRAIN, FUEL, YOU, COACH (COACH in red). **Broken if:** it crashes, or text is unreadable.
 2. Tap each tab. **Expect:** each shows a title and "Coming in Phase 1". Today shows five placeholder cards.
 3. Press the phone's **recent apps** button. **Expect:** M³'s preview is blank/black (privacy). Try a screenshot inside the app. **Expect:** it's blocked.

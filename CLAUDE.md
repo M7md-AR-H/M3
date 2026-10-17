@@ -26,6 +26,12 @@ Run from the repo root (Windows: `gradlew.bat`, Git Bash: `./gradlew`).
 - **Storage:** Room DB encrypted with SQLCipher; keys wrapped by Android Keystore via Tink; photos encrypted with Tink streaming AEAD in app-private storage. `allowBackup=false`.
 - **Customizable by design (ADR 0007):** screens read colors, fonts, density and layout from `UiConfig`; never hard-code them in screens. New home-screen content is a registered card. Agents change UI only via scoped, schema-validated `ui.*` tools; every change is versioned and undoable; owner locks are respected; contrast/size/required-navigation guardrails are enforced in code.
 - **Design:** the defaults match the prototype — off-white `#F6F4EF`, ink `#121212`, accent `#A3122A`, Bodoni Moda (headlines) + Instrument Sans (body), square corners, thin rules, 44 dp minimum touch targets.
+- **The owner's phone is their daily phone — leave no trace:**
+  - Only ever touch package `com.m3.app` (plus `com.m3.app.test` during instrumented tests, uninstalled immediately after). Never stop, kill, clear or modify any other app or process.
+  - Never change phone settings (`adb shell settings`, `pm grant` for other packages, developer options, etc.).
+  - Temporary files go to `/data/local/tmp/m3-*` and are deleted in the same step; nothing is left in `/sdcard`.
+  - Don't leave anything running: force-stop `com.m3.app` after test launches unless the owner is about to use it, and run `adb kill-server` on the PC when done (and `adb disconnect` for wireless debugging).
+  - Tell the owner exactly what was installed/changed on the phone.
 - **Git:** never push to `main`; feature branch + PR + squash-merge; ask the owner before merging. Never add a "Generated with Claude Code" line anywhere.
 
 ## Module map
