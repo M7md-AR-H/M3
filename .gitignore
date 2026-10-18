@@ -1,0 +1,20 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+*.jks
+*.keystore
+*.apk
+*.aab
+.externalNativeBuild/
+.cxx/
+
+# On-device model files
+*.litertlm
+*.task
+*.tflite
+*.gguf
+models/
