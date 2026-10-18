@@ -94,7 +94,7 @@ object CoachTools {
             listOfNotNull(kind)
         }.toSet()
         if (unknown.isNotEmpty()) {
-            return invalid("The Coach named equipment I don't know: ${unknown.joinToString()}. Try naming it differently.")
+            return invalid("The Coach named equipment I don't know: ${unknown.take(5).joinToString { it.take(30) }}. Try naming it differently.")
         }
         if (call.items.size > MAX_ITEMS) return invalid("That's more equipment than the app can take at once.")
         return ToolResult.Valid(CoachAction.SetDayEquipment(date, items))
@@ -102,7 +102,8 @@ object CoachTools {
 
     private fun avoid(call: ToolSchemas.AvoidExercise, context: ToolContext): ToolResult {
         val exercise = findExercise(call.exercise, context) ?: return invalid("The Coach named an exercise I don't know.")
-        val reason = call.reason.trim().take(MAX_REASON_CHARS)
+        // Model-written text is stored and shown again later; keep it to one plain line.
+        val reason = call.reason.replace(Regex("\\s+"), " ").replace("<", "").replace(">", "").trim().take(MAX_REASON_CHARS)
         return ToolResult.Valid(CoachAction.AvoidExercise(exercise.id, exercise.name, reason))
     }
 
@@ -116,7 +117,7 @@ object CoachTools {
             ?: return invalid("The Coach picked a day I don't know.")
         if (normalize(call.place) in NOT_FREE_WORDS) return ToolResult.Valid(CoachAction.SetAvailability(day, null, null))
         val location = context.setup.locations.firstOrNull { normalize(it.name) == normalize(call.place) }
-            ?: return invalid("The Coach named a place you haven't set up: ${call.place.trim()}.")
+            ?: return invalid("The Coach named a place you haven't set up: ${call.place.trim().take(40)}.")
         return ToolResult.Valid(CoachAction.SetAvailability(day, location.id, location.name))
     }
 
@@ -146,12 +147,11 @@ object CoachTools {
     fun relevantTo(action: CoachAction, ownerMessage: String): Boolean {
         val text = ownerMessage.lowercase()
         return when (action) {
-            is CoachAction.Ui -> {
-                val words = when (action.change) {
-                    is UiChange.SetThemeMode -> THEME_WORDS
-                    else -> CARD_WORDS + CardType.entries.map { it.displayName.lowercase() }
-                }
-                words.any { it in text }
+            is CoachAction.Ui -> when (action.change) {
+                is UiChange.SetThemeMode -> THEME_WORDS.any { it in text }
+                // A card name alone ("workout", "habits") is too common; it needs "card" or a show/hide/move request.
+                else -> CARD_WORDS.any { it in text } ||
+                    (CardType.entries.any { it.displayName.lowercase() in text } && CARD_VERBS.any { it in text })
             }
             // Free days are the owner's usual week; a message about one day is a day_equipment matter (seen in evals).
             is CoachAction.SetAvailability -> ONE_DAY_WORDS.none { Regex("\\b$it\\b").containsMatchIn(text) }
@@ -221,6 +221,7 @@ object CoachTools {
     private val THEME_WORDS = listOf("theme", "dark", "light", "night", "mode", "colour", "color")
     private val CARD_WORDS = listOf("card", "today screen", "home screen", "today tab")
     private val ONE_DAY_WORDS = listOf("today", "tonight", "tomorrow", "this week")
+    private val CARD_VERBS = listOf("show", "hide", "move", "remove", "put")
 
     private const val MAX_ITEMS = 60
     private const val MAX_DAYS_AHEAD = 6L

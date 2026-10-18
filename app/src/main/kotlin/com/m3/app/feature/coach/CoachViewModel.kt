@@ -37,17 +37,34 @@ class CoachViewModel @Inject constructor(
 
     private var job: Job? = null
 
+    /** Identifies the answer the screen is showing; cleared by [stop]. */
+    private var currentTurn: Any? = null
+
     init {
         runtime.refresh()
     }
 
+    /** The owner's message while its answer is being written (it's saved together with the answer). */
+    private val _pending = MutableStateFlow<String?>(null)
+    val pending: StateFlow<String?> = _pending.asStateFlow()
+
+    /** Text to put back in the input box after an answer failed or was stopped. */
+    private val _restoredInput = MutableStateFlow<String?>(null)
+    val restoredInput: StateFlow<String?> = _restoredInput.asStateFlow()
+
     fun send(text: String) {
-        if (job?.isActive == true || text.isBlank()) return
+        if (_pending.value != null || text.isBlank()) return
         _error.value = null
+        _restoredInput.value = null
+        _pending.value = text.trim()
         _streaming.value = ""
         job = viewModelScope.launch {
+            var answered = false
+            val turn = Any()
+            currentTurn = turn
             try {
                 controller.send(text) { visible -> _streaming.value = visible }
+                answered = true
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -57,20 +74,39 @@ class CoachViewModel @Inject constructor(
                     else -> "The Coach couldn't answer. Please try again."
                 }
             } finally {
-                _streaming.value = null
+                // After Stop the screen was already reset; a late finish must not touch it again.
+                if (currentTurn === turn) {
+                    if (!answered) _restoredInput.value = text
+                    _pending.value = null
+                    _streaming.value = null
+                    currentTurn = null
+                }
             }
         }
     }
 
+    fun restoredInputUsed() {
+        _restoredInput.value = null
+    }
+
+    /**
+     * Stops the answer. The screen resets at once; the model may need a moment to actually stop (it can't be
+     * interrupted while reading the prompt), and the next question waits for that.
+     */
     fun stop() {
+        val text = _pending.value
+        currentTurn = null
         job?.cancel()
+        _pending.value = null
+        _streaming.value = null
+        if (text != null) _restoredInput.value = text
     }
 
     fun apply(messageId: Long) = launchAction { controller.apply(messageId) }
 
     fun dismiss(messageId: Long) = launchAction { controller.dismiss(messageId); null }
 
-    fun undo(messageId: Long) = launchAction { controller.undo(messageId); null }
+    fun undo(messageId: Long) = launchAction { controller.undo(messageId) }
 
     fun clear() = launchAction { controller.clear(); null }
 

@@ -50,9 +50,14 @@ A 4B model:
 ### Storage and model lifecycle
 - **Chat history** is stored in the encrypted DB (`chat_message`, DB v2 via Room auto-migration) and is never logged.
 - **Model lifecycle:**
-  - The model loads on the first message: GPU with multi-token prediction, falling back to CPU without it.
+  - The model loads on the first message: GPU with multi-token prediction, falling back to CPU without it. Emulators skip the GPU.
   - One answer runs at a time.
-  - When the app goes to the background, the running answer is stopped and the model is unloaded.
+  - When the app goes to the background, the running answer is stopped and the model is unloaded. An answer that was still waiting doesn't load the model afterwards.
+- **Model cache.** The GPU's compiled cache lives in `no_backup/llm-cache`, never in `cacheDir`, because Android can purge `cacheDir` mid-write. It is only used with at least 1 GB free. The CPU fallback uses no weight cache: that cache grows to about the model's size, and a failed write aborts the native runtime.
+- **Stopping safely.** Stop calls `cancelProcess()` and waits for the runtime to confirm before freeing the conversation. Freeing it while the runtime was still reading the prompt crashed the app on the emulator.
+- **Whole turns.** The owner's message and the Coach's reply are saved together. A failed or stopped answer saves nothing and gives the text back to the input box.
+- **One action at a time.** Apply, Not now and Undo are serialised. Only the most recent applied change can be undone.
+- **Day window.** Day changes cover the next 7 days, so "tomorrow" works on a Sunday.
 
 ## Consequences
 - Every turn re-reads the facts, so the Coach never works from a stale plan.

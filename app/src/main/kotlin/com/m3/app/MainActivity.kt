@@ -87,6 +87,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         appLock.onForeground()
+        coachRuntime.onForeground()
     }
 
     override fun onResume() {

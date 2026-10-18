@@ -44,6 +44,12 @@ object CoachPrompt {
     /** Rough budget for earlier turns, in characters (~4 per token), so the prompt fits the 4096-token window. */
     const val HISTORY_CHARS = 3_600
 
+    /** Whole prompt (system + turn) budget at a cautious ~3 characters per token, leaving room for the answer. */
+    const val PROMPT_CHARS = 10_500
+
+    /** Owner free text is shortened in the prompt so it can't crowd out the facts. */
+    const val MAX_INJURY_CHARS = 400
+
     fun system(facts: CoachFacts): String = buildString {
         appendLine(INTRO)
         appendLine()
@@ -57,12 +63,13 @@ object CoachPrompt {
     }.trim()
 
     /** The message sent for one turn: recent conversation (oldest first) and the owner's new message. */
-    fun turn(history: List<ChatTurn>, message: String): String = buildString {
+    fun turn(history: List<ChatTurn>, message: String, systemChars: Int = 0): String = buildString {
+        val budget = minOf(HISTORY_CHARS, PROMPT_CHARS - systemChars - message.length - TURN_OVERHEAD_CHARS)
         val recent = mutableListOf<ChatTurn>()
         var used = 0
         for (turn in history.asReversed()) {
             val cost = turn.text.length + 10
-            if (used + cost > HISTORY_CHARS) break
+            if (used + cost > budget) break
             recent += turn
             used += cost
         }
@@ -77,6 +84,11 @@ object CoachPrompt {
 
     private fun label(role: ChatRole) = if (role == ChatRole.OWNER) "Owner" else "Coach"
 
+    private const val TURN_OVERHEAD_CHARS = 200
+
+    /** Free text on one line, without tag brackets, so it can't forge fact lines or a tool block. */
+    internal fun String.oneLine(max: Int): String = replace(Regex("\\s+"), " ").replace("<", "").replace(">", "").trim().take(max)
+
     internal fun facts(f: CoachFacts): String = buildString {
         val dateFormat = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.ENGLISH)
         appendLine("Today is ${f.today.format(dateFormat)}. Tomorrow is ${f.today.plusDays(1).format(dateFormat)}.")
@@ -89,14 +101,14 @@ object CoachPrompt {
                 "Owner: ${p.sex.displayName.lowercase()}, about $age years, ${Units.cm(p.heightCm)}, ${Units.kg(p.weightKg)}; " +
                     "goal: ${p.goal.displayName.lowercase()}; experience: ${p.experience.displayName.lowercase()}.",
             )
-            appendLine("Injuries or limitations (owner's words): ${p.injuriesText.ifBlank { "none given" }}")
+            appendLine("Injuries or limitations (owner's words): ${p.injuriesText.ifBlank { "none given" }.oneLine(MAX_INJURY_CHARS)}")
         }
         if (f.setup.locations.isEmpty()) appendLine("Places: none set up.")
         f.setup.locations.forEach { location ->
             val kinds = location.equipment.filterIsInstance<EquipmentItem.Catalog>().map { it.kind.displayName }
             val own = location.equipment.filterIsInstance<EquipmentItem.Custom>().map { it.name }
             val gear = if (kinds.isEmpty()) "bodyweight only" else kinds.joinToString(", ")
-            appendLine("Place \"${location.name}\": $gear" + if (own.isEmpty()) "" else "; own items: ${own.joinToString(", ")}")
+            appendLine("Place \"${location.name.oneLine(40)}\": $gear" + if (own.isEmpty()) "" else "; own items: ${own.joinToString(", ") { it.oneLine(40) }}")
         }
         val free = DayOfWeek.entries.mapNotNull { day -> f.setup.locationFor(day)?.let { "${day.label} at ${it.name}" } }
         appendLine("Free to train: ${free.ifEmpty { listOf("no days set") }.joinToString(", ")}.")
@@ -122,7 +134,7 @@ object CoachPrompt {
         }
         appendLine(
             "Avoided exercises: " + if (f.avoided.isEmpty()) "none" else f.avoided.entries.joinToString("; ") { (id, v) ->
-                "${v.first} [$id]" + if (v.second.isBlank()) "" else " (${v.second})"
+                "${v.first} [$id]" + if (v.second.isBlank()) "" else " (${v.second.oneLine(100)})"
             },
         )
         appendLine("Theme: ${f.themeMode.name}. Today cards in order: " + f.cards.joinToString(", ") {

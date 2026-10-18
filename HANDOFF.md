@@ -1,72 +1,71 @@
-# HANDOFF — 2026-10-18 (session 4, Phase 1c-1 ready for review)
+# HANDOFF — 2026-10-18 (session 4, Phase 1c-2 ready for review)
 
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 
 ## ▶ Next steps, in order
-1. **Owner decision:** review the PR "Phase 1c-1" (`feat/phase-1c-plan` → `main`) and approve the squash-merge. Don't merge without that.
-2. **Phone install. The owner has disconnected the phone; wait until they say it's back.** Use the USB serial `c84e26c7`, or the wireless mDNS serial `adb-c84e26c7-…._adb-tls-connect._tcp` if USB isn't present.
-   1. `./gradlew :app:assembleDebug`
-   2. `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`
-   3. The owner follows OWNER_TASKS "Try it yourself — Phase 1c-1".
-   4. Force-stop the app, run `adb disconnect` and `adb kill-server`, then report what changed: only the app was upgraded; no new files. The plan isn't stored; it is recomputed from data already in `m3.db`.
-3. **Phase 1c-2: Coach chat** (README checkboxes). Give the owner a time estimate first.
-   - Load E4B with `LlmBackend.GPU` + `speculativeDecoding = true`. Fall back to CPU if GPU init fails, and unload when the app goes to the background.
-   - Streaming chat UI on the COACH tab.
-   - Schema-validated tool calls (kotlinx.serialization), with Kotlin deciding (ADR 0003):
-     - `ui.*` (ADR 0007, via `UiConfigStore.apply` with `Actor.Agent`);
-     - `training.setDayInventory` / `adaptPlan` / `setLocationInventory` / `assignLocation` (ADR 0008/0009).
-   - Store Coach plan changes as versioned, undoable overrides on top of `PlanGenerator`'s base plan. `day_override` already exists as a table, with no DAO yet.
-   - The Coach explains the plan from `WeekPlan` facts and reads injuries to propose swaps.
+1. **Owner decision:** review the PR "Phase 1c-2" (`feat/phase-1c-coach` → `main`) and approve the squash-merge. Don't merge without that.
+2. **Phone check. The owner has disconnected the phone; wait until they say it's back.** This covers 1c-1 and 1c-2 together.
+   1. Use USB `c84e26c7`, or the wireless mDNS serial if USB isn't present.
+   2. `./gradlew :app:assembleDebug`, then `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`. This upgrades in place and keeps the model and data. **The DB migrates v1 → v2 automatically**, tested on the emulator from an encrypted v1 DB.
+   3. The owner follows OWNER_TASKS "Try it yourself" for Phase 1c-1 and Phase 1c-2.
+   4. On the phone, check that the model loads on the **GPU**: the Coach status line reads "Running on this phone's GPU". Time the first and second answers.
+   5. Optionally delete the app's old benchmark cache `cache/llm`: `adb shell run-as com.m3.app rm -rf cache/llm`. It's the app's own file; the Coach now uses `no_backup/llm-cache`.
+   6. Force-stop the app, run `adb disconnect` and `adb kill-server`, then report what changed:
+      - The app was upgraded.
+      - New private files: DB tables (same `m3.db`), `no_backup/llm-cache/` (GPU cache, ~300 MB).
+3. **Phase 1c-3:** workout logging + focus mode + progressive overload (Kotlin), loads from the owner's kg lists. Give a time estimate first.
 
 ## What was done this session (session 4)
-- **Phase 1b:** built, reviewed, merged (PR #3 → `main` `13ec534`), installed on the phone and checked by the owner. Owner feedback: the Coach should decide the training/rest split.
-- **Phase 1c-1** on `feat/phase-1c-plan`:
-  - **ADR 0009:** the owner gives availability; deterministic Kotlin decides the split.
-  - **Rename:** `schedule` → `availability` in model, data and onboarding. Same `schedule_day` table, no migration.
-  - **`:core:training`:**
-    - `exercises.json`: 101 curated exercises tagged with pattern, muscles, level, equipment alternatives and the flags heavy, ballistic, intervals and fixed reps.
-    - `ExerciseCatalog` validates the file on load.
-    - `PlanGenerator` and `WeekPlan`.
-  - **App:**
-    - `PlanRepository` (combines profile + setup → plan, on `Dispatchers.Default`).
-    - Train tab, Today card, onboarding "All set" preview.
-    - `PlanText` for wording; `Durations` in core/model `Units.kt`.
-  - **Sonnet review:** 12 findings. All fixed except dumbbell kg lists, which are now a README limitation until 1c-3.
-  - **Checks:**
-    - 91 unit tests pass; lint 0 errors.
-    - Emulator: split + reasons; unfillable slots explained; editing availability re-plans; Today card shows rest + next session.
+- **Phase 1b:** merged (PR #3), installed on the phone, owner onboarded. Feedback: the Coach should decide the split.
+- **Phase 1c-1:** merged (PR #4). ADR 0009, `:core:training` (101 exercises, `PlanGenerator`), Train tab, Today card.
+- **Phase 1c-2** on `feat/phase-1c-coach` (ADR 0010):
+  - **`:coach` module:** `CoachPrompt`, `CoachTools` (schemas, validator, relevance guard), `ReplyParser`.
+  - **App, `feature/coach`:** `CoachRuntime`, `CoachController`, `CoachViewModel`, `CoachScreen`.
+  - **Planner:** `PlanOverrides` and `PlanDiff`.
+  - **DB v2:** `chat_message`, `excluded_exercise`, and a DAO for `day_override`.
+  - **`LlmEngine`:** streaming plus safe cancellation (`cancelProcess`, then wait, then close).
+  - **Owner locks:** "Your plan" and "Your free days".
+  - **Prompt eval** (`app/src/androidTest/.../CoachPromptEval.kt`, emulator only): 5/8 → 10/10. See the README decision log for what changed.
+  - **Emulator end-to-end with the real model (CPU):**
+    - Chat streams, and a proposal card with the plan diff appears.
+    - Apply, Undo, two applies in a row, and Undo only on the latest all work.
+    - Stop resets at once with no crash, and the next answer works.
+    - The model unloads in the background.
+    - The v1→v2 migration test passes.
+  - **Sonnet review:** 9 actionable findings, all fixed. Unit tests: 110 pass; lint 0 errors.
 
 ## Current state
 - **Git:**
-  - `main` = `13ec534` (Phase 1b).
-  - `feat/phase-1c-plan` is pushed with an open PR, not merged.
+  - `main` = `7da67df` (Phase 1c-1).
+  - `feat/phase-1c-coach` is pushed with an open PR, not merged.
 - **Phone:**
-  - Phase 1b debug build installed, owner onboarded.
-  - Model and encrypted DB present.
-  - App force-stopped, adb disconnected.
-  - The phone is currently unplugged.
-- **PC:** emulator stopped, adb server stopped. The emulator has test data and PIN 1234 (emulator only).
+  - Phase 1b build.
+  - The owner unplugged it; adb is disconnected and the app force-stopped.
+- **PC:** emulator stopped, adb server stopped. The emulator has test data, PIN 1234, and a copy of the model in the app (emulator only).
+
+## Not verified yet
+- **The final prompt version.** It adds "Tomorrow is …", one-line sanitised owner text and the whole-prompt budget. It wasn't re-scored with the eval, only used in three live emulator chats, all correct. Re-run the eval if the prompt changes again:
+  1. Push the model to `/data/local/tmp/m3-eval/model.litertlm` on the **emulator**, unlocked.
+  2. Run `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.m3.app.CoachPromptEval`.
+  3. Read `adb logcat -s M3Eval`.
+  4. Delete the model copy afterwards (the emulator disk is only 10 GB).
+- **GPU behaviour on the phone:** speed, the cache write, and cancelling mid-prefill on the GPU.
 
 ## Open questions for the owner
-- Merge the Phase 1c-1 PR?
+- Merge PR "Phase 1c-2"?
 - Not urgent (OWNER_TASKS #5): before going public, keep the Gmail address in commit history, or switch to the GitHub noreply address?
 
-## Things to know
-- **The plan is a pure function** of profile + setup + catalog. Tuning knobs live in `PlanGenerator`: `targetSessions`, `TEMPLATES`, the `pick` scoring and `prescribe`. Catalog edits are checked by `ExerciseCatalog.validate` and by `PlanGeneratorTest` (plates/rack rules, full-gym coverage).
-- **Locked state:** while locked, the app stays composed under the lock layer. Anything new that runs in the background or takes key input must respect `locked`.
-- **SQLCipher passphrase:** must not be zeroed (decision log).
-
-## Traps found
-- **Printing a sample plan:** write a throw-away JUnit test that `println`s the plan, read `<system-out>` in `core/training/build/test-results/testDebugUnitTest/TEST-*.xml`, then delete the test.
-- **Kotlin:** `with(EnumClass) { … }` doesn't compile; import the enum entries instead.
-- **`sed` edits** turn CRLF files into LF. Git shows them as modified with no content diff; that's harmless.
+## Traps found (this session)
+- **LiteRT-LM:**
+  - Closing a conversation while the runtime is still working is a **native crash** (SIGSEGV). Always use `cancelProcess()` and wait for `onDone`/`onError`.
+  - A failed weight-cache write is a **native abort** (SIGABRT) that can't be caught; ensure free space, and use no cache on the CPU.
+  - `cacheDir` can be purged mid-write.
+  - Emulator GPU: about 7 minutes, then it fails; skip it.
 - **Emulator:**
-  - After boot it shows its own lock screen. Run `input keyevent 82`, swipe up, type PIN 1234, Enter.
-  - Wait until "Unlock M³" appears before typing the app PIN.
-  - Instrumented tests: always set `ANDROID_SERIAL=emulator-5554`.
-- **Phone:** if USB isn't present, the phone may still be reachable over wireless debugging (mDNS serial). Always run `adb disconnect` + `adb kill-server` afterwards.
-- **This PC:**
-  - No Python; use the Write tool for source files.
-  - `--write-verification-metadata` may fail on a Windows file lock; re-run it.
-  - `StateFlow.conflate()` is a deprecation error.
-- **Older traps** (model copying, Xiaomi, LiteRT-LM, `JAVA_HOME`): `git show ebfcf61:HANDOFF.md`.
+  - With a PIN set, the user's storage stays locked after boot until unlocked: the app's cacheDir isn't writable and uiautomator dumps fail. Unlock first (`input keyevent 82`, swipe, PIN 1234), and use `svc power stayon true` for long runs, then reset it.
+  - Disk is 10 GB; two model copies plus caches fill it.
+  - `connectedAndroidTest` on `:app` uninstalls the app, which wipes its data.
+- **Instrumented tests:** a JUnit test method must return `Unit` (`fun run(): Unit = runBlocking { … }`).
+- **uiautomator:** dump text is XML-escaped (`&amp;`).
+- **Bash/sed:** `sed` replacement text loses `\\` escapes, so put regexes in with the Edit tool. Line-number `sed` edits are fragile; prefer Edit.
+- **Older traps:** this file in git history (`git show ebfcf61:HANDOFF.md`, `git show 7da67df:HANDOFF.md`).

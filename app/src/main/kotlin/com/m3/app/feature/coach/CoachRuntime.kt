@@ -17,6 +17,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,8 +62,13 @@ class CoachRuntime @Inject constructor(
     @Volatile
     private var active: Job? = null
 
+    @Volatile
+    private var backgrounded = false
+
     /** Runs [block] with a loaded model, loading it first if needed. Throws if there's no model or it can't load. */
     suspend fun <T> use(block: suspend (LlmEngine) -> T): T = mutex.withLock {
+        // An answer that was waiting while the app went to the background must not load the model now.
+        if (backgrounded) throw CancellationException("App is in the background")
         active = currentCoroutineContext()[Job]
         try {
             val loaded = engine ?: load()
@@ -72,8 +78,14 @@ class CoachRuntime @Inject constructor(
         }
     }
 
-    /** Stops a running answer and frees the model's memory. */
+    /** The app is visible again; answers may load the model. */
+    fun onForeground() {
+        backgrounded = false
+    }
+
+    /** Stops a running answer and frees the model's memory (app going to the background). */
     fun unload() {
+        backgrounded = true
         active?.cancel()
         scope.launch(Dispatchers.IO) {
             mutex.withLock {
@@ -110,7 +122,7 @@ class CoachRuntime @Inject constructor(
                 engine = candidate
                 _state.value = ModelState.Ready(backend)
                 return@withContext candidate
-            } catch (e: kotlinx.coroutines.CancellationException) {
+            } catch (e: CancellationException) {
                 candidate.close()
                 _state.value = ModelState.NotLoaded
                 throw e

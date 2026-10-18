@@ -57,10 +57,24 @@ fun CoachScreen(viewModel: CoachViewModel = hiltViewModel()) {
     val list = rememberLazyListState()
     val busy = streaming != null
 
-    LaunchedEffect(messages.size, streaming) {
-        val last = messages.size + (if (streaming != null) 1 else 0)
-        if (last > 0) list.animateScrollToItem(last - 1)
+    val pending by viewModel.pending.collectAsStateWithLifecycle()
+    val restored by viewModel.restoredInput.collectAsStateWithLifecycle()
+    LaunchedEffect(restored) {
+        restored?.let {
+            input = it
+            viewModel.restoredInputUsed()
+        }
     }
+    // Items: saved messages, then the pending message and the answer being written.
+    val itemCount = messages.size + (if (pending != null) 2 else 0)
+    LaunchedEffect(messages.size, pending != null) {
+        if (itemCount > 0) list.animateScrollToItem(itemCount - 1)
+    }
+    // While the answer streams, keep its end in view without restarting an animation for every word.
+    LaunchedEffect((streaming?.length ?: -1) / SCROLL_STEP_CHARS) {
+        if (streaming != null && itemCount > 0) list.scrollToItem(itemCount - 1, Int.MAX_VALUE / 2)
+    }
+    val latestApplied = messages.lastOrNull { it.proposal?.status == ProposalStatus.APPLIED }?.id
 
     Column(Modifier.fillMaxSize().imePadding()) {
         Column(Modifier.padding(horizontal = M3.spacing.l, vertical = M3.spacing.m)) {
@@ -95,7 +109,11 @@ fun CoachScreen(viewModel: CoachViewModel = hiltViewModel()) {
                         )
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(M3.spacing.s), verticalArrangement = Arrangement.spacedBy(M3.spacing.s)) {
                             Suggestions.forEach { suggestion ->
-                                M3OutlineButton(text = suggestion, onClick = { viewModel.send(suggestion) })
+                                M3OutlineButton(
+                                    text = suggestion,
+                                    onClick = { viewModel.send(suggestion) },
+                                    enabled = modelState != ModelState.NoModel,
+                                )
                             }
                         }
                     }
@@ -108,8 +126,10 @@ fun CoachScreen(viewModel: CoachViewModel = hiltViewModel()) {
                     onApply = { viewModel.apply(message.id) },
                     onDismiss = { viewModel.dismiss(message.id) },
                     onUndo = { viewModel.undo(message.id) },
+                    canUndo = message.id == latestApplied,
                 )
             }
+            pending?.let { text -> item(key = "pending") { OwnerBubble(text) } }
             streaming?.let { text ->
                 item(key = "streaming") {
                     CoachText(text.ifEmpty { "Thinking…" }, muted = text.isEmpty())
@@ -154,23 +174,29 @@ private fun MessageBlock(
     onApply: () -> Unit,
     onDismiss: () -> Unit,
     onUndo: () -> Unit,
+    canUndo: Boolean,
 ) {
     if (message.author == ChatAuthor.OWNER) {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-            Column(
-                Modifier
-                    .widthIn(max = 320.dp)
-                    .border(1.dp, M3.colors.ink, M3.shapes.shape)
-                    .padding(M3.spacing.m),
-            ) {
-                Kicker(text = "You")
-                Text(text = message.text, style = M3.typography.body, color = M3.colors.ink)
-            }
-        }
+        OwnerBubble(message.text)
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.s)) {
             CoachText(message.text, muted = false)
-            message.proposal?.let { ProposalCard(it, enabled, onApply, onDismiss, onUndo) }
+            message.proposal?.let { ProposalCard(it, enabled, canUndo = canUndo, onApply = onApply, onDismiss = onDismiss, onUndo = onUndo) }
+        }
+    }
+}
+
+@Composable
+private fun OwnerBubble(text: String) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+        Column(
+            Modifier
+                .widthIn(max = 320.dp)
+                .border(1.dp, M3.colors.ink, M3.shapes.shape)
+                .padding(M3.spacing.m),
+        ) {
+            Kicker(text = "You")
+            Text(text = text, style = M3.typography.body, color = M3.colors.ink)
         }
     }
 }
@@ -190,6 +216,7 @@ private fun ProposalCard(
     onApply: () -> Unit,
     onDismiss: () -> Unit,
     onUndo: () -> Unit,
+    canUndo: Boolean,
 ) {
     M3Card {
         Kicker(
@@ -212,10 +239,14 @@ private fun ProposalCard(
             Text(text = line, style = M3.typography.bodySmall, color = M3.colors.muted)
         }
         if (proposal.status == ProposalStatus.BLOCKED) {
-            Text(text = CoachController.LOCKED_MESSAGE, style = M3.typography.bodySmall, color = M3.colors.muted)
+            Text(
+                text = "You've locked this for agents (You → Customize). Unlock it there, then tap Apply.",
+                style = M3.typography.bodySmall,
+                color = M3.colors.muted,
+            )
         }
         when (proposal.status) {
-            ProposalStatus.PENDING -> Row(
+            ProposalStatus.PENDING, ProposalStatus.BLOCKED -> Row(
                 modifier = Modifier.fillMaxWidth().padding(top = M3.spacing.s),
                 horizontalArrangement = Arrangement.spacedBy(M3.spacing.s),
             ) {
@@ -223,11 +254,13 @@ private fun ProposalCard(
                 M3OutlineButton(text = "Not now", onClick = onDismiss, enabled = enabled, modifier = Modifier.weight(1f))
             }
             ProposalStatus.APPLIED ->
-                M3OutlineButton(text = "Undo", onClick = onUndo, enabled = enabled, modifier = Modifier.padding(top = M3.spacing.s))
+                if (canUndo) M3OutlineButton(text = "Undo", onClick = onUndo, enabled = enabled, modifier = Modifier.padding(top = M3.spacing.s))
             else -> Unit
         }
     }
 }
+
+private const val SCROLL_STEP_CHARS = 60
 
 private fun modelLine(state: ModelState): String = when (state) {
     ModelState.NoModel -> "Add the AI model first: You → AI model & benchmark."

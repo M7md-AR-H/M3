@@ -9,12 +9,17 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.LogSeverity
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import java.util.concurrent.Executors
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.flow.flowOn
+
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * [LlmEngine] backed by Google's LiteRT-LM. All native calls run on one dedicated thread so the
@@ -75,7 +80,7 @@ class LiteRtLmEngine : LlmEngine {
         maxOutputTokens: Int,
         onText: ((String) -> Unit)?,
     ): GenerationResult {
-        // Not cancellable: a conversation created here must always reach the close in `finally`.
+        // Not cancellable: a conversation created here must always reach the cleanup in `finally`.
         val conversation = withContext(NonCancellable + dispatcher) {
             val loaded = checkNotNull(engine) { "No model loaded" }
             loaded.createConversation(
@@ -87,19 +92,39 @@ class LiteRtLmEngine : LlmEngine {
                 ),
             )
         }
+        // Set by the runtime when it has really stopped; only then may the conversation be freed.
+        val finished = CompletableDeferred<Unit>()
+        val pieces = Channel<String>(Channel.UNLIMITED)
         try {
             val message = if (imagePng == null) {
                 Contents.of(Content.Text(prompt))
             } else {
                 Contents.of(Content.ImageBytes(imagePng), Content.Text(prompt))
             }
+            withContext(dispatcher) {
+                conversation.sendMessageAsync(
+                    message,
+                    object : MessageCallback {
+                        override fun onMessage(message: Message) {
+                            message.contents.contents.filterIsInstance<Content.Text>().forEach { pieces.trySend(it.text) }
+                        }
+
+                        override fun onDone() {
+                            pieces.close()
+                            finished.complete(Unit)
+                        }
+
+                        override fun onError(throwable: Throwable) {
+                            pieces.close(throwable)
+                            finished.complete(Unit)
+                        }
+                    },
+                )
+            }
             val text = StringBuilder()
-            // The Flow cancels the native generation if this coroutine is cancelled.
-            conversation.sendMessageAsync(message).flowOn(dispatcher).collect { chunk ->
-                chunk.contents.contents.filterIsInstance<Content.Text>().forEach {
-                    text.append(it.text)
-                    onText?.invoke(it.text)
-                }
+            for (piece in pieces) {
+                text.append(piece)
+                onText?.invoke(piece)
             }
             val stats = withContext(dispatcher) {
                 runCatching { conversation.getBenchmarkInfo() }.getOrNull()?.let { info ->
@@ -114,7 +139,16 @@ class LiteRtLmEngine : LlmEngine {
             }
             return GenerationResult(text.toString(), stats)
         } finally {
-            withContext(NonCancellable + dispatcher) { conversation.close() }
+            withContext(NonCancellable) {
+                if (!finished.isCompleted) {
+                    // Stopped early (Stop button, app in background). Closing while the runtime still works on its
+                    // own thread crashes the app (seen on the emulator), so cancel and wait for it to confirm.
+                    withContext(dispatcher) { runCatching { conversation.cancelProcess() } }
+                    withTimeoutOrNull(CANCEL_WAIT_MILLIS) { finished.await() }
+                }
+                // If it never confirmed, leaking one conversation is safer than freeing memory still in use.
+                if (finished.isCompleted) withContext(dispatcher) { conversation.close() }
+            }
         }
     }
 
@@ -133,5 +167,6 @@ class LiteRtLmEngine : LlmEngine {
 
     private companion object {
         const val NANOS_PER_SECOND = 1_000_000_000.0
+        const val CANCEL_WAIT_MILLIS = 30_000L
     }
 }

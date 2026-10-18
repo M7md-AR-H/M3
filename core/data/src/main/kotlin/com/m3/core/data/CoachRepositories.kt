@@ -1,5 +1,6 @@
 package com.m3.core.data
 
+import androidx.room.withTransaction
 import com.m3.core.data.db.ChatMessageEntity
 import com.m3.core.data.db.DatabaseOpener
 import com.m3.core.data.db.DayOverrideEntity
@@ -58,6 +59,17 @@ class ChatRepository(
                 undoJson = proposal?.undoJson,
             ),
         )
+
+    /** Saves the owner's message and the Coach's reply together, so a turn is never half-saved. */
+    suspend fun addTurn(ownerText: String, coachText: String, proposal: StoredProposal?) {
+        val db = opener.get()
+        db.withTransaction {
+            add(ChatAuthor.OWNER, ownerText)
+            add(ChatAuthor.COACH, coachText, proposal)
+        }
+    }
+
+    suspend fun latestAppliedId(): Long? = opener.get().chatDao().latestAppliedId()
 
     suspend fun get(id: Long): StoredChatMessage? = opener.get().chatDao().get(id)?.let(::toModel)
 

@@ -20,6 +20,7 @@ import com.m3.core.data.StoredProposal
 import com.m3.core.data.TrainingSetupRepository
 import com.m3.core.designsystem.config.Actor
 import com.m3.core.designsystem.config.ApplyResult
+import com.m3.core.designsystem.config.RejectReason
 import com.m3.core.designsystem.config.Specialist
 import com.m3.core.designsystem.config.UiChange
 import com.m3.core.designsystem.config.UiConfig
@@ -35,6 +36,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -74,21 +77,27 @@ class CoachController @Inject constructor(
     private val overrides: PlanOverridesRepository,
     private val uiStore: UiConfigStore,
 ) {
+
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Saves the owner's message, runs the model and saves the Coach's reply. [onText] streams the raw answer. */
+    /** Apply, Not now and Undo run one at a time, so a double tap can't apply twice or corrupt the undo record. */
+    private val actions = Mutex()
+
+    /**
+     * Runs one turn: the model answers [message], and the owner's message and the reply are saved together,
+     * so a failed or stopped answer leaves nothing half-saved. [onText] streams the visible answer.
+     */
     suspend fun send(message: String, onText: (String) -> Unit) {
         val trimmed = message.trim().take(MAX_MESSAGE_CHARS)
         if (trimmed.isEmpty()) return
         val history = chat.observe(HISTORY_MESSAGES).first().map { ChatTurn(it.role, it.text) }
-        chat.add(ChatAuthor.OWNER, trimmed)
         val inputs = currentInputs()
-        val facts = facts(inputs)
+        val system = CoachPrompt.system(facts(inputs))
         val raw = runtime.use { engine ->
             val streamed = StringBuilder()
             engine.generate(
-                prompt = CoachPrompt.turn(history, trimmed),
-                systemInstruction = CoachPrompt.system(facts),
+                prompt = CoachPrompt.turn(history, trimmed, systemChars = system.length),
+                systemInstruction = system,
                 maxOutputTokens = MAX_OUTPUT_TOKENS,
                 onText = { piece ->
                     streamed.append(piece)
@@ -99,13 +108,13 @@ class CoachController @Inject constructor(
         val parsed = ReplyParser.parse(raw)
         val proposal = parsed.toolJson?.let { proposalFor(it, inputs, trimmed) }
         val text = parsed.text.ifBlank { proposal?.summary ?: "Sorry, I didn't get an answer. Please try again." }
-        chat.add(ChatAuthor.COACH, text, proposal)
+        chat.addTurn(trimmed, text, proposal)
     }
 
-    suspend fun apply(messageId: Long): String? {
-        val message = chat.get(messageId) ?: return null
-        val proposal = message.proposal ?: return null
-        if (proposal.status != ProposalStatus.PENDING) return null
+    /** Applies a pending (or previously locked) proposal. Returns a message for the owner if it didn't apply. */
+    suspend fun apply(messageId: Long): String? = actions.withLock {
+        val proposal = chat.get(messageId)?.proposal ?: return null
+        if (proposal.status != ProposalStatus.PENDING && proposal.status != ProposalStatus.BLOCKED) return null
         val inputs = currentInputs()
         val action = when (val result = CoachTools.validate(proposal.json.orEmpty(), toolContext(inputs))) {
             is ToolResult.Invalid -> {
@@ -122,24 +131,39 @@ class CoachController @Inject constructor(
             chat.setProposalStatus(messageId, ProposalStatus.BLOCKED)
             return LOCKED_MESSAGE
         }
-        val undo = applyAction(action, inputs) ?: run {
-            chat.setProposalStatus(messageId, ProposalStatus.BLOCKED)
-            return LOCKED_MESSAGE
+        return when (val outcome = applyAction(action, inputs)) {
+            is Outcome.Done -> {
+                chat.setProposalStatus(messageId, ProposalStatus.APPLIED, json.encodeToString(UndoInfo.serializer(), outcome.undo))
+                null
+            }
+            Outcome.Locked -> {
+                chat.setProposalStatus(messageId, ProposalStatus.BLOCKED)
+                LOCKED_MESSAGE
+            }
+            is Outcome.Refused -> {
+                chat.setProposalStatus(messageId, ProposalStatus.REJECTED)
+                outcome.message
+            }
         }
-        chat.setProposalStatus(messageId, ProposalStatus.APPLIED, json.encodeToString(UndoInfo.serializer(), undo))
-        return null
     }
 
-    suspend fun dismiss(messageId: Long) {
+    suspend fun dismiss(messageId: Long): Unit = actions.withLock {
         val proposal = chat.get(messageId)?.proposal ?: return
-        if (proposal.status == ProposalStatus.PENDING) chat.setProposalStatus(messageId, ProposalStatus.DISMISSED)
+        if (proposal.status == ProposalStatus.PENDING || proposal.status == ProposalStatus.BLOCKED) {
+            chat.setProposalStatus(messageId, ProposalStatus.DISMISSED)
+        }
     }
 
-    /** Reverses an applied proposal. The owner's own action, so locks don't apply. */
-    suspend fun undo(messageId: Long) {
-        val proposal = chat.get(messageId)?.proposal ?: return
-        if (proposal.status != ProposalStatus.APPLIED) return
-        val info = proposal.undoJson?.let { runCatching { json.decodeFromString(UndoInfo.serializer(), it) }.getOrNull() } ?: return
+    /**
+     * Reverses an applied proposal. The owner's own action, so locks don't apply. Only the latest applied
+     * proposal can be undone: undoing an older one would overwrite changes made after it.
+     */
+    suspend fun undo(messageId: Long): String? = actions.withLock {
+        val proposal = chat.get(messageId)?.proposal ?: return null
+        if (proposal.status != ProposalStatus.APPLIED) return null
+        if (chat.latestAppliedId() != messageId) return "Only the most recent applied change can be undone."
+        val info = proposal.undoJson?.let { runCatching { json.decodeFromString(UndoInfo.serializer(), it) }.getOrNull() }
+            ?: return "This change can't be undone."
         when (info) {
             is UndoInfo.Day -> overrides.setDayEquipment(
                 LocalDate.parse(info.date),
@@ -149,13 +173,23 @@ class CoachController @Inject constructor(
             is UndoInfo.Availability -> {
                 val setup = setups.observe().first()
                 val day = DayOfWeek.of(info.day)
+                // A place deleted since then can't come back; the day becomes not free instead.
                 val previous = info.previousLocationId?.takeIf { id -> setup.locations.any { it.id == id } }
                 val availability = if (previous == null) setup.availability - day else setup.availability + (day to previous)
                 setups.replace(setup.copy(availability = availability))
             }
-            is UndoInfo.Ui -> uiStore.apply(info.inverse, Actor.Owner)
+            is UndoInfo.Ui -> if (uiStore.apply(info.inverse, Actor.Owner) is ApplyResult.Rejected) {
+                return "Couldn't undo this change."
+            }
         }
         chat.setProposalStatus(messageId, ProposalStatus.UNDONE)
+        null
+    }
+
+    private sealed interface Outcome {
+        data class Done(val undo: UndoInfo) : Outcome
+        data object Locked : Outcome
+        data class Refused(val message: String) : Outcome
     }
 
     suspend fun clear() = chat.clear()
@@ -218,35 +252,38 @@ class CoachController @Inject constructor(
         return PlanDiff.describe(inputs.plan, after).ifEmpty { listOf("No change to this week's sessions.") }
     }
 
-    /** Applies [action] and returns how to undo it, or null if the store refused (a lock). */
-    private suspend fun applyAction(action: CoachAction, inputs: PlanInputs): UndoInfo? = when (action) {
+    /** Applies [action] and says how to undo it, or why the store refused it. */
+    private suspend fun applyAction(action: CoachAction, inputs: PlanInputs): Outcome = when (action) {
         is CoachAction.SetDayEquipment -> {
             val previous = overrides.dayEquipment(action.date)
             overrides.setDayEquipment(action.date, action.items)
-            UndoInfo.Day(action.date.toString(), previous?.map { it.name })
+            Outcome.Done(UndoInfo.Day(action.date.toString(), previous?.map { it.name }))
         }
         is CoachAction.AvoidExercise -> {
             val previous = overrides.excludedReason(action.exerciseId)
             overrides.setExcluded(action.exerciseId, action.reason)
-            UndoInfo.Exercise(action.exerciseId, previous)
+            Outcome.Done(UndoInfo.Exercise(action.exerciseId, previous))
         }
         is CoachAction.AllowExercise -> {
             val previous = overrides.excludedReason(action.exerciseId)
             overrides.setExcluded(action.exerciseId, null)
-            UndoInfo.Exercise(action.exerciseId, previous)
+            Outcome.Done(UndoInfo.Exercise(action.exerciseId, previous))
         }
         is CoachAction.SetAvailability -> {
             val setup = inputs.setup
             val previous = setup.availability[action.day]
             val availability = if (action.locationId == null) setup.availability - action.day else setup.availability + (action.day to action.locationId)
             setups.replace(setup.copy(availability = availability))
-            UndoInfo.Availability(action.day.value, previous)
+            Outcome.Done(UndoInfo.Availability(action.day.value, previous))
         }
         is CoachAction.Ui -> {
             val inverse = inverseOf(action.change, uiStore.config.value)
-            when (uiStore.apply(action.change, Actor.Agent(Specialist.COACH))) {
-                is ApplyResult.Applied -> UndoInfo.Ui(inverse)
-                is ApplyResult.Rejected -> null
+            when (val result = uiStore.apply(action.change, Actor.Agent(Specialist.COACH))) {
+                is ApplyResult.Applied -> Outcome.Done(UndoInfo.Ui(inverse))
+                is ApplyResult.Rejected -> when (result.reason) {
+                    RejectReason.Denied -> Outcome.Locked
+                    is RejectReason.Invalid -> Outcome.Refused("That change would break the app's look rules (e.g. contrast), so nothing changed.")
+                }
             }
         }
     }
@@ -259,10 +296,10 @@ class CoachController @Inject constructor(
 
         /** The reply text without a tool block that is still being written. */
         fun visibleSoFar(raw: String): String {
-            val start = raw.indexOf("<tool")
+            val start = raw.indexOf("<tool", ignoreCase = true)
             if (start >= 0) return raw.substring(0, start).trim()
             // Also hide a tag that has only partly arrived ("<", "<t", "<to", "<too").
-            val partial = (1 until TOOL_TAG.length).firstOrNull { raw.endsWith(TOOL_TAG.substring(0, TOOL_TAG.length - it)) }
+            val partial = (1 until TOOL_TAG.length).firstOrNull { raw.endsWith(TOOL_TAG.substring(0, TOOL_TAG.length - it), ignoreCase = true) }
             val cut = partial?.let { raw.dropLast(TOOL_TAG.length - it) } ?: raw
             return cut.trim()
         }

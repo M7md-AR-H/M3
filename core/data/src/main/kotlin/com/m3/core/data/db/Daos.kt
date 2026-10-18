@@ -116,6 +116,9 @@ interface ChatDao {
     @androidx.room.Update
     suspend fun update(message: ChatMessageEntity)
 
+    @Query("SELECT id FROM chat_message WHERE proposalStatus = 'APPLIED' ORDER BY id DESC LIMIT 1")
+    suspend fun latestAppliedId(): Long?
+
     @Query("DELETE FROM chat_message")
     suspend fun clear()
 }
