@@ -1,58 +1,68 @@
-# HANDOFF — 2026-10-18 (session 3, in progress)
+# HANDOFF — 2026-10-18 (session 3)
 
 > The owner wants this file kept current **throughout** each session, not only at the end. Rewrite it after every meaningful step.
 
 ## What was done
-- **Sessions 1–2 (2026-10-16/17):** spec, prototype, ADRs 0001–0007, the Phase 0 app shell. Verified on the emulator. PR #1 (`chore/phase-0-setup`) is ready and **waiting for the owner's merge approval**.
-- **Session 3 (2026-10-18):**
-  - **Model re-check (ADR 0002 updated).** Gemma 4 E4B (`gemma-4-E4B-it.litertlm`, 3.66 GB) and E2B (2.59 GB) from `litert-community` are Apache-2.0 and **ungated**, so the owner doesn't need a Hugging Face account. Gemma 3n is dropped. SHA-256 values are in `ModelCatalog`.
+- **Sessions 1–2 (2026-10-16/17):** spec, prototype, ADRs 0001–0007, the Phase 0 app shell verified on the emulator. PR #1 (`chore/phase-0-setup`) is **waiting for the owner's merge approval**.
+- **Session 3 (2026-10-18), Phase 1a, on-device model. Done.**
+  - **Model re-check:** the Gemma 4 E4B and E2B `.litertlm` builds are Apache-2.0 and ungated. Gemma 3n is dropped.
   - **New `:ai` module:**
-    - `ModelStore`: hash-while-copy import, check, remove, and a `.verified` marker tied to size and mtime.
-    - `LlmEngine` and `LiteRtLmEngine` (LiteRT-LM 0.18.0, one native thread, blocking close).
-    - `BenchmarkRunner`, `AnswerChecks` and `BenchmarkReport`.
-    - 14 unit tests.
-  - **App screen:** You → "AI model & benchmark". It can add a file via the system picker, check, remove, run the benchmark (GPU, GPU+MTP and CPU per model) and copy the results. Debug builds also log results under the logcat tag `M3Bench`.
-  - **Sonnet review:** all findings fixed except a load timeout (logged as a known limitation).
-  - **Checks:** build, 34/34 tests, lint with 0 errors (warnings `OldTargetApi` and `ChromeOsAbiSupport` accepted). Release APK is 25.8 MB, arm64 only, with no INTERNET permission.
-  - **Emulator:** the screen renders, and an unverified file goes through "Check file", gets rejected, then removed.
-  - **Committed** `f863c1c` on `feat/phase-1-model-benchmark`, a branch stacked on `chore/phase-0-setup`. Not pushed yet.
-  - **License:** `LICENSE` is PolyForm Noncommercial 1.0.0, plus a notice that commercial use needs the owner's permission. A README License section and a decision-log entry were added, and OWNER_TASKS #5 covers going public later. Not committed yet.
+    - `ModelCatalog`, with SHA-256 values.
+    - `ModelStore`: hash-while-copy import, check, remove, and a `.verified` marker.
+    - `LlmEngine` / `LiteRtLmEngine`: LiteRT-LM 0.18.0, one native thread.
+    - `BenchmarkRunner`, `AnswerChecks`, `BenchmarkReport`.
+  - **Screen:** You → "AI model & benchmark".
+  - **Quality checks:** a Sonnet review found issues, all fixed except a load timeout, which is logged as a limitation. 34/34 tests pass. Lint shows 0 errors (warnings `OldTargetApi` and `ChromeOsAbiSupport` accepted).
+  - **Phone:** M³ debug build installed on the Poco F5. Both models were streamed into app-private storage over USB and verified in the app.
+  - **Benchmark run on the phone:** all 6 cases passed all checks. **Decision: Gemma 4 E4B on GPU + MTP** (15.6 tok/s, 0.7 s first token, 3.7 s photo, about 1.1 GB). Full table and quality notes are in ADR 0002. E2B leaked foreign-script tokens and was removed from the phone.
+  - **License:** PolyForm Noncommercial 1.0.0 (`LICENSE`). OWNER_TASKS #5 holds the go-public checklist.
+  - **Docs updated:** README (status, Phase 1 checkboxes, decision log, limitations), OWNER_TASKS (#3 not needed, #4 done, Phase 1a test list), ADR 0002, PRODUCT_SPEC, CLAUDE.md.
 
 ## Current state
-- Model downloads are running on the PC into `M3/models/` (gitignored):
-  - E4B was about 1.7 of 3.66 GB.
-  - E2B is being resumed with `curl -C -` after a dropped connection.
-  - **Verify both hashes** against `ModelCatalog` once done (`sha256sum models/*.litertlm`).
-- The emulator `Medium_Phone_API_37.0` is **running** (started with `-memory 6144 -no-snapshot-save`), and the debug build is installed. **Shut it down when finished:** `adb -e emu kill`, then `adb kill-server`.
-- Nothing is installed on the owner's phone.
+- **Phone:**
+  - `com.m3.app` (debug) is installed and force-stopped.
+  - App-private storage holds only `no_backup/models/gemma-4-E4B-it.litertlm` (3.66 GB) plus its `.verified` marker.
+  - Nothing of ours is in `/data/local/tmp` or `/sdcard`, and no M³ processes are running.
+  - Android's low-memory killer closed about 10 cached apps during the benchmark (normal, and reported to the owner).
+- **PC:**
+  - adb server stopped, emulator off, temp scripts deleted.
+  - Both model files remain in `M3/models/` (gitignored, hashes verified) for re-installs.
+  - The full benchmark log is in the session scratchpad (`m3-bench-results.txt`); its numbers are already in ADR 0002.
+- **Git:** branch `feat/phase-1-model-benchmark`, stacked on `chore/phase-0-setup`. See the next steps for push/PR status.
 
 ## Next steps, in order
-1. When E2B finishes and its hash matches, stream it into the emulator app and test end to end on CPU:
-   - Stream: `adb -e exec-in run-as com.m3.app sh -c 'umask 077; mkdir -p no_backup/models && cat > no_backup/models/gemma-4-E2B-it.litertlm' < models/gemma-4-E2B-it.litertlm`.
-   - Tap "Check file" and wait for Ready.
-   - Run the benchmark. GPU cases will probably fail on the emulator, which is expected. The CPU case should answer.
-   - Read results with `adb -e logcat -d -s M3Bench`.
-2. Fix anything the end-to-end run shows. Commit the license and docs. Push the branch and open PR #2 (base `chore/phase-0-setup`, or `main` after PR #1 merges).
-3. **Phone benchmark:**
-   - Needs OWNER_TASKS #4 first: 8 GB free, "Install via USB", Wireless debugging, phone on charger.
-   - Install, stream both models with the command above (no temp files on the phone), and run the benchmark.
-   - Record the results in ADR 0002, pick the model, then clean up: force-stop, `adb disconnect`, `adb kill-server`.
-4. Phase 1b: `:core:security` (Keystore/Tink, biometric lock), then `:core:data` (Room + SQLCipher, persist `UiConfig`), then onboarding. Phase 1c covers fitness features. All are listed as README checkboxes.
+1. Push `feat/phase-1-model-benchmark` and open PR #2 (base `chore/phase-0-setup` until PR #1 merges). **Ask the owner before merging either PR.**
+2. **Phase 1b, foundation:**
+   - `:core:security`: Keystore-wrapped Tink keyset, biometric/credential lock (decide the biometric version).
+   - `:core:data`: Room 2.8.5 + SQLCipher 4.19.1, persisting `UiConfig` + history.
+   - Onboarding: needs the owner's answers on units and equipment.
+3. **Phase 1c:** Coach chat. Load E4B with `LlmBackend.GPU` + `speculativeDecoding = true` and fall back to CPU if GPU init fails. Unload when the app goes to the background. Then the fitness features (README checkboxes).
 
 ## Open questions for the owner
-- **Approve merging PR #1?** (It was asked; the owner said "continue" without an explicit yes, so it isn't merged.)
-- Units: metric or imperial? Equipment: gym, home, or both? (Needed for onboarding in 1b.)
+- **Approve merging PR #1** (and later PR #2)?
+- Units: metric or imperial? Equipment: gym, home, or both?
 - Before going public: keep the Gmail address in commit history, or switch to the GitHub noreply address? (OWNER_TASKS #5.)
 
 ## Traps found
-- **LiteRT-LM API facts** (from `javap` on the 0.18.0 AAR):
-  - `conversation.getBenchmarkInfo()` is a function, not a property, and needs `@OptIn(ExperimentalApi::class)`.
-  - `ExperimentalFlags` are process-wide; set them before creating the `Engine`.
-  - The AAR ships **no R8 rules**, so `ai/consumer-rules.pro` keeps `com.google.ai.edge.litertlm.**` because of JNI callbacks.
-  - It bundles native code for `arm64-v8a` and `x86_64`.
-- **AVD name** is `Medium_Phone_API_37.0` (the folder is `Medium_Phone.avd`). Use `-memory 6144` for model tests; the default is 2 GB.
-- **`run-as` file permissions:** files written through `run-as` get mode 666 under the shell's umask. Always prefix with `umask 077`.
-- **Windows file lock:** `./gradlew clean` can fail because a daemon holds `classes.jar`. Building without `clean` is fine, since dependency verification still runs.
-- **Hugging Face downloads** over this connection drop partway through (`schannel: server closed abruptly`). Resume with `curl -C -` in a loop and always check the hash. `raw.githubusercontent.com` connections reset too; `gh api -H "Accept: application/vnd.github.raw"` works.
-- Phone rules, Xiaomi "Install via USB", wireless pairing ports, `MSYS_NO_PATHCONV=1`, FLAG_SECURE (use `uiautomator dump` instead of screenshots): see CLAUDE.md and git history of this file (session 2).
-- Builds: `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"`. After dependency changes, run `./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:assembleRelease test lint`.
+- **Copying models to the phone:**
+  - Use the USB serial (`c84e26c7`); Wi-Fi is about 1.5 MB/s and drops.
+  - `adb exec-in` streams reset every ~100–300 MB even over USB. Resume from the remote size: `adb shell run-as com.m3.app stat -c %s <path>` (treat "No such file" as 0), then `tail -c +N file | adb exec-in run-as com.m3.app sh -c 'umask 077; cat >> <path>'`, and repeat until the size matches. The app's SHA-256 check is the final guard.
+  - **Never** wrap the size check in `sh -c "… || echo 0"`. adb re-splits it, so it always returns 0, and a "resume" built on it appends duplicate data. This happened once; the corrupt file was deleted.
+- **Leftover processes:**
+  - `TaskStop` on a background bash job doesn't kill its children on Windows; kill them with PowerShell `Stop-Process`.
+  - An interrupted `exec-in` leaves `sh` and `cat` running on the phone under the app uid. Check with `adb shell ps -A -o USER,PID,NAME | grep u0_a281` and stop them with `adb shell run-as com.m3.app kill …`.
+- **Xiaomi input:**
+  - Xiaomi blocks `adb shell input tap/swipe` (INJECT_EVENTS) unless the owner enables "USB debugging (Security settings)". Don't ask for that: let the owner tap, and read the screen with `uiautomator dump` plus results from `logcat -s M3Bench` (debug builds only).
+  - The USB device can go `offline`; `adb reconnect offline` fixes it.
+  - Wireless: use the mDNS serial (`adb mdns services`); the IP:port transport goes `offline`. Wireless debugging switches itself off when the screen sleeps.
+- **First install** on Xiaomi needed "Install via USB". A failed install shows an empty error.
+- **LiteRT-LM:**
+  - `getBenchmarkInfo()` is a function and needs `@OptIn(ExperimentalApi::class)`.
+  - `ExperimentalFlags` are process-wide.
+  - The AAR has no R8 rules; we keep `com.google.ai.edge.litertlm.**`.
+  - The first GPU load compiles programs (≈20–28 s); later loads use the cache (≈10–17 s).
+- **Emulator:** the AVD name is `Medium_Phone_API_37.0`. Use `-memory 6144` for model tests.
+- **Windows:** `./gradlew clean` can fail on a locked `classes.jar`; build without `clean`.
+- **Network:** Hugging Face and raw.githubusercontent downloads drop or reset. Resume with `curl -C -`; `gh api -H "Accept: application/vnd.github.raw"` works for GitHub files.
+- **Builds:** `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"`. After dependency changes, run `./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:assembleRelease test lint`.
+- **Phone rules, `MSYS_NO_PATHCONV=1`, FLAG_SECURE:** see CLAUDE.md.

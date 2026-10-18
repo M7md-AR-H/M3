@@ -1,7 +1,7 @@
 # 0002 — On-device LLM: LiteRT-LM running Gemma 4
 
 - **Date:** 2026-10-16, updated 2026-10-18
-- **Status:** Accepted. Runtime fixed; the final model is picked by the on-phone benchmark (results below once measured).
+- **Status:** Accepted. Gemma 4 E4B on GPU + MTP chosen from the on-phone benchmark (2026-10-18).
 
 ## Context
 M³ needs one multimodal model (text + images, ideally audio) running fully on a Poco F5 (12 GB RAM, Adreno 725 GPU).
@@ -43,8 +43,32 @@ Re-check on 2026-10-18 (Phase 1 start):
 - **Model files are not encrypted.** They are public files containing no personal data, and they already sit in app-private, non-backed-up storage.
 - The runtime is wrapped behind `LlmEngine` in `:ai`, so the model or runtime can change without touching features. All native calls run on one dedicated thread, and engines are closed (blocking) before the next one loads, so two models never sit in memory together.
 
-## Benchmark results (Poco F5)
-_Not yet measured. To be filled in from the on-phone run._
+## Benchmark results (Poco F5, 2026-10-18)
+Debug build with LiteRT-LM 0.18.0, a 4,096-token context, the fixed prompt set, and the phone on a charger.
+
+| Case | Load (s) | First token (s) | Decode (tok/s) | Prefill (tok/s) | Photo (s) | Peak RAM (process) | JSON | Photo check |
+|---|---|---|---|---|---|---|---|---|
+| E4B · GPU | 28.2* | 0.8 | 8.1 | 123 | 4.3 | 1.09 GB | pass | pass |
+| **E4B · GPU + MTP** | 16.9 | 0.7 | **15.6** | 136 | 3.7 | 1.14 GB | pass | pass |
+| E4B · CPU | 12.9 | 2.1 | 7.9 | 28 | 19.2 | 4.21 GB | pass | pass |
+| E2B · GPU | 21.9* | 0.4 | 17.5 | 255 | 2.6 | 1.16 GB | pass | pass |
+| E2B · GPU + MTP | 10.0 | 0.2 | 26.2 | 426 | 2.1 | 1.17 GB | pass | pass |
+| E2B · CPU | 6.8 | 0.8 | 16.7 | 86 | 9.8 | 2.68 GB | pass | pass |
+
+\* First GPU load per model includes compiling GPU programs; later loads use the cache in `cacheDir`.
+
+**Quality notes** (from reading every answer):
+- Every case passed the strict JSON check without cleanup, and every case named the red circle and blue square.
+- **E2B leaked foreign-script tokens** into the one-sentence answer in both GPU runs ("theलोड", "負荷"), and its answers were also more generic.
+- E4B's answers were cleaner. It made one odd word choice ("doing more food, weights") and once wrote a 3-day plan as a weekly schedule.
+- "Peak RAM" is the app process's resident memory. GPU-side memory isn't fully counted.
+- During the run, Android closed about 10 cached background apps for memory, a normal low-memory action. M³ itself was never killed.
+
+## Decision (2026-10-18, from the benchmark)
+- **Default: Gemma 4 E4B on GPU with multi-token prediction.** It is fast enough for chat: about 16 tok/s, well above reading speed, with first words in under a second and a photo answered in under 4 s. It also writes noticeably better than E2B, and the Coach's quality matters more than the extra speed.
+- **CPU is a fallback only**, used if the GPU fails to initialise. It is 2× slower, 5× slower on photos, and uses about 4 GB.
+- **E2B is not shipped as a second model.** It was removed from the phone after the benchmark. It stays in `ModelCatalog` so it can be re-evaluated, e.g. as a fast "draft" model or if newer builds fix the token leaks.
+- Model output stays untrusted. The JSON passes here don't change ADR 0003: tool calls are still schema-validated in Kotlin.
 
 ## Consequences
 - 2.6–3.7 GB of storage for the main model, plus smaller vision/embedding models later. Importing from Downloads temporarily needs the space twice.

@@ -42,8 +42,8 @@ Tell Claude "Android Studio is installed" so the build can be checked.
 
 ---
 
-## 4. Get the phone ready for the AI model test — **needed for the next step**
-- [ ] Done
+## 4. Get the phone ready for the AI model test
+- [x] Done (2026-10-18 — app installed, models copied over USB, benchmark run)
 
 1. **Free space:** on the phone, open **Settings → About phone → Storage**. You need at least **8 GB free** (both test models together are about 6.3 GB). If you have less, delete something or tell Claude, who will test one model at a time.
 2. **Install via USB:** **Settings → Additional settings → Developer options** → turn on **Install via USB**. Xiaomi may ask you to sign in to your Mi account. That's Xiaomi's rule, not ours.
@@ -98,3 +98,10 @@ The license is already in place (`LICENSE`, PolyForm Noncommercial 1.0.0): anyon
 5. Still in Customize, tap **Simulate a Coach change**. **Expect:** a message "Coach moved Fuel to the top" with **Undo**; the Fuel card is now first on TODAY. Tap Undo. **Expect:** it moves back.
 6. Turn off **"Let agents change: Today layout"**, then tap **Simulate a Coach change** again. **Expect:** "Coach can't change Today — you locked it", and nothing moves.
 7. Close the app fully and reopen it. **Expect (known limitation):** customizations are back to default — saving them arrives in Phase 1.
+
+### Phase 1a — on-device AI model (installed on your phone 2026-10-18)
+1. Open **M³** → **YOU** → scroll to the bottom → tap **AI model & benchmark**. **Expect:** "Gemma 4 E4B" shows **Ready ✓**, and "Gemma 4 E2B" shows "Not on this phone" (removed on purpose after the test). **Broken if:** E4B says "not checked yet" or "Not on this phone".
+2. Tap **Run benchmark** with the phone on a charger. **Expect:** "Test 1 of 3…" progress, then three result cards (GPU, GPU + MTP, CPU) after about 5 minutes, each with "JSON pass · photo pass". GPU + MTP should show roughly **15 tok/s**. **Broken if:** the app closes, or a card says "Failed".
+3. Tap **Copy full results**, then paste into any notes app. **Expect:** the test answers in plain text (a gym plan, a JSON line, "a red circle and a blue square").
+4. Leave the AI model screen with **Back** while a test runs. **Expect:** it stops; nothing keeps running.
+5. Check the phone's normal apps still work as usual afterwards. Some apps that were idle in the background may reload when you open them; that's Android freeing memory, not damage.

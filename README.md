@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-17):** Phase 0 complete — builds, tests and lint pass; verified on the emulator. Not yet on the phone (by choice). Next: Phase 1, starting with the on-phone AI model benchmark.
+**Status (2026-10-18):** Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Next: Phase 1b — encrypted storage, app lock, onboarding.
 
 - Product & tech spec: [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md)
 - UI prototype (design source of truth): https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ
@@ -43,8 +43,8 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 - [x] You → "AI model & benchmark" screen: add model file (system picker), check, remove, run benchmark, copy results
 - [x] Review fixes (Sonnet review): per-case peak RAM, cancellation-safe conversation, streaming on the engine thread, off-main-thread delete, free-space check
 - [x] Emulator check: screen renders; unchecked file → "Check file" → rejected → removed
-- [ ] Emulator end-to-end: Gemma 4 E2B on CPU answers the benchmark prompts
-- [ ] **Phone benchmark** (needs owner: "Install via USB" + Wireless debugging) → record results in ADR 0002, pick the model
+- [x] ~~Emulator end-to-end~~ → skipped; went straight to the phone (real target)
+- [x] **Phone benchmark** on the Poco F5: all 6 cases ran, all checks passed → **Gemma 4 E4B on GPU + MTP** chosen (15.6 tok/s, 0.7 s first token, 3.7 s photo, ~1.1 GB); results in ADR 0002
 
 **1b — Foundation**
 - [ ] `:core:security`: Keystore-wrapped Tink keys, biometric/credential app lock
@@ -102,6 +102,8 @@ M3/
 | 2026-10-18 | One native thread per engine; engine close blocks until freed before the next model loads | GPU contexts shouldn't be touched from several threads; two 3 GB models in memory at once could get the app killed |
 | 2026-10-18 | Release builds ship arm64 native code only; debug keeps x86_64 | The phone is arm64; x86_64 is only for the emulator. Saves ~26 MB. Lint's `ChromeOsAbiSupport` warning accepted |
 | 2026-10-18 | Benchmark prompts/answers may be logged (tag `M3Bench`) in debug builds only | They are fixed test prompts with no personal data; lets Claude read results over adb. User content is never logged |
+| 2026-10-18 | **Gemma 4 E4B on GPU + multi-token prediction** is the Coach model; CPU only as fallback; E2B removed from the phone | On-phone benchmark: 15.6 tok/s, 0.7 s first token, 3.7 s photo, ~1.1 GB; E2B is faster but leaked foreign-script tokens and wrote weaker answers ([ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md)) |
+| 2026-10-18 | Models reach the phone by resumable `adb exec-in run-as … cat >>` over USB, never through shared storage | Leaves no files outside the app; `exec-in` streams reset every ~100–300 MB on this Windows setup, so the copy resumes from the remote size; the app's SHA-256 check is the final guard |
 | 2026-10-18 | License: PolyForm Noncommercial 1.0.0 (`LICENSE`), with commercial licenses only by separate agreement with the owner | Owner wants the code public to view and download but no commercial use without compensating them. PolyForm NC is written for software (unlike CC BY-NC, which Creative Commons advises against for code); MIT/Apache/GPL all allow commercial use. Not OSI "open source" — it is source-available |
 | 2026-10-18 | Phase 1 built on a branch stacked on the Phase 0 branch | PR #1 awaits the owner's merge approval; work continues without merging |
 | 2026-10-16 | Toolchain: Gradle 9.8.1, AGP 9.4.1 (built-in Kotlin), Kotlin 2.4.21, KSP 2.3.12, compileSdk 37, targetSdk 36, minSdk 33 | Latest stable versions verified against Maven/Gradle metadata. compileSdk 37 is required: core-ktx 1.19.1, Compose UI 1.12.1, lifecycle 2.11.0 and hilt 1.4.0 declare `minCompileSdk=37` in their AAR metadata. targetSdk stays 36 until Android 17 behaviour changes are reviewed; minSdk 33 because the Poco F5 shipped with Android 13 |
@@ -148,3 +150,5 @@ M3/
 
 ## License
 Source-available under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**. Anyone may download, read, run and modify the code for personal, research, hobby, educational or other noncommercial purposes. **Commercial use is not allowed** without a separate license from the copyright holder (contact via https://github.com/M7md-AR-H). Third-party fonts and libraries keep their own licenses.
+| While the AI model is running, Android may close other apps that are idle in the background | The model needs about 1 GB of RAM (4 GB on CPU); Android frees memory by closing cached apps, which restart normally when opened. Seen during the benchmark (~10 cached apps) | Unload the model when M³ goes to the background (planned with the Coach chat); smaller future models |
+| The model sometimes picks an odd word or misreads the format (e.g. "doing more food, weights") | 4B-parameter on-device model | Coach answers are advice text only; numbers and plans come from Kotlin (ADR 0003); revisit with newer models |
