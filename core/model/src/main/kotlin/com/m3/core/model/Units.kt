@@ -33,7 +33,8 @@ object Units {
 
     /**
      * Parses a weight list such as "2, 4, 6-10, 12.5". A range "a-b" steps by 2 kg; "a-b/x" steps by x kg.
-     * Returns the sorted, de-duplicated list, or null if any part is invalid or the list is too long.
+     * Returns the sorted, de-duplicated list, or null if any part is invalid, any weight is outside
+     * [Limits.MIN_ITEM_WEIGHT_KG]..[Limits.MAX_ITEM_WEIGHT_KG] (the same rule the validator applies), or the list is too long.
      */
     fun parseWeightList(text: String): List<Double>? {
         val result = sortedSetOf<Double>()
@@ -59,6 +60,7 @@ object Units {
             }
             if (result.size > Limits.MAX_WEIGHTS_PER_ITEM) return null
         }
+        if (result.any { it < Limits.MIN_ITEM_WEIGHT_KG || it > Limits.MAX_ITEM_WEIGHT_KG }) return null
         return result.toList()
     }
 

@@ -9,6 +9,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,9 +39,6 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var unlockPrompt: UnlockPrompt
 
-    /** The lock generation the prompt last opened for by itself; later attempts use the Unlock button. */
-    private var autoPromptedGeneration = 0
-
     private val lockMessage = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,13 +64,17 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             M3Theme(config.theme) {
-                // The lock comes first: nothing else is composed until the owner unlocks.
-                when {
-                    locked -> LockScreen(message = lockMessage.value, onUnlock = ::requestUnlock)
-                    startup is StartupState.Failed -> StorageErrorScreen(onRetry = viewModel::retryStartup)
-                    startup !is StartupState.Ready -> LoadingScreen()
-                    !(startup as StartupState.Ready).onboardingCompleted -> OnboardingScreen()
-                    else -> M3App(config)
+                // While locked, the app stays composed (so a re-lock keeps unsaved edits and navigation) but is
+                // hidden under the opaque lock screen and removed from the accessibility tree.
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().then(if (locked) Modifier.clearAndSetSemantics {} else Modifier)) {
+                        when (val state = startup) {
+                            StartupState.Failed -> StorageErrorScreen(onRetry = viewModel::retryStartup)
+                            StartupState.Loading -> LoadingScreen()
+                            is StartupState.Ready -> if (state.onboardingCompleted) M3App(config) else OnboardingScreen()
+                        }
+                    }
+                    if (locked) LockScreen(message = lockMessage.value, onUnlock = ::requestUnlock, onBack = { moveTaskToBack(true) })
                 }
             }
         }
@@ -82,10 +87,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (appLock.locked.value && autoPromptedGeneration != appLock.lockGeneration) {
-            autoPromptedGeneration = appLock.lockGeneration
-            requestUnlock()
-        }
+        if (appLock.claimAutoPrompt()) requestUnlock()
     }
 
     override fun onStop() {

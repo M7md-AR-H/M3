@@ -38,6 +38,8 @@ class UnitsTest {
         assertNull(Units.parseWeightList("10-2"))
         assertNull(Units.parseWeightList("1-1000/0.5"))
         assertNull(Units.parseWeightList("5-10/0"))
+        assertNull(Units.parseWeightList("0-10"))
+        assertNull(Units.parseWeightList("250"))
     }
 
     @Test

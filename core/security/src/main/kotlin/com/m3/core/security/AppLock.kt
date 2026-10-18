@@ -18,20 +18,22 @@ class AppLock(
     private val _locked = MutableStateFlow(true)
     val locked: StateFlow<Boolean> = _locked.asStateFlow()
 
-    /** Goes up each time the app locks, so the prompt can open by itself once per lock, not on every resume. */
-    @Volatile
-    var lockGeneration: Int = 1
-        private set
+    /** Goes up each time the app locks. */
+    private var lockGeneration = 1
+    private var autoPromptedGeneration = 0
 
+    private var inBackground = false
     private var backgroundedAt: Long? = null
 
     @Synchronized
     fun onBackground() {
+        inBackground = true
         if (!_locked.value) backgroundedAt = clock()
     }
 
     @Synchronized
     fun onForeground() {
+        inBackground = false
         val since = backgroundedAt ?: return
         backgroundedAt = null
         // A clock that went backwards counts as expired.
@@ -44,8 +46,20 @@ class AppLock(
 
     @Synchronized
     fun unlock() {
-        backgroundedAt = null
+        // An unlock that lands while the app is already in the background starts the timer from now.
+        backgroundedAt = if (inBackground) clock() else null
         _locked.value = false
+    }
+
+    /**
+     * True once per lock: the prompt may open by itself, later attempts go through the Unlock button.
+     * Kept here (not in the Activity) so a rotation doesn't reopen a prompt the owner just closed.
+     */
+    @Synchronized
+    fun claimAutoPrompt(): Boolean {
+        if (!_locked.value || autoPromptedGeneration == lockGeneration) return false
+        autoPromptedGeneration = lockGeneration
+        return true
     }
 
     companion object {

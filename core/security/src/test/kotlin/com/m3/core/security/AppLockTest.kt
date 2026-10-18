@@ -57,3 +57,29 @@ class AppLockTest {
         assertFalse(lock.locked.value)
     }
 }
+
+class AppLockPromptTest {
+    private var now = 0L
+    private val lock = AppLock(timeoutMillis = 1_000, clock = { now })
+
+    @Test
+    fun `auto prompt is claimed once per lock`() {
+        assertTrue(lock.claimAutoPrompt())
+        assertFalse(lock.claimAutoPrompt())
+        lock.unlock()
+        assertFalse(lock.claimAutoPrompt())
+        lock.onBackground()
+        now += 1_000
+        lock.onForeground()
+        assertTrue(lock.claimAutoPrompt())
+    }
+
+    @Test
+    fun `unlock arriving while in the background still starts the timer`() {
+        lock.onBackground()
+        lock.unlock()
+        now += 1_000
+        lock.onForeground()
+        assertTrue(lock.locked.value)
+    }
+}

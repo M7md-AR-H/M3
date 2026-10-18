@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -28,8 +29,9 @@ class DatabaseOpener(
     @Volatile
     private var database: M3Database? = null
 
+    /** The open runs to completion even if the caller is cancelled, so a finished open is never lost or leaked. */
     suspend fun get(): M3Database = database ?: mutex.withLock {
-        database ?: withContext(dispatcher) { open() }.also { database = it }
+        database ?: withContext(dispatcher + NonCancellable) { open().also { database = it } }
     }
 
     private fun open(): M3Database {

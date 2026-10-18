@@ -26,6 +26,8 @@ data class EditState<T>(
     val saved: Boolean = false,
 )
 
+private const val LOAD_ERROR = "Couldn't load your data. Go back and try again."
+
 @HiltViewModel
 class ProfileEditViewModel @Inject constructor(
     private val profiles: ProfileRepository,
@@ -35,8 +37,14 @@ class ProfileEditViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val profile = profiles.observe().first()
-            _state.update { it.copy(draft = profile?.let(ProfileDraft::from) ?: ProfileDraft()) }
+            try {
+                val profile = profiles.observe().first()
+                _state.update { it.copy(draft = profile?.let(ProfileDraft::from) ?: ProfileDraft()) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _state.update { it.copy(message = LOAD_ERROR) }
+            }
         }
     }
 
@@ -74,8 +82,14 @@ class TrainingSetupViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val setup = setups.observe().first()
-            _state.update { it.copy(draft = SetupDraft.from(setup)) }
+            try {
+                val setup = setups.observe().first()
+                _state.update { it.copy(draft = SetupDraft.from(setup)) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _state.update { it.copy(message = LOAD_ERROR) }
+            }
         }
     }
 

@@ -85,7 +85,7 @@ private fun <T> EditScaffold(
             DoubleRule()
             val draft = state.draft
             if (draft == null) {
-                Text(text = "Loading…", style = M3.typography.body, color = M3.colors.muted)
+                if (state.message == null) Text(text = "Loading…", style = M3.typography.body, color = M3.colors.muted)
             } else {
                 content(draft)
             }

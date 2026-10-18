@@ -13,6 +13,7 @@ import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 sealed interface StartupState {
@@ -41,7 +42,11 @@ class AppStartup @Inject constructor(
 
     @Synchronized
     fun start() {
-        if (job?.isActive == true || _state.value is StartupState.Ready) return
+        when (_state.value) {
+            is StartupState.Ready -> return
+            StartupState.Loading -> if (job?.isActive == true) return
+            StartupState.Failed -> job?.cancel()
+        }
         _state.value = StartupState.Loading
         job = scope.launch {
             try {
@@ -62,10 +67,14 @@ class AppStartup @Inject constructor(
 
     fun retry() = start()
 
-    /** Saves snapshots one at a time; if changes come faster than writes, only the latest is written. */
+    /**
+     * Saves snapshots one at a time; if changes come faster than writes, only the latest is written.
+     * The first value is what was just restored (or the defaults), so it is skipped: saved rows that
+     * couldn't be read are only replaced once the owner actually changes something.
+     */
     private suspend fun persistUiConfig() {
         // StateFlow is conflated: a slow write is followed by the latest snapshot, not every one in between.
-        store.snapshot.collect { snapshot ->
+        store.snapshot.drop(1).collect { snapshot ->
             try {
                 uiConfigs.save(snapshot)
             } catch (e: CancellationException) {

@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-18):** Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Next: Phase 1b — encrypted storage, app lock, onboarding.
+**Status (2026-10-18):** Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b built (branch `feat/phase-1b-foundation`, emulator-verified): app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Next: install 1b on the phone (needs the USB cable), then Phase 1c — fitness.
 
 - Product & tech spec: [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md)
 - UI prototype (design source of truth): https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ
@@ -46,10 +46,18 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 - [x] ~~Emulator end-to-end~~ → skipped; went straight to the phone (real target)
 - [x] **Phone benchmark** on the Poco F5: all 6 cases ran, all checks passed → **Gemma 4 E4B on GPU + MTP** chosen (15.6 tok/s, 0.7 s first token, 3.7 s photo, ~1.1 GB); results in ADR 0002
 
-**1b — Foundation**
-- [ ] `:core:security`: Keystore-wrapped Tink keys, biometric/credential app lock
-- [ ] `:core:data`: Room + SQLCipher; persist `UiConfig` + change history (removes "customizations lost on restart")
-- [ ] Onboarding: profile (metric), goal, experience, training locations (Gym, Home, custom) with equipment tick-lists, weekly schedule (location per day), injuries
+**1b — Foundation (branch `feat/phase-1b-foundation`)**
+- [x] Versions checked: Room 2.8.5, SQLCipher 4.19.1, Tink 1.23.0; platform `BiometricPrompt` instead of `androidx.biometric`
+- [x] `:core:model`: equipment catalog (50 kinds in 4 groups, ADR 0008), profile, training setup, validators, metric `Units`
+- [x] `:core:security`: Tink AES256-GCM keyset under a Keystore master key, wrapped DB passphrase (`no_backup/db.key`), app lock (cold start + 5 min in background, fingerprint/face or screen-lock PIN)
+- [x] `:core:data`: Room + SQLCipher, v1 schema exported; repositories for UI config + history, profile, training setup; onboarding saved in one transaction
+- [x] Saved customizations: `UiConfigStore` snapshot is restored at start and saved on every change
+- [x] Onboarding: profile (metric), goal, experience, training locations (Gym, Home, custom) with equipment tick-lists and kg lists, weekly schedule (location per day), injuries
+- [x] You → Profile and You → Training setup editors
+- [x] Tests: 69 unit tests; 4 instrumented SQLCipher tests (emulator only)
+- [x] Emulator check: lock prompt (PIN), cancel → Unlock, onboarding end to end, edits saved, dark mode + profile survive a restart, short background stays unlocked
+- [x] Sonnet review fixes: weight lists checked against the same 0.5–200 kg range as the validator; re-lock keeps unsaved edits (app stays composed under an opaque lock layer that takes touches and Back); edit screens show a load error instead of crashing; unreadable saved UI config is never overwritten until the owner changes something; DB open can't leak on cancellation; Retry always restarts; unlock while backgrounded re-arms the timer; no auto-prompt again after rotation
+- [ ] Phone install + owner's check (needs the USB cable)
 
 **1c — Fitness**
 - [ ] Offline exercise database (bundled, licensed data), tagged with equipment alternatives, movement pattern and muscles (ADR 0008)
@@ -81,9 +89,11 @@ Built alongside Phase 1–2 as the `:research` module (ADR 0005).
 ```
 M3/
   app/                    # Application, navigation, feature screens (packages: today, train, fuel, you, coach, aimodel)
-  core/designsystem/      # Colors, typography, fonts, shared components
-  core/security/          # (Phase 1) Keystore/Tink, biometric lock
-  core/data/              # (Phase 1) Room + SQLCipher, repositories
+  app/.../feature/onboarding/  # Onboarding flow + You → Profile / Training setup editors (shared form sections)
+  core/designsystem/      # Colors, typography, fonts, shared components, UiConfig + store
+  core/model/             # Plain data shared by data and (later) training engine: equipment catalog, profile, training setup, validators, metric Units
+  core/security/          # Tink + Keystore secret cipher, wrapped DB passphrase, app lock + unlock prompt
+  core/data/              # Room + SQLCipher database, schema JSON (core/data/schemas), repositories
   ai/                     # On-device LLM: model catalog + verified store, LlmEngine (LiteRT-LM), benchmark; later prompts, tool schemas, vision
   research/               # (later) the ONLY module allowed network access
   docs/                   # Spec, ADRs, working rules
@@ -110,6 +120,17 @@ M3/
 | 2026-10-18 | PR #1 and PR #2 squash-merged into `main` (owner approved) | Phase 0 + Phase 1a complete |
 | 2026-10-18 | License: PolyForm Noncommercial 1.0.0 (`LICENSE`), with commercial licenses only by separate agreement with the owner | Owner wants the code public to view and download but no commercial use without compensating them. PolyForm NC is written for software (unlike CC BY-NC, which Creative Commons advises against for code); MIT/Apache/GPL all allow commercial use. Not OSI "open source" — it is source-available |
 | 2026-10-18 | Phase 1 built on a branch stacked on the Phase 0 branch | PR #1 awaits the owner's merge approval; work continues without merging |
+| 2026-10-18 | Added Room 2.8.5 (+ KSP compiler, Room Gradle plugin), `net.zetetic:sqlcipher-android` 4.19.1, `com.google.crypto.tink:tink-android` **1.23.0**; test-only `androidx.test:runner` 1.7.0 | Encrypted storage per ADR 0004 (Google/AndroidX, Zetetic — the SQLCipher authors — and Google). Tink 1.24.0 exists but was published two days earlier, so the previous stable is used until it has been out a while. Checksums added to dependency verification |
+| 2026-10-18 | App lock uses the platform `android.hardware.biometrics.BiometricPrompt` (fingerprint/face "strong" or the screen-lock PIN), not `androidx.biometric` | minSdk is 33 and the platform API supports this combination since Android 11; `androidx.biometric`'s only stable release is 1.1.0 from 2021 (1.4 is still alpha) and would also need `FragmentActivity`. One dependency fewer |
+| 2026-10-18 | The DB passphrase byte array handed to SQLCipher is not zeroed; every other copy is | SQLCipher keeps a reference to that array and uses it whenever it opens another connection (WAL readers, reopened idle connections). Zeroing it, as first planned, would break those opens. The derived key is in SQLCipher's native memory anyway |
+| 2026-10-18 | If the phone has no screen lock, M³ stays locked and asks the owner to set one | The data is health data; a lock that can be skipped is no lock. The owner's phone has one |
+| 2026-10-18 | The database opens off the main thread at app start; the UI shows the lock, then a blank ground until the DB and saved UI config are loaded | Keystore + Tink + SQLCipher key derivation take a moment; loading first avoids a flash of the default theme and of onboarding |
+| 2026-10-18 | No destructive migration fallback; an unreadable DB or key file shows "Couldn't open your data — nothing was deleted" with Try again | Silently wiping the owner's data is worse than a visible error |
+| 2026-10-18 | UI config + its undo history are saved as one snapshot (history rewritten each time, ≤ 100 rows) whenever the store changes; the latest snapshot wins if writes queue up | Simple and always consistent; the history is tiny. Writes run on an application-wide scope so leaving a screen never drops a save |
+| 2026-10-18 | Equipment: 50 kinds in 4 groups (free weights, stations & machines, cardio, small gear); bodyweight is not an item; only dumbbells and kettlebells take a kg list; custom items by name | ADR 0008 asked for ~40 kinds; a separate cardio group keeps the long stations list readable. "Bodyweight only" is just an empty list, which avoids contradictory states. Enums are stored by name, so reordering never changes saved data; unknown names from a newer build are skipped |
+| 2026-10-18 | Weight lists accept `2-24` (2 kg steps), `5-30/2.5` and `4, 8, 12`; parsed and range-checked in `Units` | Fast to type on a phone; one parser for all screens (metric only, ADR 0008) |
+| 2026-10-18 | Onboarding has one equipment page per location; everything is saved in one transaction only when the owner taps Start | No half-finished profile in the DB; the steps adapt as locations are added or removed |
+| 2026-10-18 | `:core:model` is a plain-Kotlin Android library (no Android code) | The training engine (Phase 1c) and `:core:data` both need the equipment enum; an Android library avoids adding the Kotlin JVM plugin and its verification entries |
 | 2026-10-16 | Toolchain: Gradle 9.8.1, AGP 9.4.1 (built-in Kotlin), Kotlin 2.4.21, KSP 2.3.12, compileSdk 37, targetSdk 36, minSdk 33 | Latest stable versions verified against Maven/Gradle metadata. compileSdk 37 is required: core-ktx 1.19.1, Compose UI 1.12.1, lifecycle 2.11.0 and hilt 1.4.0 declare `minCompileSdk=37` in their AAR metadata. targetSdk stays 36 until Android 17 behaviour changes are reviewed; minSdk 33 because the Poco F5 shipped with Android 13 |
 | 2026-10-17 | Keep targetSdk 36 for now and accept lint's `OldTargetApi` warning | Owner's phone runs Android 15 (AQ3A.250226.002); targeting 37 means adopting Android 17 behaviour changes, which can wait until there's a reason |
 | 2026-10-17 | Don't install on the phone until there's something worth testing; first phone install is the Phase 1 model benchmark. Use the emulator meanwhile | Owner's call: the Phase 0 shell is mostly empty; the emulator covers UI checks without touching the daily phone |
@@ -137,7 +158,6 @@ M3/
 | No cloud backup | Privacy: data never leaves the phone (ADR 0004) | Planned password-protected encrypted export file |
 | Photo-based calorie estimates are approximate (often ±20–40%) | Portion size can't be measured reliably from one photo | Barcode or weighed entries (exact) |
 | Undo restores the whole previous config, and only the owner can undo | Simple, predictable history for Phase 0; agent tools don't exist yet | Per-change inverse operations and a permission-checked agent undo when agent tools arrive (Phase 1) |
-| UI customizations are lost when the app restarts | Persistence belongs in the encrypted DB, which arrives in Phase 1 (ADR 0004) | Phase 1: store `UiConfig` + history in SQLCipher |
 | Card options (`SetCardOption`) aren't validated | No card reads options yet | Per-card option schemas when real cards are built |
 | Accent-vs-background contrast isn't checked (only text pairs are) | Accent is used for fills and small marks, not body text | Add accent/ground check if accent is ever used for text |
 | Screenshots and screen recording of the app are impossible (black) | `FLAG_SECURE` protects body photos and health data | An owner setting to allow screenshots, if ever wanted |
@@ -149,10 +169,19 @@ M3/
 | "Peak RAM" in the benchmark is the app process's RAM; GPU memory isn't fully counted | Android exposes no simple per-app GPU memory figure | Read GPU memory from vendor tools during the phone run |
 | Importing a model from Downloads temporarily needs its size twice in free space (up to ~7.5 GB) | The app can't read the Downloads file in place (no storage permission, by design) and copies it into private storage | Claude can stream it over adb instead (needs the size once), then delete the Downloads copy |
 | Uninstalling M³ deletes the AI model; it must be copied again | App-private storage is removed with the app | — (intended: nothing is left behind) |
+| While the AI model is running, Android may close other apps that are idle in the background | The model needs about 1 GB of RAM (4 GB on CPU); Android frees memory by closing cached apps, which restart normally when opened. Seen during the benchmark (~10 cached apps) | Unload the model when M³ goes to the background (planned with the Coach chat); smaller future models |
+| The model sometimes picks an odd word or misreads the format (e.g. "doing more food, weights") | 4B-parameter on-device model | Coach answers are advice text only; numbers and plans come from Kotlin (ADR 0003); revisit with newer models |
+| The app lock is a screen gate; the database key is not tied to unlocking | Background work and the Coach (Phase 1c) need the DB without a prompt every time. Data at rest is still protected by SQLCipher + a Keystore key that can't leave the phone | A second, auth-bound key for the most sensitive data (e.g. photos), if wanted |
+| The database key stays in the app's memory while M³ runs | SQLCipher keeps the passphrase to open new connections (see decision log) | — (inherent to SQLCipher; the app's memory is private to it) |
+| The lock timeout is fixed at 5 minutes | Kept as a constant for Phase 1b | An owner setting under You (planned) |
+| M³ won't open on a phone without a screen lock | A lock that can't be enforced isn't a lock (decision log) | — (intended) |
+| If Android closes M³ in the middle of onboarding, the answers so far are lost and onboarding starts again | Onboarding is saved in one go at the end, so there's never a half-finished profile | Keep the draft in saved state if this ever bites |
+| If the Keystore key is lost (very rare, e.g. a broken system update), the data can't be opened | That's what makes the data unreadable off the phone (ADR 0004). M³ then shows an error and deletes nothing | The planned encrypted export file as a backup |
+| Leaving Profile or Training setup with Back drops unsaved changes without asking | Simple list editors for Phase 1b | An "unsaved changes" prompt if it turns out to be annoying |
+| While locked, the app's screens stay loaded in memory behind the lock layer (hidden, untouchable, not readable by accessibility) | Keeps half-finished edits and navigation when the 5-minute lock kicks in | — (intended) |
+| Release (minified) builds compile but weren't run on a device in Phase 1b | The phone gets debug builds (same key as the installed app); R8 rules for Tink/SQLCipher come from their own packages | Run the release build on the emulator before the first release install |
 
 ---
 
 ## License
 Source-available under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**. Anyone may download, read, run and modify the code for personal, research, hobby, educational or other noncommercial purposes. **Commercial use is not allowed** without a separate license from the copyright holder (contact via https://github.com/M7md-AR-H). Third-party fonts and libraries keep their own licenses.
-| While the AI model is running, Android may close other apps that are idle in the background | The model needs about 1 GB of RAM (4 GB on CPU); Android frees memory by closing cached apps, which restart normally when opened. Seen during the benchmark (~10 cached apps) | Unload the model when M³ goes to the background (planned with the Coach chat); smaller future models |
-| The model sometimes picks an odd word or misreads the format (e.g. "doing more food, weights") | 4B-parameter on-device model | Coach answers are advice text only; numbers and plans come from Kotlin (ADR 0003); revisit with newer models |
