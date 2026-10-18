@@ -1,71 +1,91 @@
-# HANDOFF — 2026-10-18 (session 4, Phase 1c-2 ready for review)
+# HANDOFF — 2026-10-18 (end of session 4)
 
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 
-## ▶ Next steps, in order
-1. **Owner decision:** review the PR "Phase 1c-2" (`feat/phase-1c-coach` → `main`) and approve the squash-merge. Don't merge without that.
-2. **Phone check. The owner has disconnected the phone; wait until they say it's back.** This covers 1c-1 and 1c-2 together.
-   1. Use USB `c84e26c7`, or the wireless mDNS serial if USB isn't present.
-   2. `./gradlew :app:assembleDebug`, then `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`. This upgrades in place and keeps the model and data. **The DB migrates v1 → v2 automatically**, tested on the emulator from an encrypted v1 DB.
-   3. The owner follows OWNER_TASKS "Try it yourself" for Phase 1c-1 and Phase 1c-2.
-   4. On the phone, check that the model loads on the **GPU**: the Coach status line reads "Running on this phone's GPU". Time the first and second answers.
-   5. Optionally delete the app's old benchmark cache `cache/llm`: `adb shell run-as com.m3.app rm -rf cache/llm`. It's the app's own file; the Coach now uses `no_backup/llm-cache`.
-   6. Force-stop the app, run `adb disconnect` and `adb kill-server`, then report what changed:
+## ▶ Start of the next session
+1. Do the normal session start: CLAUDE.md, docs/WORKING_RULES.md, this file, README roadmap + decision log, `git status`, `git log -5`. Give a time estimate first.
+2. **Phone check.** This is pending, and the owner decides when.
+   - **Only when the owner says the phone is connected.** Use USB `c84e26c7`, or the wireless mDNS serial `adb-c84e26c7-…._adb-tls-connect._tcp` if USB isn't present.
+   - It covers Phase 1c-1 and 1c-2 together. Neither has been on the phone yet; the phone still has the Phase 1b build.
+   1. `./gradlew :app:assembleDebug`, then `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`. This upgrades in place and keeps the model and data. The DB migrates v1 → v2 automatically, tested on the emulator from an encrypted v1 DB with data.
+   2. The owner follows OWNER_TASKS "Try it yourself — Phase 1c-1" and "— Phase 1c-2". Xiaomi blocks injected taps, so the owner taps; read the screen with `uiautomator dump /data/local/tmp/m3-ui.xml`, `cat` it, and `rm` it in the same command.
+   3. Check the Coach status line reads "Running on this phone's **GPU**". Time the first answer (includes the load) and the second.
+   4. Optional: delete the old benchmark cache with `adb -s <serial> shell run-as com.m3.app rm -rf cache/llm`. It's the app's own file; the Coach now uses `no_backup/llm-cache`.
+   5. Force-stop the app, run `adb disconnect` and `adb kill-server`, then report what changed:
       - The app was upgraded.
-      - New private files: DB tables (same `m3.db`), `no_backup/llm-cache/` (GPU cache, ~300 MB).
-3. **Phase 1c-3:** workout logging + focus mode + progressive overload (Kotlin), loads from the owner's kg lists. Give a time estimate first.
+      - New DB tables inside the same `m3.db`.
+      - `no_backup/llm-cache/` (GPU cache, ~300 MB).
+   6. Tick "Phone check" for 1c-1 and 1c-2 in the README. Fix anything the owner reports.
+3. **Phase 1c-3: workout logging, live focus mode, progressive overload.** See the next section. Give the owner an estimate before starting. A reasonable guess is 2–3 h, but re-estimate.
 
-## What was done this session (session 4)
-- **Phase 1b:** merged (PR #3), installed on the phone, owner onboarded. Feedback: the Coach should decide the split.
-- **Phase 1c-1:** merged (PR #4). ADR 0009, `:core:training` (101 exercises, `PlanGenerator`), Train tab, Today card.
-- **Phase 1c-2** on `feat/phase-1c-coach` (ADR 0010):
-  - **`:coach` module:** `CoachPrompt`, `CoachTools` (schemas, validator, relevance guard), `ReplyParser`.
-  - **App, `feature/coach`:** `CoachRuntime`, `CoachController`, `CoachViewModel`, `CoachScreen`.
-  - **Planner:** `PlanOverrides` and `PlanDiff`.
-  - **DB v2:** `chat_message`, `excluded_exercise`, and a DAO for `day_override`.
-  - **`LlmEngine`:** streaming plus safe cancellation (`cancelProcess`, then wait, then close).
-  - **Owner locks:** "Your plan" and "Your free days".
-  - **Prompt eval** (`app/src/androidTest/.../CoachPromptEval.kt`, emulator only): 5/8 → 10/10. See the README decision log for what changed.
-  - **Emulator end-to-end with the real model (CPU):**
-    - Chat streams, and a proposal card with the plan diff appears.
-    - Apply, Undo, two applies in a row, and Undo only on the latest all work.
-    - Stop resets at once with no crash, and the next answer works.
-    - The model unloads in the background.
-    - The v1→v2 migration test passes.
-  - **Sonnet review:** 9 actionable findings, all fixed. Unit tests: 110 pass; lint 0 errors.
+## Phase 1c-3 notes (not started)
+- **Logging:** a DB v3 migration (sessions, sets: exercise id, kg, reps/seconds, RPE optional, date). Log from Train/Today; a "focus mode" screen (inverted dark, per the decision log) for live sets with a rest timer.
+- **Progressive overload, in deterministic Kotlin (ADR 0003):**
+  - Per exercise *variant*: the exercise id plus the equipment used (ADR 0008: home and gym tracks stay separate).
+  - Loads are picked from the owner's dumbbell/kettlebell kg lists. Those lists are already stored in `EquipmentDetails.weightsKg`; the planner ignores them so far (README known limitation).
+- **Coach:** it should read the logged history facts. Keep the prompt budget (`CoachPrompt.PROMPT_CHARS`), and re-run the prompt eval after any prompt change (instructions below).
+- **Steps (1c-4):** phone step counter, then the Phase 1 "Try it yourself" list.
+
+## What was done in session 4 (2026-10-18)
+- **Phase 1b** (PR #3, merged; installed on the phone, owner onboarded):
+  - App lock.
+  - SQLCipher DB with a Keystore/Tink-wrapped key.
+  - Saved UI config.
+  - Onboarding.
+- **Phase 1c-1** (PR #4, merged), owner feedback "the Coach should decide the split" → ADR 0009:
+  - Availability per day.
+  - `:core:training`: 101 curated exercises and `PlanGenerator`.
+  - Train tab and Today card.
+- **Phase 1c-2** (PR #5, merged), ADR 0010:
+  - On-device Coach chat.
+  - `:coach` module: prompt, tool schemas, validator, relevance guard.
+  - Validated proposals with a plan diff → Apply / Not now → Undo.
+  - Owner locks "Your plan" / "Your free days".
+  - DB v2 (chat, excluded exercises).
+  - Model runtime (GPU+MTP → CPU, unload in the background, safe Stop).
+  - **Checks:**
+    - Prompt eval 5/8 → 10/10 (emulator, real model, test data).
+    - Emulator end-to-end chat/apply/undo/stop.
+    - 110 unit tests; 5 DB instrumented tests; lint 0 errors.
+    - Sonnet reviews done for each phase and their findings fixed.
 
 ## Current state
-- **Git:**
-  - `main` = `7da67df` (Phase 1c-1).
-  - `feat/phase-1c-coach` is pushed with an open PR, not merged.
+- **Git:** `main` includes Phases 0–1c-2 (PRs #1–#5, all squash-merged). No open PRs.
 - **Phone:**
-  - Phase 1b build.
-  - The owner unplugged it; adb is disconnected and the app force-stopped.
-- **PC:** emulator stopped, adb server stopped. The emulator has test data, PIN 1234, and a copy of the model in the app (emulator only).
+  - Phase 1b debug build installed; the owner has onboarded; Gemma 4 E4B present.
+  - App force-stopped, adb disconnected, phone unplugged by the owner.
+- **PC:** emulator stopped, adb server stopped. The emulator (`Medium_Phone_API_37.0`) has test data, PIN 1234, and a copy of the model inside the app. That's emulator only and fine.
 
 ## Not verified yet
-- **The final prompt version.** It adds "Tomorrow is …", one-line sanitised owner text and the whole-prompt budget. It wasn't re-scored with the eval, only used in three live emulator chats, all correct. Re-run the eval if the prompt changes again:
-  1. Push the model to `/data/local/tmp/m3-eval/model.litertlm` on the **emulator**, unlocked.
-  2. Run `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.m3.app.CoachPromptEval`.
+- **Coach speed and behaviour on the phone's GPU,** including the GPU cache write and Stop during prefill on the GPU.
+- **The last prompt tweaks** ("Tomorrow is …", one-line sanitised owner text, whole-prompt budget) weren't re-scored. Three live emulator chats with them were all correct. To re-run the eval:
+  1. On the **unlocked emulator**: `adb push <model> /data/local/tmp/m3-eval/model.litertlm` (Windows path, `MSYS_NO_PATHCONV=1`), then `chmod 644`.
+  2. `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.m3.app.CoachPromptEval`.
   3. Read `adb logcat -s M3Eval`.
-  4. Delete the model copy afterwards (the emulator disk is only 10 GB).
-- **GPU behaviour on the phone:** speed, the cache write, and cancelling mid-prefill on the GPU.
+  4. Then `rm -rf /data/local/tmp/m3-eval`. The emulator disk is only 10 GB. Note that this test run uninstalls the app, which wipes its emulator data.
 
 ## Open questions for the owner
-- Merge PR "Phase 1c-2"?
+- When should the phone check happen? It needs the phone connected.
 - Not urgent (OWNER_TASKS #5): before going public, keep the Gmail address in commit history, or switch to the GitHub noreply address?
 
-## Traps found (this session)
-- **LiteRT-LM:**
-  - Closing a conversation while the runtime is still working is a **native crash** (SIGSEGV). Always use `cancelProcess()` and wait for `onDone`/`onError`.
-  - A failed weight-cache write is a **native abort** (SIGABRT) that can't be caught; ensure free space, and use no cache on the CPU.
-  - `cacheDir` can be purged mid-write.
-  - Emulator GPU: about 7 minutes, then it fails; skip it.
+## Traps found
+- **LiteRT-LM native crashes** (they can't be caught, and they kill the app):
+  - Closing a conversation while the runtime still works crashes it (SIGSEGV). `LiteRtLmEngine.generate` therefore calls `cancelProcess()` and waits for `onDone`/`onError` before closing.
+  - A failed weight-cache write aborts it (SIGABRT). So: the GPU cache is used only with ≥ 1 GB free, and there's no cache on the CPU.
+  - `cacheDir` can be purged mid-write, so the cache lives in `no_backup/llm-cache`.
+- **The emulator GPU path** takes about 7 minutes and then fails, so emulators skip the GPU (`Build.HARDWARE` ranchu/goldfish).
 - **Emulator:**
-  - With a PIN set, the user's storage stays locked after boot until unlocked: the app's cacheDir isn't writable and uiautomator dumps fail. Unlock first (`input keyevent 82`, swipe, PIN 1234), and use `svc power stayon true` for long runs, then reset it.
+  - With a PIN, user storage stays locked after boot until unlocked: cacheDir isn't writable and uiautomator dumps fail. Unlock with `input keyevent 82`, swipe up, PIN 1234, Enter. For long runs use `svc power stayon true` and reset it afterwards.
   - Disk is 10 GB; two model copies plus caches fill it.
   - `connectedAndroidTest` on `:app` uninstalls the app, which wipes its data.
-- **Instrumented tests:** a JUnit test method must return `Unit` (`fun run(): Unit = runBlocking { … }`).
-- **uiautomator:** dump text is XML-escaped (`&amp;`).
-- **Bash/sed:** `sed` replacement text loses `\\` escapes, so put regexes in with the Edit tool. Line-number `sed` edits are fragile; prefer Edit.
-- **Older traps:** this file in git history (`git show ebfcf61:HANDOFF.md`, `git show 7da67df:HANDOFF.md`).
+  - Instrumented tests: always set `ANDROID_SERIAL=emulator-5554`.
+- **Tests:** a JUnit test method must return `Unit` (`fun run(): Unit = runBlocking { … }`).
+- **uiautomator:** dump text is XML-escaped (`&amp;`). Compose radio selection shows as `checked="true"` on the parent node. Re-dump before every tap, because positions shift.
+- **Bash and sed on this PC:**
+  - There's no Python.
+  - `sed` replacements lose `\\` escapes, and line-number edits are fragile. Use the Write/Edit tools for Kotlin source.
+  - `sed` turns CRLF files into LF; that's harmless.
+- **Gradle:** `--write-verification-metadata` may fail at the end on a Windows file lock; re-run it. `StateFlow.conflate()` is a compile error.
+- **SQLCipher:** the passphrase array must not be zeroed (decision log).
+- **Lock layer:** while locked, the app stays composed under the lock layer. Anything new that runs in the background or takes key input must respect `locked`.
+- **Older traps** (model copying over USB with resumable `exec-in`, Xiaomi, `JAVA_HOME`): `git show ebfcf61:HANDOFF.md`.
