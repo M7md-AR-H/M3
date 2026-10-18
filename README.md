@@ -102,6 +102,7 @@ M3/
 | 2026-10-18 | One native thread per engine; engine close blocks until freed before the next model loads | GPU contexts shouldn't be touched from several threads; two 3 GB models in memory at once could get the app killed |
 | 2026-10-18 | Release builds ship arm64 native code only; debug keeps x86_64 | The phone is arm64; x86_64 is only for the emulator. Saves ~26 MB. Lint's `ChromeOsAbiSupport` warning accepted |
 | 2026-10-18 | Benchmark prompts/answers may be logged (tag `M3Bench`) in debug builds only | They are fixed test prompts with no personal data; lets Claude read results over adb. User content is never logged |
+| 2026-10-18 | License: PolyForm Noncommercial 1.0.0 (`LICENSE`), with commercial licenses only by separate agreement with the owner | Owner wants the code public to view and download but no commercial use without compensating them. PolyForm NC is written for software (unlike CC BY-NC, which Creative Commons advises against for code); MIT/Apache/GPL all allow commercial use. Not OSI "open source" — it is source-available |
 | 2026-10-18 | Phase 1 built on a branch stacked on the Phase 0 branch | PR #1 awaits the owner's merge approval; work continues without merging |
 | 2026-10-16 | Toolchain: Gradle 9.8.1, AGP 9.4.1 (built-in Kotlin), Kotlin 2.4.21, KSP 2.3.12, compileSdk 37, targetSdk 36, minSdk 33 | Latest stable versions verified against Maven/Gradle metadata. compileSdk 37 is required: core-ktx 1.19.1, Compose UI 1.12.1, lifecycle 2.11.0 and hilt 1.4.0 declare `minCompileSdk=37` in their AAR metadata. targetSdk stays 36 until Android 17 behaviour changes are reviewed; minSdk 33 because the Poco F5 shipped with Android 13 |
 | 2026-10-17 | Keep targetSdk 36 for now and accept lint's `OldTargetApi` warning | Owner's phone runs Android 15 (AQ3A.250226.002); targeting 37 means adopting Android 17 behaviour changes, which can wait until there's a reason |
@@ -142,3 +143,8 @@ M3/
 | "Peak RAM" in the benchmark is the app process's RAM; GPU memory isn't fully counted | Android exposes no simple per-app GPU memory figure | Read GPU memory from vendor tools during the phone run |
 | Importing a model from Downloads temporarily needs its size twice in free space (up to ~7.5 GB) | The app can't read the Downloads file in place (no storage permission, by design) and copies it into private storage | Claude can stream it over adb instead (needs the size once), then delete the Downloads copy |
 | Uninstalling M³ deletes the AI model; it must be copied again | App-private storage is removed with the app | — (intended: nothing is left behind) |
+
+---
+
+## License
+Source-available under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**. Anyone may download, read, run and modify the code for personal, research, hobby, educational or other noncommercial purposes. **Commercial use is not allowed** without a separate license from the copyright holder (contact via https://github.com/M7md-AR-H). Third-party fonts and libraries keep their own licenses.

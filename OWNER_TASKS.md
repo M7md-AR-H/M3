@@ -64,6 +64,24 @@ Nothing else on the phone is touched, and no settings are changed. Uninstalling 
 
 ---
 
+## 5. Make the GitHub repo public (later, when you decide)
+- [ ] Done
+
+The license is already in place (`LICENSE`, PolyForm Noncommercial 1.0.0): anyone can view, download and use the code non-commercially; commercial use needs your permission. Before flipping the switch:
+
+1. **Decide about your email address.** Every commit so far records `m.abdurazak.h@gmail.com`, and that becomes visible once the repo is public. Your options:
+   - **Keep it.** Nothing to do.
+   - **Hide it for future commits.** On GitHub, go to **Settings → Emails**, tick **Keep my email addresses private**, and copy the `…@users.noreply.github.com` address shown. Tell Claude, who will set it for this repo. Old commits keep the Gmail address.
+   - **Hide it everywhere.** Claude rewrites the history to use the noreply address. This can't be undone and needs a force-push, so Claude only does it if you say so explicitly.
+2. Tell Claude "ready to go public". Claude re-checks the repo for secrets or personal data and confirms nothing private is in the history. The AI model files are never in the repo.
+3. To make it public yourself: open https://github.com/M7md-AR-H/M3 → **Settings** → scroll to **Danger Zone** → **Change repository visibility** → **Make public**, then confirm. (Claude can also do this with your OK.)
+
+**How to check it worked:** open https://github.com/M7md-AR-H/M3 in a private/incognito browser window. You should see the code and "PolyForm Noncommercial" as the license.
+
+**Note:** a license is a legal tool, and Claude isn't a lawyer. If someone uses the code commercially, enforcing it is up to you.
+
+---
+
 ## Try it yourself
 
 ### Phase 0 — app shell (Claude verified this on the emulator on 2026-10-17; run it on your phone once the app is first installed in Phase 1)
