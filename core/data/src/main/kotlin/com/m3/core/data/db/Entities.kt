@@ -74,7 +74,7 @@ data class LocationEquipmentEntity(
     val sortOrder: Int,
 )
 
-/** One row per weekday (1 = Monday … 7 = Sunday). A null location means rest. */
+/** One row per weekday (1 = Monday … 7 = Sunday): where the owner is free to train (ADR 0009). A null location means not free. */
 @Entity(
     tableName = "schedule_day",
     foreignKeys = [

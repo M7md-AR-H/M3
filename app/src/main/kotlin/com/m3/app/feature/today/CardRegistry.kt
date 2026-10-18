@@ -14,7 +14,7 @@ import com.m3.core.designsystem.theme.M3
 /** Maps each card type to its renderer. Types without an entry are skipped by [TodayScreen]. */
 val CardRegistry: Map<CardType, @Composable (CardPlacement) -> Unit> = mapOf(
     CardType.CHECK_IN to placeholderCard("Morning check-in"),
-    CardType.TODAY_WORKOUT to placeholderCard("Today's session"),
+    CardType.TODAY_WORKOUT to { _ -> TodayWorkoutCard() },
     CardType.FUEL_SUMMARY to placeholderCard("Fuel"),
     CardType.COACH_NOTE to placeholderCard("Editor's note"),
     CardType.HABITS to placeholderCard("Habits"),

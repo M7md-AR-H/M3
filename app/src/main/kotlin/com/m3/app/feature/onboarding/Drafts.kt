@@ -127,11 +127,11 @@ data class LocationDraft(
     }
 }
 
-/** Locations, equipment and the weekly schedule, as edited in onboarding and in You → Training setup. */
+/** Locations, equipment and weekly availability, as edited in onboarding and in You → Training setup. */
 data class SetupDraft(
     val locations: List<LocationDraft> = emptyList(),
     /** Location id per day; missing = rest. */
-    val schedule: Map<DayOfWeek, String> = emptyMap(),
+    val availability: Map<DayOfWeek, String> = emptyMap(),
 ) {
     fun hasLocationNamed(name: String) = locations.any { it.name.trim().equals(name.trim(), ignoreCase = true) }
 
@@ -150,25 +150,25 @@ data class SetupDraft(
     /** Removing a location turns its days into rest days. */
     fun removeLocation(id: String): SetupDraft = copy(
         locations = locations.filterNot { it.id == id },
-        schedule = schedule.filterValues { it != id },
+        availability = availability.filterValues { it != id },
     )
 
     fun updateLocation(id: String, transform: (LocationDraft) -> LocationDraft): SetupDraft =
         copy(locations = locations.map { if (it.id == id) transform(it) else it })
 
     fun setDay(day: DayOfWeek, locationId: String?): SetupDraft =
-        copy(schedule = if (locationId == null) schedule - day else schedule + (day to locationId))
+        copy(availability = if (locationId == null) availability - day else availability + (day to locationId))
 
     fun toSetup(): TrainingSetup? {
         val built = locations.map { it.toLocation() ?: return null }
         val ids = built.map { it.id }.toSet()
-        return TrainingSetup(built, schedule.filterValues { it in ids })
+        return TrainingSetup(built, availability.filterValues { it in ids })
     }
 
     companion object {
         fun from(setup: TrainingSetup) = SetupDraft(
             locations = setup.locations.map(LocationDraft::from),
-            schedule = setup.schedule.mapNotNull { (day, id) -> id?.let { day to it } }.toMap(),
+            availability = setup.availability.mapNotNull { (day, id) -> id?.let { day to it } }.toMap(),
         )
     }
 }

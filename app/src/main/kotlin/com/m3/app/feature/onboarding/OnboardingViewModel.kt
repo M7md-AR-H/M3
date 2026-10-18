@@ -14,6 +14,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+import com.m3.app.data.PlanRepository
+import com.m3.core.training.WeekPlan
 
 sealed interface OnboardingStep {
     data object Welcome : OnboardingStep
@@ -22,7 +27,7 @@ sealed interface OnboardingStep {
     data object Experience : OnboardingStep
     data object Locations : OnboardingStep
     data class Equipment(val locationId: String) : OnboardingStep
-    data object Schedule : OnboardingStep
+    data object Availability : OnboardingStep
     data object Injuries : OnboardingStep
     data object Done : OnboardingStep
 }
@@ -35,6 +40,8 @@ data class OnboardingState(
     val showErrors: Boolean = false,
     val saving: Boolean = false,
     val saveError: String? = null,
+    /** The Coach's week, shown on the last page. */
+    val preview: WeekPlan? = null,
 ) {
     /** One equipment step per location, so the list changes as locations are added or removed. */
     val steps: List<OnboardingStep>
@@ -45,7 +52,7 @@ data class OnboardingState(
             add(OnboardingStep.Experience)
             add(OnboardingStep.Locations)
             setup.locations.forEach { add(OnboardingStep.Equipment(it.id)) }
-            add(OnboardingStep.Schedule)
+            add(OnboardingStep.Availability)
             add(OnboardingStep.Injuries)
             add(OnboardingStep.Done)
         }
@@ -56,6 +63,7 @@ data class OnboardingState(
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val profiles: ProfileRepository,
+    private val plans: PlanRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(OnboardingState())
     val state: StateFlow<OnboardingState> = _state.asStateFlow()
@@ -87,15 +95,39 @@ class OnboardingViewModel @Inject constructor(
         _state.update { it.copy(setup = it.setup.setDay(day, locationId)) }
 
     /** Moves on if the current step is complete; otherwise shows what's missing. */
-    fun next() = _state.update { state ->
-        if (stepError(state) == null) {
-            state.copy(index = (state.index + 1).coerceAtMost(state.steps.lastIndex), showErrors = false)
-        } else {
-            state.copy(showErrors = true)
+    fun next() {
+        _state.update { state ->
+            if (stepError(state) == null) {
+                state.copy(index = (state.index + 1).coerceAtMost(state.steps.lastIndex), showErrors = false)
+            } else {
+                state.copy(showErrors = true)
+            }
+        }
+        if (_state.value.step == OnboardingStep.Done) previewPlan()
+    }
+
+    /** The Coach's split for the summary page, from what's been entered (ADR 0009). */
+    private var previewJob: Job? = null
+
+    private fun previewPlan() {
+        previewJob?.cancel()
+        _state.update { it.copy(preview = null) }
+        val state = _state.value
+        val setup = state.setup.toSetup() ?: return
+        val profile = state.profile.toProfile(currentYear)
+        previewJob = viewModelScope.launch(Dispatchers.Default) {
+            val plan = plans.preview(profile, setup)
+            ensureActive()
+            _state.update { it.copy(preview = plan) }
         }
     }
 
-    fun back() = _state.update { it.copy(index = (it.index - 1).coerceAtLeast(0), showErrors = false, saveError = null) }
+    fun back() {
+        previewJob?.cancel()
+        _state.update {
+            it.copy(index = (it.index - 1).coerceAtLeast(0), showErrors = false, saveError = null, preview = null)
+        }
+    }
 
     /** Why "Next" can't continue from the current step, or null if it can. */
     fun stepError(state: OnboardingState = _state.value): String? = when (val step = state.step) {
@@ -109,8 +141,9 @@ class OnboardingViewModel @Inject constructor(
             } else {
                 "Fix the weight list above"
             }
+        OnboardingStep.Availability -> if (state.setup.availability.isEmpty()) "Pick at least one day you're free" else null
         OnboardingStep.Injuries -> state.profile.injuriesError
-        OnboardingStep.Welcome, OnboardingStep.Schedule, OnboardingStep.Done -> null
+        OnboardingStep.Welcome, OnboardingStep.Done -> null
     }
 
     /** Saves everything in one transaction. The app then leaves onboarding by itself. */

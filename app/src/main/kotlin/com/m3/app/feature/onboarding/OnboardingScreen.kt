@@ -26,6 +26,7 @@ import com.m3.core.designsystem.component.M3OutlineButton
 import com.m3.core.designsystem.component.Masthead
 import com.m3.core.designsystem.theme.M3
 import com.m3.core.model.Units
+import com.m3.app.feature.train.PlanText
 import java.time.DayOfWeek
 import java.time.Year
 
@@ -117,7 +118,7 @@ private fun StepContent(step: OnboardingStep, state: OnboardingState, viewModel:
         )
         is OnboardingStep.Equipment -> state.setup.locations.firstOrNull { it.id == step.locationId }
             ?.let { EquipmentSection(it, viewModel::updateLocation) }
-        OnboardingStep.Schedule -> ScheduleSection(state.setup, viewModel::setDay)
+        OnboardingStep.Availability -> AvailabilitySection(state.setup, viewModel::setDay)
         OnboardingStep.Injuries -> InjuriesSection(state.profile, viewModel::updateProfile)
         OnboardingStep.Done -> Summary(state)
     }
@@ -145,14 +146,25 @@ private fun Summary(state: OnboardingState) {
         )
     }
     M3Card {
-        Kicker(text = "Training week")
-        DayOfWeek.entries.forEach { day ->
-            val location = state.setup.schedule[day]?.let { id -> state.setup.locations.firstOrNull { it.id == id } }
+        Kicker(text = "Your coach's week")
+        val plan = state.preview
+        if (plan == null) {
+            Text(text = "Planning…", style = M3.typography.body, color = M3.colors.muted)
+        } else {
             Text(
-                text = "${day.displayName}: ${location?.name ?: "Rest"}",
-                style = M3.typography.body,
-                color = M3.colors.ink,
+                text = PlanText.summary(plan, profile.goal, profile.experience),
+                style = M3.typography.bodySmall,
+                color = M3.colors.muted,
             )
+            DayOfWeek.entries.forEach { day ->
+                val session = plan.sessionOn(day)
+                Text(
+                    text = "${day.displayName}: " +
+                        (session?.let { "${it.type.displayName} · ${it.locationName}" } ?: "Rest"),
+                    style = M3.typography.body,
+                    color = if (session == null) M3.colors.muted else M3.colors.ink,
+                )
+            }
         }
     }
     Text(
@@ -170,7 +182,7 @@ private fun title(step: OnboardingStep, state: OnboardingState): String = when (
     OnboardingStep.Locations -> "Where you train"
     is OnboardingStep.Equipment ->
         "At ${state.setup.locations.firstOrNull { it.id == step.locationId }?.name ?: "this place"}"
-    OnboardingStep.Schedule -> "Your week"
+    OnboardingStep.Availability -> "When can you train?"
     OnboardingStep.Injuries -> "Anything to work around?"
     OnboardingStep.Done -> "All set"
 }
@@ -184,6 +196,6 @@ private fun intro(step: OnboardingStep): String? = when (step) {
     OnboardingStep.Experience -> "So the plan starts at the right level."
     OnboardingStep.Locations -> "Pick the places you train. Each gets its own equipment list."
     is OnboardingStep.Equipment -> "Tick what's available. The Coach only plans exercises you can actually do here."
-    OnboardingStep.Schedule -> "Where do you train on each day? Rest days are fine."
+    OnboardingStep.Availability -> "For each day, pick where you could train, or Not free. Your coach decides which of those days to train and which to rest."
     OnboardingStep.Injuries, OnboardingStep.Done -> null
 }

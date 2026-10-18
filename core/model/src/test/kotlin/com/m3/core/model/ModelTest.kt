@@ -93,7 +93,7 @@ class TrainingSetupValidatorTest {
     }
 
     @Test
-    fun `catches duplicates, bad weights and unknown scheduled locations`() {
+    fun `catches duplicates, bad weights and unknown available locations`() {
         val bad = gym.copy(
             equipment = listOf(
                 EquipmentItem.Catalog(EquipmentKind.BARBELL),
@@ -109,7 +109,7 @@ class TrainingSetupValidatorTest {
         assertTrue(SetupError.BadWeights("gym", EquipmentKind.FLAT_BENCH) in errors)
         assertTrue(SetupError.BadWeights("gym", EquipmentKind.KETTLEBELLS) in errors)
         assertTrue(SetupError.DuplicateLocationName("Gym") in errors)
-        assertTrue(SetupError.UnknownScheduledLocation(DayOfWeek.FRIDAY) in errors)
+        assertTrue(SetupError.UnknownAvailableLocation(DayOfWeek.FRIDAY) in errors)
     }
 
     @Test

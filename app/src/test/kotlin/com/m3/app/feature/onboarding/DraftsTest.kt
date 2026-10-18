@@ -43,12 +43,12 @@ class DraftsTest {
     }
 
     @Test
-    fun `adding and removing locations keeps the schedule consistent`() {
+    fun `adding and removing locations keeps availability consistent`() {
         var setup = SetupDraft().addLocation("Gym", "g").addLocation(" gym ", "dup").addLocation("Park", "p")
         assertEquals(listOf("g", "p"), setup.locations.map { it.id })
         assertNotNull(setup.addLocationError("GYM"))
         setup = setup.setDay(DayOfWeek.MONDAY, "g").setDay(DayOfWeek.TUESDAY, "p").removeLocation("g")
-        assertEquals(mapOf(DayOfWeek.TUESDAY to "p"), setup.schedule)
+        assertEquals(mapOf(DayOfWeek.TUESDAY to "p"), setup.availability)
     }
 
     @Test
