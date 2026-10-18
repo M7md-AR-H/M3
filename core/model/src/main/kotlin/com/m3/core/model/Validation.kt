@@ -37,7 +37,7 @@ sealed interface SetupError {
     data class TooManyCustomItems(val locationId: String) : SetupError
     data class BadCustomName(val locationId: String) : SetupError
     data class BadWeights(val locationId: String, val kind: EquipmentKind) : SetupError
-    data class UnknownScheduledLocation(val day: DayOfWeek) : SetupError
+    data class UnknownAvailableLocation(val day: DayOfWeek) : SetupError
 }
 
 object ProfileValidator {
@@ -64,8 +64,8 @@ object TrainingSetupValidator {
             .forEach { (_, same) -> add(SetupError.DuplicateLocationName(same.first().name.trim())) }
         setup.locations.forEach { validateLocation(it) }
         val ids = setup.locations.map { it.id }.toSet()
-        setup.schedule.forEach { (day, id) ->
-            if (id != null && id !in ids) add(SetupError.UnknownScheduledLocation(day))
+        setup.availability.forEach { (day, id) ->
+            if (id != null && id !in ids) add(SetupError.UnknownAvailableLocation(day))
         }
     }
 

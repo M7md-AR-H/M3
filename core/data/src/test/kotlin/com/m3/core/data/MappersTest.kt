@@ -86,15 +86,15 @@ class MappersTest {
                 ),
                 TrainingLocation("h", "Home", emptyList()),
             ),
-            schedule = mapOf(DayOfWeek.MONDAY to "g", DayOfWeek.SATURDAY to "h"),
+            availability = mapOf(DayOfWeek.MONDAY to "g", DayOfWeek.SATURDAY to "h"),
         )
         val rows = Mappers.toRows(setup)
         assertEquals(7, rows.schedule.size)
         assertNull(rows.equipment.first { it.kind == "SQUAT_RACK" }.detailsJson)
         val back = Mappers.toSetup(rows)
         assertEquals(setup.locations, back.locations)
-        assertEquals("g", back.schedule[DayOfWeek.MONDAY])
-        assertNull(back.schedule[DayOfWeek.TUESDAY])
+        assertEquals("g", back.availability[DayOfWeek.MONDAY])
+        assertNull(back.availability[DayOfWeek.TUESDAY])
     }
 
     @Test
@@ -109,6 +109,6 @@ class MappersTest {
         )
         val setup = Mappers.toSetup(rows)
         assertEquals(listOf(EquipmentItem.Catalog(EquipmentKind.BARBELL)), setup.locations.single().equipment)
-        assertEquals(mapOf(DayOfWeek.MONDAY to null), setup.schedule)
+        assertEquals(mapOf(DayOfWeek.MONDAY to null), setup.availability)
     }
 }

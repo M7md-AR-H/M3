@@ -149,7 +149,7 @@ internal object Mappers {
                 }
             }
         }
-        val schedule = DayOfWeek.entries.map { day -> ScheduleDayEntity(day.value, setup.schedule[day]) }
+        val schedule = DayOfWeek.entries.map { day -> ScheduleDayEntity(day.value, setup.availability[day]) }
         return SetupRows(locations, equipment, schedule)
     }
 
@@ -165,13 +165,13 @@ internal object Mappers {
             )
         }
         val ids = locations.map { it.id }.toSet()
-        val schedule = rows.schedule
+        val availability = rows.schedule
             .mapNotNull { row ->
                 val day = DayOfWeek.entries.firstOrNull { it.value == row.dayOfWeek } ?: return@mapNotNull null
                 day to row.locationId?.takeIf { it in ids }
             }
             .toMap()
-        return TrainingSetup(locations, schedule)
+        return TrainingSetup(locations, availability)
     }
 
     /** Unknown kinds (from a newer build) are skipped rather than guessed. */

@@ -109,7 +109,7 @@ class TrainingSetupValidatorTest {
         assertTrue(SetupError.BadWeights("gym", EquipmentKind.FLAT_BENCH) in errors)
         assertTrue(SetupError.BadWeights("gym", EquipmentKind.KETTLEBELLS) in errors)
         assertTrue(SetupError.DuplicateLocationName("Gym") in errors)
-        assertTrue(SetupError.UnknownScheduledLocation(DayOfWeek.FRIDAY) in errors)
+        assertTrue(SetupError.UnknownAvailableLocation(DayOfWeek.FRIDAY) in errors)
     }
 
     @Test

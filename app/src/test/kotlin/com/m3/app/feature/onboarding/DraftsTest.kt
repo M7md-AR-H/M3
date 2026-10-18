@@ -48,7 +48,7 @@ class DraftsTest {
         assertEquals(listOf("g", "p"), setup.locations.map { it.id })
         assertNotNull(setup.addLocationError("GYM"))
         setup = setup.setDay(DayOfWeek.MONDAY, "g").setDay(DayOfWeek.TUESDAY, "p").removeLocation("g")
-        assertEquals(mapOf(DayOfWeek.TUESDAY to "p"), setup.schedule)
+        assertEquals(mapOf(DayOfWeek.TUESDAY to "p"), setup.availability)
     }
 
     @Test

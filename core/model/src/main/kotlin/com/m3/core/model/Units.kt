@@ -71,3 +71,17 @@ object Units {
     private val WHOLE = Regex("""\d{1,4}""")
     private val RANGE = Regex("""(\d[\d.,]*)\s*-\s*(\d[\d.,]*)(?:\s*/\s*(\d[\d.,]*))?""")
 }
+
+/** Time spans for workouts (sets, holds, rests). Seconds under two minutes, otherwise minutes. */
+object Durations {
+    fun seconds(value: Int): String = "$value s"
+
+    fun minutes(value: Int): String = "$value min"
+
+    fun rest(seconds: Int): String = when {
+        seconds <= 0 -> "no rest"
+        seconds < 120 -> seconds(seconds)
+        seconds % 60 == 0 -> minutes(seconds / 60)
+        else -> "${Units.number(seconds / 60.0)} min"
+    }
+}

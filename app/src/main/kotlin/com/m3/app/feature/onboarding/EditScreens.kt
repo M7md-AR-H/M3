@@ -59,8 +59,8 @@ fun TrainingSetupScreen(onBack: () -> Unit, viewModel: TrainingSetupViewModel = 
             SectionHeader(title = "Equipment at ${location.name}", modifier = Modifier.padding(top = M3.spacing.l))
             EquipmentSection(location, viewModel::updateLocation)
         }
-        SectionHeader(title = "Weekly schedule", modifier = Modifier.padding(top = M3.spacing.l))
-        ScheduleSection(draft, viewModel::setDay)
+        SectionHeader(title = "When you can train", modifier = Modifier.padding(top = M3.spacing.l))
+        AvailabilitySection(draft, viewModel::setDay)
     }
 }
 

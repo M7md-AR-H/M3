@@ -259,10 +259,10 @@ fun EquipmentSection(location: LocationDraft, onChange: (LocationDraft) -> Unit)
     }
 }
 
-/** For each weekday: Rest or one of the locations. */
+/** For each weekday: not free, or the place the owner could train. The Coach decides which free days to train (ADR 0009). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ScheduleSection(draft: SetupDraft, onSetDay: (DayOfWeek, String?) -> Unit) {
+fun AvailabilitySection(draft: SetupDraft, onSetDay: (DayOfWeek, String?) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.m)) {
         DayOfWeek.entries.forEach { day ->
             Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
@@ -272,8 +272,8 @@ fun ScheduleSection(draft: SetupDraft, onSetDay: (DayOfWeek, String?) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(M3.spacing.s),
                     verticalArrangement = Arrangement.spacedBy(M3.spacing.s),
                 ) {
-                    val current = draft.schedule[day]
-                    M3Choice(label = "Rest", selected = current == null, onClick = { onSetDay(day, null) })
+                    val current = draft.availability[day]
+                    M3Choice(label = "Not free", selected = current == null, onClick = { onSetDay(day, null) })
                     draft.locations.forEach { location ->
                         M3Choice(
                             label = location.name,

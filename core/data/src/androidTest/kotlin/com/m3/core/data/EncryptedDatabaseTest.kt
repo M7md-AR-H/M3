@@ -59,7 +59,7 @@ class EncryptedDatabaseTest {
             ),
             TrainingLocation("h", "Home", listOf(EquipmentItem.Custom("Backpack"))),
         ),
-        schedule = mapOf(DayOfWeek.MONDAY to "g", DayOfWeek.SATURDAY to "h"),
+        availability = mapOf(DayOfWeek.MONDAY to "g", DayOfWeek.SATURDAY to "h"),
     )
 
     @Before
@@ -119,14 +119,14 @@ class EncryptedDatabaseTest {
         assertEquals(profile, profiles.observe().first())
         val saved = setups.observe().first()
         assertEquals(setup.locations, saved.locations)
-        assertEquals("g", saved.schedule[DayOfWeek.MONDAY])
+        assertEquals("g", saved.availability[DayOfWeek.MONDAY])
 
         val homeOnly = TrainingSetup(listOf(setup.locations[1]), mapOf(DayOfWeek.SUNDAY to "h"))
         setups.replace(homeOnly)
         val replaced = setups.observe().first()
         assertEquals(homeOnly.locations, replaced.locations)
-        assertNull(replaced.schedule[DayOfWeek.MONDAY])
-        assertEquals("h", replaced.schedule[DayOfWeek.SUNDAY])
+        assertNull(replaced.availability[DayOfWeek.MONDAY])
+        assertEquals("h", replaced.availability[DayOfWeek.SUNDAY])
     }
 
     @Test
