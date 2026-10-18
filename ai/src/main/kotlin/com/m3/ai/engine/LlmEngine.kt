@@ -41,5 +41,7 @@ interface LlmEngine : AutoCloseable {
         imagePng: ByteArray? = null,
         systemInstruction: String? = null,
         maxOutputTokens: Int = 512,
+        /** Called with each new piece of text as it is generated, in the caller's coroutine. */
+        onText: ((String) -> Unit)? = null,
     ): GenerationResult
 }

@@ -1,0 +1,113 @@
+package com.m3.app
+
+import android.util.Log
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.m3.ai.engine.LiteRtLmEngine
+import com.m3.ai.engine.LlmBackend
+import com.m3.ai.engine.LlmLoadConfig
+import com.m3.coach.CoachFacts
+import com.m3.coach.CoachPrompt
+import com.m3.coach.CoachTools
+import com.m3.coach.ReplyParser
+import com.m3.coach.ToolContext
+import com.m3.coach.ToolResult
+import com.m3.core.designsystem.config.ThemeMode
+import com.m3.core.designsystem.config.UiConfig
+import com.m3.core.model.EquipmentItem
+import com.m3.core.model.EquipmentKind
+import com.m3.core.model.Experience
+import com.m3.core.model.Goal
+import com.m3.core.model.Profile
+import com.m3.core.model.Sex
+import com.m3.core.model.TrainingLocation
+import com.m3.core.model.TrainingSetup
+import com.m3.core.training.ExerciseCatalog
+import com.m3.core.training.PlanGenerator
+import java.io.File
+import java.time.DayOfWeek
+import java.time.LocalDate
+import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/**
+ * Prompt eval for the Coach (docs/WORKING_RULES.md: prompt wording is decided on measurements).
+ * Emulator only, with a copy of the public model file at /data/local/tmp/m3-eval/model.litertlm.
+ * Uses made-up test data only; results go to logcat under tag M3Eval (fixed prompts, no personal data).
+ * Skipped when the model file isn't there, so normal test runs never need it.
+ */
+@RunWith(AndroidJUnit4::class)
+class CoachPromptEval {
+    private data class Case(val message: String, val expectTool: String?)
+
+    private val cases = listOf(
+        Case("Today I only have dumbbells and a pull-up bar.", "day_equipment"),
+        Case("My left knee hurts when I do walking lunges.", "avoid_exercise"),
+        Case("Why is Wednesday a rest day?", null),
+        Case("Switch the app to dark mode please.", "theme"),
+        Case("I can't train on Thursday any more.", "set_day"),
+        Case("How many sets of bench press do I do on Monday?", null),
+        Case("Hide the habits card.", "card"),
+        Case("What should I eat after training?", null),
+        Case("Can you make my plan harder?", null),
+        Case("Tomorrow I'm stuck in a hotel room with no equipment.", "day_equipment"),
+    )
+
+    @Test
+    fun run(): Unit = runBlocking {
+        val model = File("/data/local/tmp/m3-eval/model.litertlm")
+        assumeTrue("no eval model", model.canRead())
+        val catalog = ExerciseCatalog.bundled()
+        val gym = TrainingLocation("g", "Gym", EquipmentKind.entries.map { EquipmentItem.Catalog(it) })
+        val home = TrainingLocation("h", "Home", listOf(EquipmentItem.Catalog(EquipmentKind.DUMBBELLS)))
+        val setup = TrainingSetup(
+            listOf(gym, home),
+            mapOf(DayOfWeek.MONDAY to "g", DayOfWeek.TUESDAY to "g", DayOfWeek.THURSDAY to "g", DayOfWeek.SATURDAY to "h"),
+        )
+        val profile = Profile(1990, Sex.FEMALE, 170, 65.0, Goal.BUILD_MUSCLE, Experience.SOME, "")
+        // A fixed training day (Monday, gym) so results don't depend on when the eval runs.
+        val today = LocalDate.of(2026, 10, 19)
+        val facts = CoachFacts(
+            today = today,
+            profile = profile,
+            setup = setup,
+            plan = PlanGenerator(catalog).generate(profile, setup),
+            avoided = emptyMap(),
+            dayEquipment = emptyMap(),
+            themeMode = ThemeMode.LIGHT,
+            cards = UiConfig().todayCards,
+            locks = emptySet(),
+        )
+        val system = CoachPrompt.system(facts)
+        Log.i(TAG, "system prompt chars=${system.length}")
+        val cache = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "llm-eval").apply { mkdirs() }
+        LiteRtLmEngine().use { engine ->
+            val loadSeconds = engine.load(LlmLoadConfig(model, LlmBackend.CPU, speculativeDecoding = false, maxTokens = 4096, cacheDir = cache))
+            Log.i(TAG, "loaded in ${"%.1f".format(loadSeconds)} s")
+            var passed = 0
+            cases.forEachIndexed { index, case ->
+                val result = engine.generate(CoachPrompt.turn(emptyList(), case.message), systemInstruction = system, maxOutputTokens = 400)
+                val parsed = ReplyParser.parse(result.text)
+                val tool = parsed.toolJson?.let { CoachTools.validate(it, ToolContext(today, setup, catalog)) }
+                    ?.takeUnless { it == ToolResult.Ignored || (it is ToolResult.Valid && !CoachTools.relevantTo(it.action, case.message)) }
+                val toolName = (tool as? ToolResult.Valid)?.action?.let { it::class.simpleName }
+                val ok = when (case.expectTool) {
+                    null -> tool == null
+                    else -> tool is ToolResult.Valid && parsed.toolJson.orEmpty().contains("\"${case.expectTool}\"")
+                }
+                if (ok) passed++
+                Log.i(TAG, "CASE ${index + 1} ${if (ok) "PASS" else "FAIL"} expect=${case.expectTool} got=$toolName " +
+                    "invalid=${(tool as? ToolResult.Invalid)?.message} tps=${result.stats?.decodeTokensPerSecond}")
+                Log.i(TAG, "  Q: ${case.message}")
+                result.text.lines().forEach { Log.i(TAG, "  A: $it") }
+            }
+            Log.i(TAG, "SCORE $passed/${cases.size}")
+        }
+    }
+
+    private companion object {
+        const val TAG = "M3Eval"
+    }
+}

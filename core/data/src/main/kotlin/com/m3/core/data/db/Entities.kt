@@ -113,3 +113,30 @@ data class AppStateEntity(
 
 const val SINGLE_ROW_ID = 1
 const val CUSTOM_KIND = "CUSTOM"
+
+/** One chat message (ADR 0010). Personal data: encrypted with the rest of the DB, never logged. */
+@Entity(tableName = "chat_message")
+data class ChatMessageEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** "owner" or "coach". */
+    val role: String,
+    val text: String,
+    val createdAt: Long,
+    /** The model's tool JSON, re-validated before it's applied. Null = no proposal. */
+    val proposalJson: String? = null,
+    /** PENDING, APPLIED, DISMISSED, UNDONE, REJECTED or BLOCKED. */
+    val proposalStatus: String? = null,
+    /** What the proposal does, in words, and the plan changes it causes (one per line). */
+    val proposalSummary: String? = null,
+    val proposalDetails: String? = null,
+    /** How to undo an applied proposal (app-defined JSON). */
+    val undoJson: String? = null,
+)
+
+/** An exercise the planner must not use, usually because it hurts (ADR 0010). */
+@Entity(tableName = "excluded_exercise")
+data class ExcludedExerciseEntity(
+    @PrimaryKey val exerciseId: String,
+    val reason: String,
+    val createdAt: Long,
+)

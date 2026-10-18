@@ -2,6 +2,8 @@ package com.m3.app.di
 
 import android.content.Context
 import android.os.SystemClock
+import com.m3.core.data.ChatRepository
+import com.m3.core.data.PlanOverridesRepository
 import com.m3.core.data.ProfileRepository
 import com.m3.core.data.TrainingSetupRepository
 import com.m3.core.data.UiConfigRepository
@@ -64,4 +66,12 @@ object DataModule {
     @Provides
     @Singleton
     fun provideTrainingSetupRepository(opener: DatabaseOpener) = TrainingSetupRepository(opener)
+
+    @Provides
+    @Singleton
+    fun provideChatRepository(opener: DatabaseOpener) = ChatRepository(opener)
+
+    @Provides
+    @Singleton
+    fun providePlanOverridesRepository(opener: DatabaseOpener) = PlanOverridesRepository(opener)
 }

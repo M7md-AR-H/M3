@@ -69,9 +69,16 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 - [x] Sonnet review fixes: strength rep ranges only for heavy lifts (bodyweight/single-side stay moderate, beginners 8–12); swings never a main lift; high-intensity conditioning as 20–30 s rounds; slow negatives 3–5 reps; barbell work needs plates, bench/overhead press need a rack; adjustable bench counts as flat; ring dips split out as advanced; main slots prefer heavy lifts for strength and avoid too-easy picks; onboarding preview race fixed; "today" rolls over at midnight; collapsed cards say when something isn't possible
 - [ ] Phone install + owner's check (needs the USB cable)
 
-**1c-2 — Coach chat**
-- [ ] Coach chat: streaming answers, labelled specialists, scoped schema-validated tools (incl. `ui.*`); load E4B on GPU + MTP, CPU fallback, unload in background
-- [ ] Equipment adaptation + Coach tools (ADR 0008): day/session/week overrides ("only X and Y today"), substitutions by movement pattern + muscles, diff → apply/undo, owner locks; the Coach reads injuries and proposes swaps
+**1c-2 — Coach chat (branch `feat/phase-1c-coach`, [ADR 0010](docs/adr/0010-coach-chat-tools.md))**
+- [x] Model runtime: E4B loads on the first message (GPU + MTP, CPU fallback), one answer at a time, stopped and unloaded when the app goes to the background
+- [x] Streaming chat on the COACH tab; history in the encrypted DB (v2, Room auto-migration from v1)
+- [x] `:coach` module: prompt with the app's facts (profile, places, free days, this week's plan with ids, avoided exercises, look, locks), fixed tool schemas, reply parser, validator (equipment names + synonyms, catalog exercises, own places, this week's dates), relevance guard
+- [x] Tools: equipment for one day ("today I only have X and Y"), avoid/allow an exercise (injuries), change a free day, theme, Today cards; ask first (proposal card with plan diff → Apply / Not now), re-validated on Apply, Undo, owner locks "Your plan" / "Your free days"
+- [x] Planner overrides: one-day equipment (never moves days or ripples into other days), excluded exercises
+- [x] Prompt eval on the emulator (real model, test data): 5/8 → 8/10 → 8/10 → see decision log
+- [ ] Sonnet review fixes
+- [ ] Phone check: real chat on the GPU (needs the phone)
+- Later: change a place's saved equipment via the Coach, labelled specialists
 
 **1c-3 — Logging and progression**
 - [ ] Workout logging + live "focus mode" screen

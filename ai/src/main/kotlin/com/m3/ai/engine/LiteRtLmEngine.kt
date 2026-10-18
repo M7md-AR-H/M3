@@ -73,6 +73,7 @@ class LiteRtLmEngine : LlmEngine {
         imagePng: ByteArray?,
         systemInstruction: String?,
         maxOutputTokens: Int,
+        onText: ((String) -> Unit)?,
     ): GenerationResult {
         // Not cancellable: a conversation created here must always reach the close in `finally`.
         val conversation = withContext(NonCancellable + dispatcher) {
@@ -95,7 +96,10 @@ class LiteRtLmEngine : LlmEngine {
             val text = StringBuilder()
             // The Flow cancels the native generation if this coroutine is cancelled.
             conversation.sendMessageAsync(message).flowOn(dispatcher).collect { chunk ->
-                chunk.contents.contents.filterIsInstance<Content.Text>().forEach { text.append(it.text) }
+                chunk.contents.contents.filterIsInstance<Content.Text>().forEach {
+                    text.append(it.text)
+                    onText?.invoke(it.text)
+                }
             }
             val stats = withContext(dispatcher) {
                 runCatching { conversation.getBenchmarkInfo() }.getOrNull()?.let { info ->

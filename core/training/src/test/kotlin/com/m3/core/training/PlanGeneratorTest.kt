@@ -202,4 +202,43 @@ class PlanGeneratorTest {
             catalog[id]!!.equipment.filter { EquipmentKind.BARBELL in it }.forEach { assertTrue(id, EquipmentKind.SQUAT_RACK in it) }
         }
     }
+
+    @Test
+    fun `a day override changes only that day's exercises and the diff says so`() {
+        val p = profile(Goal.BUILD_MUSCLE, Experience.SOME)
+        val setup = TrainingSetup(listOf(gym), mapOf(MONDAY to "gym", TUESDAY to "gym", THURSDAY to "gym", SATURDAY to "gym"))
+        val before = generator.generate(p, setup)
+        val onlyDumbbells = PlanOverrides(dayInventory = mapOf(MONDAY to setOf(EquipmentKind.DUMBBELLS)))
+        val after = generator.generate(p, setup, onlyDumbbells)
+        assertEquals(before.sessions.map { it.day }, after.sessions.map { it.day })
+        after.sessionOn(MONDAY)!!.exercises.forEach { assertTrue(it.equipment.all { k -> k == EquipmentKind.DUMBBELLS }) }
+        assertEquals(setOf(MONDAY), after.overriddenDays)
+        val diff = PlanDiff.describe(before, after)
+        assertTrue(diff.isNotEmpty())
+        assertTrue(diff.all { it.startsWith("Monday") })
+        assertTrue(PlanDiff.describe(before, before).isEmpty())
+        // Exercises that the day's new equipment still supports stay the same.
+        val stillPossible = before.sessionOn(MONDAY)!!.exercises.filter { it.equipment.all { k -> k == EquipmentKind.DUMBBELLS } }.map { it.exercise.id }
+        assertTrue(after.sessionOn(MONDAY)!!.exercises.map { it.exercise.id }.containsAll(stillPossible))
+    }
+
+    @Test
+    fun `excluded exercises are never planned`() {
+        val p = profile(Goal.BUILD_MUSCLE, Experience.SOME)
+        val setup = TrainingSetup(listOf(gym), all("gym"))
+        val before = generator.generate(p, setup)
+        val used = before.sessions.flatMap { it.exercises }.map { it.exercise.id }.toSet()
+        val after = generator.generate(p, setup, PlanOverrides(excludedExercises = used))
+        assertTrue(after.sessions.flatMap { it.exercises }.none { it.exercise.id in used })
+    }
+
+    @Test
+    fun `availability changes show as new sessions or rest days`() {
+        val p = profile(Goal.GENERAL_FITNESS, Experience.NEW)
+        val before = generator.generate(p, TrainingSetup(listOf(gym), mapOf(MONDAY to "gym", WEDNESDAY to "gym", FRIDAY to "gym")))
+        val after = generator.generate(p, TrainingSetup(listOf(gym), mapOf(MONDAY to "gym", WEDNESDAY to "gym", SATURDAY to "gym")))
+        val diff = PlanDiff.describe(before, after)
+        assertTrue(diff.any { it.startsWith("Friday: now a rest day") })
+        assertTrue(diff.any { it.startsWith("Saturday: now") })
+    }
 }

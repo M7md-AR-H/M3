@@ -1,7 +1,11 @@
 package com.m3.app
 
 import com.m3.app.di.ApplicationScope
+import com.m3.core.data.PlanOverridesRepository
 import com.m3.core.data.ProfileRepository
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 import com.m3.core.data.UiConfigRepository
 import com.m3.core.designsystem.config.UiConfigStore
 import javax.inject.Inject
@@ -33,6 +37,7 @@ class AppStartup @Inject constructor(
     private val store: UiConfigStore,
     private val uiConfigs: UiConfigRepository,
     private val profiles: ProfileRepository,
+    private val overrides: PlanOverridesRepository,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow<StartupState>(StartupState.Loading)
@@ -51,6 +56,8 @@ class AppStartup @Inject constructor(
         job = scope.launch {
             try {
                 uiConfigs.load()?.let(store::restore)
+                // Coach day overrides only apply to the current week; drop older ones.
+                overrides.pruneBefore(LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)))
                 launch { persistUiConfig() }
                 profiles.observeOnboardingCompleted().collect { done ->
                     _state.value = StartupState.Ready(onboardingCompleted = done)
