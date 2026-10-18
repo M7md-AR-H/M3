@@ -59,6 +59,8 @@ data class WeekPlan(
     val availableDays: List<DayOfWeek>,
     /** Sessions the owner's goal and experience call for, before capping at [availableDays]. */
     val targetSessions: Int,
+    /** Days whose equipment the Coach set for this week only. */
+    val overriddenDays: Set<DayOfWeek> = emptySet(),
 ) {
     fun sessionOn(day: DayOfWeek): PlannedSession? = sessions.firstOrNull { it.day == day }
 
@@ -66,4 +68,48 @@ data class WeekPlan(
 
     /** True when there were fewer free days than the target, so every free day is a training day. */
     val limitedByAvailability: Boolean get() = availableDays.size < targetSessions
+}
+
+/**
+ * Changes the Coach applied on top of the base plan (ADR 0008, ADR 0010). They never move training days;
+ * they change what's possible on a day, or which exercises may be used.
+ */
+data class PlanOverrides(
+    /** Equipment for one day this week instead of the place's usual inventory; empty = bodyweight only. */
+    val dayInventory: Map<DayOfWeek, Set<EquipmentKind>> = emptyMap(),
+    /** Exercises the planner must not use (e.g. they hurt). */
+    val excludedExercises: Set<String> = emptySet(),
+) {
+    companion object {
+        val None = PlanOverrides()
+    }
+}
+
+/** Human-readable differences between two plans, for the Coach's proposal cards. Empty = nothing changes. */
+object PlanDiff {
+    fun describe(before: WeekPlan, after: WeekPlan): List<String> = DayOfWeek.entries.flatMap { day ->
+        val old = before.sessionOn(day)
+        val new = after.sessionOn(day)
+        val label = day.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
+        when {
+            old == null && new == null -> emptyList()
+            old == null && new != null -> listOf("$label: now ${new.type.displayName} at ${new.locationName}")
+            old != null && new == null -> listOf("$label: now a rest day")
+            else -> sessionChanges(label, old!!, new!!)
+        }
+    }
+
+    private fun sessionChanges(label: String, old: PlannedSession, new: PlannedSession): List<String> = buildList {
+        if (old.type != new.type || old.locationId != new.locationId) {
+            add("$label: ${old.type.displayName} at ${old.locationName} → ${new.type.displayName} at ${new.locationName}")
+            return@buildList
+        }
+        val oldNames = old.exercises.map { it.exercise.name }
+        val newNames = new.exercises.map { it.exercise.name }
+        val removed = oldNames - newNames.toSet()
+        val added = newNames - oldNames.toSet()
+        removed.zip(added).forEach { (a, b) -> add("$label: $a → $b") }
+        removed.drop(added.size).forEach { add("$label: $it dropped (nothing possible instead)") }
+        added.drop(removed.size).forEach { add("$label: adds $it") }
+    }
 }

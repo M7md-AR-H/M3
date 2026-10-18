@@ -62,6 +62,7 @@ dependencies {
     implementation(project(":ai"))
     implementation(project(":core:model"))
     implementation(project(":core:training"))
+    implementation(project(":coach"))
     implementation(project(":core:security"))
     implementation(project(":core:data"))
 

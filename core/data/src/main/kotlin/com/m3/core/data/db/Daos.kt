@@ -101,3 +101,60 @@ interface AppStateDao {
     @Upsert
     suspend fun upsert(state: AppStateEntity)
 }
+
+@Dao
+interface ChatDao {
+    @Query("SELECT * FROM (SELECT * FROM chat_message ORDER BY id DESC LIMIT :limit) ORDER BY id")
+    fun observeRecent(limit: Int): Flow<List<ChatMessageEntity>>
+
+    @Query("SELECT * FROM chat_message WHERE id = :id")
+    suspend fun get(id: Long): ChatMessageEntity?
+
+    @Insert
+    suspend fun insert(message: ChatMessageEntity): Long
+
+    @androidx.room.Update
+    suspend fun update(message: ChatMessageEntity)
+
+    @Query("SELECT id FROM chat_message WHERE proposalStatus = 'APPLIED' ORDER BY id DESC LIMIT 1")
+    suspend fun latestAppliedId(): Long?
+
+    @Query("DELETE FROM chat_message")
+    suspend fun clear()
+}
+
+@Dao
+interface PlanOverridesDao {
+    @Query("SELECT * FROM day_override ORDER BY date")
+    fun observeDayOverrides(): Flow<List<DayOverrideEntity>>
+
+    @Query("SELECT * FROM day_override WHERE date = :date")
+    suspend fun dayOverride(date: String): DayOverrideEntity?
+
+    @Query("DELETE FROM day_override WHERE date = :date")
+    suspend fun deleteDayOverride(date: String)
+
+    @Query("DELETE FROM day_override WHERE date < :date")
+    suspend fun deleteDayOverridesBefore(date: String)
+
+    @Insert
+    suspend fun insertDayOverride(entity: DayOverrideEntity)
+
+    @Transaction
+    suspend fun replaceDayOverride(entity: DayOverrideEntity) {
+        deleteDayOverride(entity.date)
+        insertDayOverride(entity)
+    }
+
+    @Query("SELECT * FROM excluded_exercise ORDER BY createdAt")
+    fun observeExcluded(): Flow<List<ExcludedExerciseEntity>>
+
+    @Query("SELECT * FROM excluded_exercise WHERE exerciseId = :id")
+    suspend fun excluded(id: String): ExcludedExerciseEntity?
+
+    @Upsert
+    suspend fun upsertExcluded(entity: ExcludedExerciseEntity)
+
+    @Query("DELETE FROM excluded_exercise WHERE exerciseId = :id")
+    suspend fun deleteExcluded(id: String)
+}

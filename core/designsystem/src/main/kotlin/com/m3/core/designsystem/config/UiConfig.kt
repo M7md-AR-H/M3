@@ -110,4 +110,5 @@ enum class CardType { CHECK_IN, TODAY_WORKOUT, FUEL_SUMMARY, COACH_NOTE, HABITS,
 
 enum class TabId { TODAY, TRAIN, FUEL, YOU, COACH }
 
-enum class LockKey { THEME, TABS, TODAY_LAYOUT }
+/** Owner locks. Agents can't change a locked area; the owner always can. Training keys are checked by the Coach tools (ADR 0010). */
+enum class LockKey { THEME, TABS, TODAY_LAYOUT, TRAINING_PLAN, AVAILABILITY }

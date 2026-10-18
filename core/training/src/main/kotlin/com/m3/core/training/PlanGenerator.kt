@@ -22,7 +22,7 @@ import java.time.DayOfWeek
  */
 class PlanGenerator(private val catalog: ExerciseCatalog) {
 
-    fun generate(profile: Profile?, setup: TrainingSetup): WeekPlan {
+    fun generate(profile: Profile?, setup: TrainingSetup, overrides: PlanOverrides = PlanOverrides.None): WeekPlan {
         val goal = profile?.goal ?: Goal.GENERAL_FITNESS
         val experience = profile?.experience ?: Experience.NEW
         val available = DayOfWeek.entries.mapNotNull { day -> setup.locationFor(day)?.let { day to it } }
@@ -30,11 +30,25 @@ class PlanGenerator(private val catalog: ExerciseCatalog) {
         val chosen = chooseDays(available.map { (day, location) -> day to inventory(location).size }, target)
         val types = sessionTypes(chosen.size)
         val used = mutableSetOf<String>()
+        val withoutDayOverrides = overrides.copy(dayInventory = emptyMap())
         val sessions = chosen.mapIndexed { index, day ->
             val location = available.first { it.first == day }.second
-            buildSession(day, location, types[index], goal, experience, used)
+            if (day in overrides.dayInventory) {
+                // The usual session drives week-wide variety, so a one-day change doesn't ripple into other days.
+                // The changed session sees only the earlier days' picks, not its own usual ones.
+                val earlierDays = used.toMutableSet()
+                buildSession(day, location, types[index], goal, experience, used, withoutDayOverrides)
+                buildSession(day, location, types[index], goal, experience, earlierDays, overrides)
+            } else {
+                buildSession(day, location, types[index], goal, experience, used, withoutDayOverrides)
+            }
         }
-        return WeekPlan(sessions, available.map { it.first }, target)
+        return WeekPlan(
+            sessions,
+            available.map { it.first },
+            target,
+            overrides.dayInventory.keys.intersect(chosen.toSet()),
+        )
     }
 
     private fun buildSession(
@@ -44,14 +58,16 @@ class PlanGenerator(private val catalog: ExerciseCatalog) {
         goal: Goal,
         experience: Experience,
         usedThisWeek: MutableSet<String>,
+        overrides: PlanOverrides,
     ): PlannedSession {
-        val inventory = inventory(location)
+        // A Coach day override ("today I only have X and Y") replaces the place's inventory for that day only.
+        val inventory = overrides.dayInventory[day] ?: inventory(location)
         val slots = slotsFor(type, goal, experience)
         val inSession = mutableSetOf<String>()
         val exercises = mutableListOf<PlannedExercise>()
         val unfilled = mutableListOf<Slot>()
         for (slot in slots) {
-            val pick = pick(slot, inventory, goal, experience, usedThisWeek, inSession)
+            val pick = pick(slot, inventory, goal, experience, usedThisWeek, inSession + overrides.excludedExercises)
             if (pick == null) {
                 unfilled += slot
                 continue

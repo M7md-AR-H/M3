@@ -131,3 +131,15 @@ Before you start: your phone must have a screen lock (PIN, pattern or password).
 3. Tap a session card. **Expect:** the exercises with sets × reps and rest (e.g. "4 × 6–10 · rest 2 min · Barbell"), only using equipment you ticked for that place. If something isn't possible there, a red line says so (e.g. "No pulling from above exercise possible with the equipment here"). **Broken if:** it asks for equipment you don't have at that place.
 4. Go to **TODAY**. **Expect:** the "Today's session" card shows today's workout, or "Rest day" with the next session.
 5. Change your goal in **YOU → Profile** (e.g. to Get stronger) and save. **Expect:** TRAIN changes (fewer reps, longer rests on the main lifts).
+
+### Phase 1c-2 — talk to your Coach (after the next install)
+The Coach runs on the phone. The first answer after opening M³ takes a little longer while it starts.
+1. Open **COACH**. **Expect:** "Runs entirely on this phone…" and three suggestion buttons. **Broken if:** it says to add the AI model (the model should still be there).
+2. Tap **Today I only have dumbbells** (or type something like it for a training day). **Expect:** the answer appears word by word, then a card **"Suggested change"**: "Only Dumbbells on <day> (that day only)" with a list like "Monday: Bench press → Dumbbell floor press", and **Apply** / **Not now**.
+3. Tap **Apply**. **Expect:** the card says **Applied** with **Undo**; on **TRAIN** that day uses only dumbbells (if it's this week). Tap **Undo**. **Expect:** "Undone", and TRAIN is back to normal.
+4. Type **My knee hurts on lunges**. **Expect:** advice (and a suggestion to see a professional for sharp or lasting pain) plus a card "Stop using <a lunge exercise>". Apply it. **Expect:** that exercise disappears from TRAIN.
+5. Ask **Why is Wednesday a rest day?** (any rest day). **Expect:** an explanation and **no** suggestion card.
+6. Type **Switch to dark mode**. **Expect:** a card; Apply turns the app dark; Undo turns it back.
+7. In **YOU → Customize**, turn off **"Let agents change: Your plan"**, then ask the Coach for an equipment change again. **Expect:** the card says **"Locked by you"** and nothing changes. Turn it back on.
+8. Tap **Stop** while the Coach is answering. **Expect:** the answer disappears at once and your question is back in the box; asking again works. Also press Home while it answers and come back: the answer stopped, nothing was saved, other apps stay responsive.
+9. **Broken if:** anything changes without you tapping Apply, the app closes by itself, or the Coach invents sets/reps different from TRAIN.

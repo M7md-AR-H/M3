@@ -33,6 +33,8 @@ private val LockLabels = listOf(
     LockKey.THEME to "Theme",
     LockKey.TABS to "Tabs",
     LockKey.TODAY_LAYOUT to "Today layout",
+    LockKey.TRAINING_PLAN to "Your plan",
+    LockKey.AVAILABILITY to "Your free days",
 )
 
 @Composable

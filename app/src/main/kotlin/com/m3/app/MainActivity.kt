@@ -17,6 +17,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.m3.app.feature.coach.CoachRuntime
 import com.m3.app.feature.onboarding.OnboardingScreen
 import com.m3.app.ui.LoadingScreen
 import com.m3.app.ui.LockScreen
@@ -36,6 +37,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var appLock: AppLock
+
+    @Inject
+    lateinit var coachRuntime: CoachRuntime
 
     private lateinit var unlockPrompt: UnlockPrompt
 
@@ -83,6 +87,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         appLock.onForeground()
+        coachRuntime.onForeground()
     }
 
     override fun onResume() {
@@ -93,6 +98,8 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         appLock.onBackground()
+        // Free the Coach's ~1 GB model while the owner uses other apps (ADR 0002). Not on rotation.
+        if (!isChangingConfigurations) coachRuntime.unload()
     }
 
     override fun onDestroy() {
