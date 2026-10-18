@@ -33,6 +33,8 @@ Run from the repo root (Windows: `gradlew.bat`, Git Bash: `./gradlew`).
   - Don't leave anything running: force-stop `com.m3.app` after test launches unless the owner is about to use it, and run `adb kill-server` on the PC when done (and `adb disconnect` for wireless debugging).
   - Tell the owner exactly what was installed/changed on the phone.
 - **License:** the repo is PolyForm Noncommercial 1.0.0 (`LICENSE`) and will become public. Never commit secrets, personal data or model files. Only add dependencies and assets whose licenses allow redistribution in source form, and keep their notices.
+- **Units:** metric only (kg, cm/m, km, kcal, 24-hour time), formatted in one place — never imperial (ADR 0008).
+- **Training is customizable too (ADR 0008):** locations with equipment inventories; the Coach adapts plans via validated tools; a Kotlin engine picks substitutes and loads.
 - **HANDOFF.md stays current:** rewrite it after every meaningful step, not only at session end (owner's request).
 - **Git:** never push to `main`; feature branch + PR + squash-merge; ask the owner before merging. Never add a "Generated with Claude Code" line anywhere.
 

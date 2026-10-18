@@ -27,7 +27,12 @@ import com.m3.core.designsystem.component.SectionHeader
 import com.m3.core.designsystem.theme.M3
 
 @Composable
-fun YouScreen(onOpenAiModel: () -> Unit, viewModel: YouViewModel = hiltViewModel()) {
+fun YouScreen(
+    onOpenProfile: () -> Unit,
+    onOpenTrainingSetup: () -> Unit,
+    onOpenAiModel: () -> Unit,
+    viewModel: YouViewModel = hiltViewModel(),
+) {
     val config by viewModel.config.collectAsStateWithLifecycle()
     val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -52,6 +57,9 @@ fun YouScreen(onOpenAiModel: () -> Unit, viewModel: YouViewModel = hiltViewModel
         ) {
             Text(text = "You", style = M3.typography.display, color = M3.colors.ink)
             DoubleRule()
+            SectionHeader(title = "Your setup")
+            M3OutlineButton(text = "Profile", onClick = onOpenProfile, modifier = Modifier.fillMaxWidth())
+            M3OutlineButton(text = "Training setup", onClick = onOpenTrainingSetup, modifier = Modifier.fillMaxWidth())
             SectionHeader(title = "Customize")
             CustomizeSection(
                 config = config,

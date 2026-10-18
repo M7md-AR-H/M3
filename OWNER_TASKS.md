@@ -97,7 +97,7 @@ The license is already in place (`LICENSE`, PolyForm Noncommercial 1.0.0): anyon
    - Tap **Undo**. **Expect:** your last change is reversed. Tap **Reset to default**. **Expect:** everything returns to the original look.
 5. Still in Customize, tap **Simulate a Coach change**. **Expect:** a message "Coach moved Fuel to the top" with **Undo**; the Fuel card is now first on TODAY. Tap Undo. **Expect:** it moves back.
 6. Turn off **"Let agents change: Today layout"**, then tap **Simulate a Coach change** again. **Expect:** "Coach can't change Today — you locked it", and nothing moves.
-7. Close the app fully and reopen it. **Expect (known limitation):** customizations are back to default — saving them arrives in Phase 1.
+7. Close the app fully and reopen it. **Expect (since Phase 1b):** your customizations are still there.
 
 ### Phase 1a — on-device AI model (installed on your phone 2026-10-18)
 1. Open **M³** → **YOU** → scroll to the bottom → tap **AI model & benchmark**. **Expect:** "Gemma 4 E4B" shows **Ready ✓**, and "Gemma 4 E2B" shows "Not on this phone" (removed on purpose after the test). **Broken if:** E4B says "not checked yet" or "Not on this phone".
@@ -105,3 +105,22 @@ The license is already in place (`LICENSE`, PolyForm Noncommercial 1.0.0): anyon
 3. Tap **Copy full results**, then paste into any notes app. **Expect:** the test answers in plain text (a gym plan, a JSON line, "a red circle and a blue square").
 4. Leave the AI model screen with **Back** while a test runs. **Expect:** it stops; nothing keeps running.
 5. Check the phone's normal apps still work as usual afterwards. Some apps that were idle in the background may reload when you open them; that's Android freeing memory, not damage.
+
+### Phase 1b — app lock, encrypted storage, onboarding
+Before you start: your phone must have a screen lock (PIN, pattern or password). M³ uses it, or your fingerprint, to unlock.
+
+1. Open **M³**. **Expect:** before anything else, the system unlock sheet appears ("Unlock M³") and asks for your fingerprint or PIN. Nothing of the app shows behind it except the "M³ / Locked" page. **Broken if:** you can see any of your data before unlocking.
+2. Tap outside the sheet or press Back to cancel it. **Expect:** a "Locked" page with "Authentication canceled. Tap Unlock to try again." and an **Unlock** button. Tap **Unlock** and use your fingerprint or PIN. **Expect:** the app opens.
+3. **Onboarding** (first time only). Go through every step:
+   - **About you:** tap **Next** with the fields empty. **Expect:** a red hint under each field. Then enter your height in cm, weight in kg (e.g. 82.5), birth year and sex. **Next**.
+   - **Goal** and **Experience:** pick one each.
+   - **Where you train:** tick **Gym** and/or **Home**; optionally type another place (e.g. "Park") and tap **Add location**.
+   - **At Gym / At Home / …:** one page per place. Tick what's there. For dumbbells or kettlebells you can type the weights you have, e.g. `2-24` (2 to 24 kg in 2 kg steps), `5-30/2.5` or `4, 8, 12`. Type something like "lots" to check you get a red hint. **Bodyweight only** clears the list. Add anything missing under **Your own items**.
+   - **Your week:** for each day pick **Rest** or a place.
+   - **Anything to work around?:** optional free text about injuries. It stays on the phone.
+   - **All set:** check the summary, then tap **Start**. **Expect:** the normal TODAY screen.
+4. Go to **YOU → Profile**. **Expect:** your answers are filled in. Change your weight and tap **Save**. **Expect:** "Saved".
+5. Go to **YOU → Training setup**. **Expect:** your places, ticked equipment and week. Change something, tap **Save**. **Expect:** "Saved".
+6. In **YOU → Customize**, switch to **Dark**. Close M³ completely (swipe it away in recent apps) and open it again. **Expect:** unlock sheet again (cold start), then the app opens in **dark mode**, without onboarding, and Profile still shows your new weight. **Broken if:** onboarding appears again or your changes are gone.
+7. Open M³, press Home, come back within a minute. **Expect:** no unlock needed. Leave it in the background for more than 5 minutes, then open it. **Expect:** the unlock sheet appears again.
+8. Your existing AI model should be untouched: **YOU → AI model & benchmark** still shows **Gemma 4 E4B: Ready ✓**.

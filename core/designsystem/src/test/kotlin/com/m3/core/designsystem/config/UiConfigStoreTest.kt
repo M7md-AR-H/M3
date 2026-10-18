@@ -112,3 +112,41 @@ class UiConfigStoreTest {
         assertEquals(100, store.history.value.size)
     }
 }
+
+class UiConfigStoreRestoreTest {
+    @Test
+    fun restoreReplacesConfigAndHistoryAndSnapshotTracksChanges() {
+        val store = UiConfigStore(clock = { 7L })
+        val dark = UiConfig(theme = UiConfig().theme.copy(mode = ThemeMode.DARK))
+        val entry = UiHistoryEntry(Actor.Owner, "switched to dark mode", UiConfig(), 1L)
+        store.restore(UiConfigSnapshot(dark, listOf(entry)))
+        assertEquals(dark, store.config.value)
+        assertEquals(listOf(entry), store.history.value)
+        assertEquals(UiConfigSnapshot(dark, listOf(entry)), store.snapshot.value)
+
+        store.setLock(LockKey.THEME, true)
+        assertEquals(setOf(LockKey.THEME), store.snapshot.value.config.locks)
+        assertTrue(store.undo())
+        assertEquals(ThemeMode.LIGHT, store.snapshot.value.config.theme.mode)
+        assertTrue(store.snapshot.value.history.isEmpty())
+    }
+
+    @Test
+    fun invalidSavedConfigFallsBackToDefaultButKeepsLocks() {
+        val store = UiConfigStore()
+        val broken = UiConfig(theme = UiConfig().theme.copy(typeScale = 9f), locks = setOf(LockKey.TABS))
+        val badEntry = UiHistoryEntry(Actor.Owner, "x", broken, 1L)
+        store.restore(UiConfigSnapshot(broken, listOf(badEntry)))
+        assertEquals(UiConfig(locks = setOf(LockKey.TABS)), store.config.value)
+        assertTrue(store.history.value.isEmpty())
+    }
+
+    @Test
+    fun restoreCapsHistory() {
+        val store = UiConfigStore()
+        val many = (1..150).map { UiHistoryEntry(Actor.Owner, "change $it", UiConfig(), it.toLong()) }
+        store.restore(UiConfigSnapshot(UiConfig(), many))
+        assertEquals(UiConfigStore.MAX_HISTORY, store.history.value.size)
+        assertEquals("change 150", store.history.value.last().description)
+    }
+}

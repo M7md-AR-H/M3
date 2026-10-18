@@ -1,68 +1,85 @@
-# HANDOFF — 2026-10-18 (session 3)
+# HANDOFF — 2026-10-18 (end of session 4)
 
-> The owner wants this file kept current **throughout** each session, not only at the end. Rewrite it after every meaningful step.
+> Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 
-## What was done
-- **Sessions 1–2 (2026-10-16/17):** spec, prototype, ADRs 0001–0007, the Phase 0 app shell verified on the emulator. PR #1 (`chore/phase-0-setup`) is **waiting for the owner's merge approval**.
-- **Session 3 (2026-10-18), Phase 1a, on-device model. Done.**
-  - **Model re-check:** the Gemma 4 E4B and E2B `.litertlm` builds are Apache-2.0 and ungated. Gemma 3n is dropped.
-  - **New `:ai` module:**
-    - `ModelCatalog`, with SHA-256 values.
-    - `ModelStore`: hash-while-copy import, check, remove, and a `.verified` marker.
-    - `LlmEngine` / `LiteRtLmEngine`: LiteRT-LM 0.18.0, one native thread.
-    - `BenchmarkRunner`, `AnswerChecks`, `BenchmarkReport`.
-  - **Screen:** You → "AI model & benchmark".
-  - **Quality checks:** a Sonnet review found issues, all fixed except a load timeout, which is logged as a limitation. 34/34 tests pass. Lint shows 0 errors (warnings `OldTargetApi` and `ChromeOsAbiSupport` accepted).
-  - **Phone:** M³ debug build installed on the Poco F5. Both models were streamed into app-private storage over USB and verified in the app.
-  - **Benchmark run on the phone:** all 6 cases passed all checks. **Decision: Gemma 4 E4B on GPU + MTP** (15.6 tok/s, 0.7 s first token, 3.7 s photo, about 1.1 GB). Full table and quality notes are in ADR 0002. E2B leaked foreign-script tokens and was removed from the phone.
-  - **License:** PolyForm Noncommercial 1.0.0 (`LICENSE`). OWNER_TASKS #5 holds the go-public checklist.
-  - **Docs updated:** README (status, Phase 1 checkboxes, decision log, limitations), OWNER_TASKS (#3 not needed, #4 done, Phase 1a test list), ADR 0002, PRODUCT_SPEC, CLAUDE.md.
+## ▶ Next steps, in order
+1. **Owner decision:** review PR "Phase 1b" (`feat/phase-1b-foundation` → `main`) and say whether to squash-merge it. Don't merge without that.
+2. **Phone install** (needs the owner to plug in the USB cable, serial `c84e26c7`). It can happen before or after the merge, since it's the same debug build:
+   1. `adb devices` shows `c84e26c7` (`adb reconnect offline` if it's offline).
+   2. `./gradlew :app:assembleDebug`, then `adb -s c84e26c7 install -r app/build/outputs/apk/debug/app-debug.apk`. This upgrades in place, keeps the 3.66 GB model and uses the same debug key.
+   3. The owner opens M³, unlocks, and taps through onboarding following OWNER_TASKS "Try it yourself — Phase 1b" (Xiaomi blocks injected taps). Read the screen with `uiautomator dump /data/local/tmp/m3-ui.xml`, `cat` it, and `rm` it in the same command.
+   4. `adb -s c84e26c7 shell am force-stop com.m3.app`, then `adb kill-server`.
+   5. Report exactly what changed on the phone:
+      - The app was upgraded.
+      - New private files: `databases/m3.db` (+ `-wal`/`-shm`), `no_backup/db.key`, `shared_prefs/m3_keyset_prefs.xml`.
+      - A Keystore key `m3_master_key`.
+      - Nothing outside the app.
+   6. Tick "Phone install + owner's check" in the README.
+3. **Phase 1c** (README checkboxes):
+   - Exercise DB tagged with equipment/pattern/muscles.
+   - Adaptation engine + Coach tools (ADR 0008).
+   - Plan generator.
+   - Coach chat (E4B on GPU + MTP, CPU fallback, unload in background).
+   - Logging, overload, step counter.
+   - Equipment is in `:core:model` (`EquipmentKind`), and the setup is read via `TrainingSetupRepository.observe()`. `day_override` exists as a table but has no DAO yet.
+
+## What was done this session
+- **Phase 1b built** on `feat/phase-1b-foundation`. Commits: `b59fbdc` (code), `c024e1e` (review fixes + docs), plus this handoff.
+  - **`:core:model`:** equipment catalog (50 kinds, 4 groups), profile, training setup, validators, `Units`.
+  - **`:core:security`:**
+    - `TinkSecretCipher`: Keystore master key `android-keystore://m3_master_key`, keyset in prefs `m3_keyset_prefs`.
+    - `DatabasePassphrase`: `no_backup/db.key`, written atomically, never overwritten.
+    - `AppLock`: 5 min, monotonic clock, one auto-prompt per lock.
+    - `UnlockPrompt`: platform BiometricPrompt, strong biometric or device credential.
+  - **`:core:data`:**
+    - Room 2.8.5 + SQLCipher 4.19.1, `m3.db`, schema v1 JSON in `core/data/schemas`.
+    - `DatabaseOpener`: lazy, IO, non-cancellable open, no destructive fallback.
+    - Repositories.
+  - **`:app`:**
+    - `AppStartup`: open DB, restore UI config, save every change after the first.
+    - `MainActivity` lock layer: the app stays composed under an opaque, touch- and Back-blocking lock screen.
+    - Onboarding in `feature/onboarding`, with shared form sections.
+    - You → Profile and You → Training setup.
+- **Checks:**
+  - 71 unit tests pass.
+  - Lint: 0 errors. Warnings: `OldTargetApi`, `ChromeOsAbiSupport`, and `NewerVersionAvailable` for Tink 1.24.0, which is deliberately not used yet (see decision log).
+  - 4 instrumented SQLCipher tests pass on the emulator.
+  - Debug and release builds assemble.
+- **Emulator check:**
+  - Lock prompt on cold start (emulator PIN 1234).
+  - Cancel shows the Locked screen; Unlock works.
+  - Full onboarding: validation hints, Gym/Home/Park, kg list `2-24`, custom item, schedule, summary.
+  - Edits saved; dark mode + profile survive a force-stop.
+  - Short background stays unlocked; more than 5 min locks again (passed twice on the fixed build).
+- **Sonnet review:** 10 findings. 1–8 fixed, 9 documented as a limitation. 10 is pre-existing debug-only benchmark logging that the decision log allows.
 
 ## Current state
-- **Phone:**
-  - `com.m3.app` (debug) is installed and force-stopped.
-  - App-private storage holds only `no_backup/models/gemma-4-E4B-it.litertlm` (3.66 GB) plus its `.verified` marker.
-  - Nothing of ours is in `/data/local/tmp` or `/sdcard`, and no M³ processes are running.
-  - Android's low-memory killer closed about 10 cached apps during the benchmark (normal, and reported to the owner).
-- **PC:**
-  - adb server stopped, emulator off, temp scripts deleted.
-  - Both model files remain in `M3/models/` (gitignored, hashes verified) for re-installs.
-  - The full benchmark log is in the session scratchpad (`m3-bench-results.txt`); its numbers are already in ADR 0002.
-- **Git:** branch `feat/phase-1-model-benchmark`, stacked on `chore/phase-0-setup`. See the next steps for push/PR status.
-
-## Next steps, in order
-1. Push `feat/phase-1-model-benchmark` and open PR #2 (base `chore/phase-0-setup` until PR #1 merges). **Ask the owner before merging either PR.**
-2. **Phase 1b, foundation:**
-   - `:core:security`: Keystore-wrapped Tink keyset, biometric/credential lock (decide the biometric version).
-   - `:core:data`: Room 2.8.5 + SQLCipher 4.19.1, persisting `UiConfig` + history.
-   - Onboarding: needs the owner's answers on units and equipment.
-3. **Phase 1c:** Coach chat. Load E4B with `LlmBackend.GPU` + `speculativeDecoding = true` and fall back to CPU if GPU init fails. Unload when the app goes to the background. Then the fitness features (README checkboxes).
+- **Git:**
+  - `main` = `3a7b029`.
+  - `feat/phase-1b-foundation` is pushed with an open PR to `main`, not merged.
+- **Phone:** unchanged since session 3. Phase 1a build installed, model present, adb disconnected.
+- **PC:** emulator stopped, adb server stopped. The emulator still has the test app with test data and PIN 1234; that's fine, it's only the emulator.
 
 ## Open questions for the owner
-- **Approve merging PR #1** (and later PR #2)?
-- Units: metric or imperial? Equipment: gym, home, or both?
-- Before going public: keep the Gmail address in commit history, or switch to the GitHub noreply address? (OWNER_TASKS #5.)
+- Merge the Phase 1b PR? (Required before merging.)
+- Not urgent (OWNER_TASKS #5): before going public, keep the Gmail address in commit history, or switch to the GitHub noreply address?
+
+## Things to know
+- **Unexplained one-off:** the very first 5-minute lock test (build before the review fixes) came back unlocked. It wasn't timed, so it may not even have waited 5 minutes. The fixed build passed twice with uptime measured, including the exact same sequence (cancel → Unlock → PIN → Home → 310 s). The most likely cause is review finding 7: an unlock callback arriving after the activity stopped cleared the timer. That's now fixed and unit-tested. Re-check on the phone (OWNER_TASKS Phase 1b, step 7).
+- **SQLCipher passphrase:** SQLCipher keeps the passphrase array to open more connections, so it must not be zeroed (decision log).
+- **Locked state:** while locked, the app stays composed underneath. Anything new that runs in the background or takes key input must respect `locked`.
 
 ## Traps found
-- **Copying models to the phone:**
-  - Use the USB serial (`c84e26c7`); Wi-Fi is about 1.5 MB/s and drops.
-  - `adb exec-in` streams reset every ~100–300 MB even over USB. Resume from the remote size: `adb shell run-as com.m3.app stat -c %s <path>` (treat "No such file" as 0), then `tail -c +N file | adb exec-in run-as com.m3.app sh -c 'umask 077; cat >> <path>'`, and repeat until the size matches. The app's SHA-256 check is the final guard.
-  - **Never** wrap the size check in `sh -c "… || echo 0"`. adb re-splits it, so it always returns 0, and a "resume" built on it appends duplicate data. This happened once; the corrupt file was deleted.
-- **Leftover processes:**
-  - `TaskStop` on a background bash job doesn't kill its children on Windows; kill them with PowerShell `Stop-Process`.
-  - An interrupted `exec-in` leaves `sh` and `cat` running on the phone under the app uid. Check with `adb shell ps -A -o USER,PID,NAME | grep u0_a281` and stop them with `adb shell run-as com.m3.app kill …`.
-- **Xiaomi input:**
-  - Xiaomi blocks `adb shell input tap/swipe` (INJECT_EVENTS) unless the owner enables "USB debugging (Security settings)". Don't ask for that: let the owner tap, and read the screen with `uiautomator dump` plus results from `logcat -s M3Bench` (debug builds only).
-  - The USB device can go `offline`; `adb reconnect offline` fixes it.
-  - Wireless: use the mDNS serial (`adb mdns services`); the IP:port transport goes `offline`. Wireless debugging switches itself off when the screen sleeps.
-- **First install** on Xiaomi needed "Install via USB". A failed install shows an empty error.
-- **LiteRT-LM:**
-  - `getBenchmarkInfo()` is a function and needs `@OptIn(ExperimentalApi::class)`.
-  - `ExperimentalFlags` are process-wide.
-  - The AAR has no R8 rules; we keep `com.google.ai.edge.litertlm.**`.
-  - The first GPU load compiles programs (≈20–28 s); later loads use the cache (≈10–17 s).
-- **Emulator:** the AVD name is `Medium_Phone_API_37.0`. Use `-memory 6144` for model tests.
-- **Windows:** `./gradlew clean` can fail on a locked `classes.jar`; build without `clean`.
-- **Network:** Hugging Face and raw.githubusercontent downloads drop or reset. Resume with `curl -C -`; `gh api -H "Accept: application/vnd.github.raw"` works for GitHub files.
-- **Builds:** `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"`. After dependency changes, run `./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:assembleRelease test lint`.
-- **Phone rules, `MSYS_NO_PATHCONV=1`, FLAG_SECURE:** see CLAUDE.md.
+- **This PC:**
+  - No Python. Bash heredocs with tricky quoting can fail, so write source files with the Write tool.
+  - `--write-verification-metadata` can fail at the very end with "user-mapped section open" (Windows file lock); just re-run it.
+- **Kotlin:** `StateFlow.conflate()` is a deprecation *error*, because StateFlow is already conflated.
+- **Instrumented tests:**
+  - Always set `ANDROID_SERIAL=emulator-5554` so they can never run on the phone.
+  - The result file name has spaces; use `find … -print0 | xargs -0`.
+- **Emulator UI checks:**
+  - `adb -e shell locksettings set-pin 1234` (emulator only, never the phone).
+  - In `uiautomator` dumps, Compose radio selection appears as `checked="true"` on the parent node.
+  - Field positions shift when error text appears; re-dump before each tap.
+  - The helper script from this session (`ui.sh`) lived in the session scratchpad and is gone. Its logic: dump → grep bounds → `input tap` at the centre.
+- **Older traps** (model copying over USB with resumable `exec-in`, Xiaomi tap blocking, LiteRT-LM quirks, `JAVA_HOME`, no `./gradlew clean`): see `git show ebfcf61:HANDOFF.md`. They still apply.
