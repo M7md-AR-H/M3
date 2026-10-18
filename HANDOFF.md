@@ -28,19 +28,23 @@
   - adb server stopped, emulator off, temp scripts deleted.
   - Both model files remain in `M3/models/` (gitignored, hashes verified) for re-installs.
   - The full benchmark log is in the session scratchpad (`m3-bench-results.txt`); its numbers are already in ADR 0002.
-- **Git:** branch `feat/phase-1-model-benchmark`, stacked on `chore/phase-0-setup`. See the next steps for push/PR status.
+- **Git:**
+  - The owner approved, and **PR #1 and PR #2 are squash-merged into `main`** (`b1da31f`, `3a7b029`). PR #2 was rebased onto the new main first, with the tree verified identical to the tested commit. The old branches are deleted.
+  - Current branch: `feat/phase-1b-foundation`, holding the docs commit for ADR 0008.
+- **Owner decisions (2026-10-18):**
+  - **Metric only.**
+  - **Training locations + equipment, Coach-adaptable:** "I only have X and Y" revises a session, day or week. Recorded in **ADR 0008**, PRODUCT_SPEC, README tasks and CLAUDE.md.
 
 ## Next steps, in order
-1. Push `feat/phase-1-model-benchmark` and open PR #2 (base `chore/phase-0-setup` until PR #1 merges). **Ask the owner before merging either PR.**
-2. **Phase 1b, foundation:**
+1. Give the owner a time estimate for Phase 1b, then build:
    - `:core:security`: Keystore-wrapped Tink keyset, biometric/credential lock (decide the biometric version).
-   - `:core:data`: Room 2.8.5 + SQLCipher 4.19.1, persisting `UiConfig` + history.
-   - Onboarding: needs the owner's answers on units and equipment.
-3. **Phase 1c:** Coach chat. Load E4B with `LlmBackend.GPU` + `speculativeDecoding = true` and fall back to CPU if GPU init fails. Unload when the app goes to the background. Then the fitness features (README checkboxes).
+   - `:core:data`: Room 2.8.5 + SQLCipher 4.19.1, persisting `UiConfig` + history. Include the schema for locations, inventories and the weekly schedule (ADR 0008).
+   - Onboarding: profile (metric), goal, experience, locations with equipment tick-lists, schedule, injuries.
+2. **Phase 1c:** exercise DB with equipment/pattern/muscle tags, adaptation engine (ADR 0008), plan generator, Coach chat. Load E4B with `LlmBackend.GPU` + `speculativeDecoding = true` and fall back to CPU if GPU init fails. Unload when the app goes to the background. Then the fitness features (README checkboxes).
 
 ## Open questions for the owner
-- **Approve merging PR #1** (and later PR #2)?
-- Units: metric or imperial? Equipment: gym, home, or both?
+- (Answered: merges approved, metric, gym + home with Coach-driven equipment adaptation.)
+
 - Before going public: keep the Gmail address in commit history, or switch to the GitHub noreply address? (OWNER_TASKS #5.)
 
 ## Traps found

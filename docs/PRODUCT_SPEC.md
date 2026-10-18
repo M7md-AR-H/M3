@@ -95,10 +95,11 @@ Purpose: let the coach look up things it doesn't know (new exercises, studies, f
 ## 5. Features by phase
 
 ### v0.1 — Foundation + Fitness
-- Onboarding: goals, body stats, experience, equipment, schedule, injuries
+- Onboarding: goals, body stats (metric), experience, training locations (Gym, Home, custom) with an equipment tick-list each, weekly schedule (location per day), injuries
 - Encrypted storage, biometric lock
 - Coach chat (Gemma 4), persistent memory
 - Workout plan generator (rules engine + LLM explanation)
+- Equipment adaptation (ADR 0008): "today I only have X and Y" → the Coach maps it to an inventory, the Kotlin engine swaps exercises (same movement pattern/muscles) and re-derives loads, the owner sees a diff and applies or undoes it; works for a session, a day, the week or the whole plan
 - Workout logging: sets, reps, weight, RPE, rest timer
 - Progressive overload + deload logic
 - Bundled offline exercise database (free-exercise-db, public domain data)
@@ -239,6 +240,6 @@ M3/
 
 ## 11. Open questions
 
-- Imperial or metric units?
-- Gym, home, or both — what equipment is available?
+- ~~Imperial or metric units?~~ → metric only (ADR 0008)
+- ~~Gym, home, or both?~~ → both, plus custom locations, each with its own equipment, adaptable by the Coach (ADR 0008)
 - Should research results be auto-approved for trusted sources (PubMed, USDA), or always ask?

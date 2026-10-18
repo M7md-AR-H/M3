@@ -49,12 +49,13 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 **1b — Foundation**
 - [ ] `:core:security`: Keystore-wrapped Tink keys, biometric/credential app lock
 - [ ] `:core:data`: Room + SQLCipher; persist `UiConfig` + change history (removes "customizations lost on restart")
-- [ ] Onboarding: profile, goal, units, equipment, experience, schedule
+- [ ] Onboarding: profile (metric), goal, experience, training locations (Gym, Home, custom) with equipment tick-lists, weekly schedule (location per day), injuries
 
 **1c — Fitness**
-- [ ] Offline exercise database (bundled, licensed data)
+- [ ] Offline exercise database (bundled, licensed data), tagged with equipment alternatives, movement pattern and muscles (ADR 0008)
 - [ ] Coach chat: streaming answers, labelled specialists, scoped schema-validated tools (incl. `ui.*`)
 - [ ] Workout plan generator (deterministic Kotlin; the model proposes, code validates)
+- [ ] Equipment adaptation engine + Coach tools (ADR 0008): day/session/week overrides ("only X and Y today"), substitutions by movement pattern + muscles, loads re-derived in Kotlin, diff → apply/undo, owner locks
 - [ ] Workout logging + live "focus mode" screen
 - [ ] Progressive overload rules (Kotlin)
 - [ ] Phone step counter (no wearable)
@@ -104,6 +105,9 @@ M3/
 | 2026-10-18 | Benchmark prompts/answers may be logged (tag `M3Bench`) in debug builds only | They are fixed test prompts with no personal data; lets Claude read results over adb. User content is never logged |
 | 2026-10-18 | **Gemma 4 E4B on GPU + multi-token prediction** is the Coach model; CPU only as fallback; E2B removed from the phone | On-phone benchmark: 15.6 tok/s, 0.7 s first token, 3.7 s photo, ~1.1 GB; E2B is faster but leaked foreign-script tokens and wrote weaker answers ([ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md)) |
 | 2026-10-18 | Models reach the phone by resumable `adb exec-in run-as … cat >>` over USB, never through shared storage | Leaves no files outside the app; `exec-in` streams reset every ~100–300 MB on this Windows setup, so the copy resumes from the remote size; the app's SHA-256 check is the final guard |
+| 2026-10-18 | **Metric only** (kg, cm/m, km, kcal, 24-hour time); no imperial option | Owner's choice ("not the American stuff"); one formatting layer keeps units out of screens ([ADR 0008](docs/adr/0008-training-locations-equipment-adaptation.md)) |
+| 2026-10-18 | Training locations (Gym, Home, custom) each with an equipment inventory; per-day "only X and Y" overrides; the Coach adapts a session/day/week/plan via schema-validated tools while a Kotlin engine picks substitutes and loads; changes are diffs the owner applies/undoes, with owner locks | Owner wants plans that fit available tools, driven by the Coach; small models can't be trusted with substitutions or loads (ADR 0003); same versioning/undo model as UI customisation (ADR 0007) ([ADR 0008](docs/adr/0008-training-locations-equipment-adaptation.md)) |
+| 2026-10-18 | PR #1 and PR #2 squash-merged into `main` (owner approved) | Phase 0 + Phase 1a complete |
 | 2026-10-18 | License: PolyForm Noncommercial 1.0.0 (`LICENSE`), with commercial licenses only by separate agreement with the owner | Owner wants the code public to view and download but no commercial use without compensating them. PolyForm NC is written for software (unlike CC BY-NC, which Creative Commons advises against for code); MIT/Apache/GPL all allow commercial use. Not OSI "open source" — it is source-available |
 | 2026-10-18 | Phase 1 built on a branch stacked on the Phase 0 branch | PR #1 awaits the owner's merge approval; work continues without merging |
 | 2026-10-16 | Toolchain: Gradle 9.8.1, AGP 9.4.1 (built-in Kotlin), Kotlin 2.4.21, KSP 2.3.12, compileSdk 37, targetSdk 36, minSdk 33 | Latest stable versions verified against Maven/Gradle metadata. compileSdk 37 is required: core-ktx 1.19.1, Compose UI 1.12.1, lifecycle 2.11.0 and hilt 1.4.0 declare `minCompileSdk=37` in their AAR metadata. targetSdk stays 36 until Android 17 behaviour changes are reviewed; minSdk 33 because the Poco F5 shipped with Android 13 |
