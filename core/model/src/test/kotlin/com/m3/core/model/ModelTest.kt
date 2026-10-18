@@ -93,7 +93,7 @@ class TrainingSetupValidatorTest {
     }
 
     @Test
-    fun `catches duplicates, bad weights and unknown scheduled locations`() {
+    fun `catches duplicates, bad weights and unknown available locations`() {
         val bad = gym.copy(
             equipment = listOf(
                 EquipmentItem.Catalog(EquipmentKind.BARBELL),

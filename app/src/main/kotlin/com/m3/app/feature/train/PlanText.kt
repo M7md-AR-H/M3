@@ -46,16 +46,25 @@ object PlanText {
         return "No $what exercise possible with the equipment here."
     }
 
+    private fun goalPhrase(goal: Goal) = when (goal) {
+        Goal.LOSE_FAT -> "losing fat"
+        Goal.BUILD_MUSCLE -> "building muscle"
+        Goal.GET_STRONGER -> "getting stronger"
+        Goal.GENERAL_FITNESS -> "general fitness"
+    }
+
+    private fun experiencePhrase(experience: Experience) = when (experience) {
+        Experience.NEW -> "as a beginner"
+        Experience.SOME -> "with some experience"
+        Experience.EXPERIENCED -> "with years of experience"
+    }
+
     /** Why the week looks the way it does, from the generator's facts. */
     fun summary(plan: WeekPlan, goal: Goal?, experience: Experience?): String {
         val free = plan.availableDays.size
         if (free == 0) return "Tell your coach when you're free (You → Training setup) to get a plan."
         val sessions = plan.sessions.size
-        val who = if (goal != null && experience != null) {
-            "For ${goal.displayName.lowercase()} with ${experience.displayName.lowercase()} experience, "
-        } else {
-            ""
-        }
+        val who = if (goal != null && experience != null) "For ${goalPhrase(goal)} ${experiencePhrase(experience)}, " else ""
         val dayWord = if (sessions == 1) "session" else "sessions"
         return if (plan.limitedByAvailability) {
             "${who}your coach would aim for ${plan.targetSessions} sessions a week. You're free $free " +

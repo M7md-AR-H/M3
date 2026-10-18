@@ -98,7 +98,7 @@ class MappersTest {
     }
 
     @Test
-    fun `unknown equipment kinds and dangling schedule ids are dropped`() {
+    fun `unknown equipment kinds and dangling availability ids are dropped`() {
         val rows = Mappers.SetupRows(
             locations = listOf(TrainingLocationEntity("g", "Gym", 0)),
             equipment = listOf(

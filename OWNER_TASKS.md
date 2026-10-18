@@ -124,3 +124,10 @@ Before you start: your phone must have a screen lock (PIN, pattern or password).
 6. In **YOU → Customize**, switch to **Dark**. Close M³ completely (swipe it away in recent apps) and open it again. **Expect:** unlock sheet again (cold start), then the app opens in **dark mode**, without onboarding, and Profile still shows your new weight. **Broken if:** onboarding appears again or your changes are gone.
 7. Open M³, press Home, come back within a minute. **Expect:** no unlock needed. Leave it in the background for more than 5 minutes, then open it. **Expect:** the unlock sheet appears again.
 8. Your existing AI model should be untouched: **YOU → AI model & benchmark** still shows **Gemma 4 E4B: Ready ✓**.
+
+### Phase 1c-1 — your coach plans the week (after the next install)
+1. Open **M³** → **YOU** → **Training setup** → scroll to **When you can train**. **Expect:** for each day, "Not free" or one of your places. Pick every day you *could* train and where. Tap **Save**.
+2. Go to **TRAIN**. **Expect:** a sentence explaining the plan, e.g. "You're free 6 days. For build muscle with some experience, your coach plans 4 sessions a week, with rest days in between: Monday, Tuesday, Thursday, Saturday." Then all seven days: training days as cards (type of session · place), the rest as "Rest". **Broken if:** a session is on a day you marked Not free, or it's empty.
+3. Tap a session card. **Expect:** the exercises with sets × reps and rest (e.g. "4 × 6–10 · rest 2 min · Barbell"), only using equipment you ticked for that place. If something isn't possible there, a red line says so (e.g. "No pulling from above exercise possible with the equipment here"). **Broken if:** it asks for equipment you don't have at that place.
+4. Go to **TODAY**. **Expect:** the "Today's session" card shows today's workout, or "Rest day" with the next session.
+5. Change your goal in **YOU → Profile** (e.g. to Get stronger) and save. **Expect:** TRAIN changes (fewer reps, longer rests on the main lifts).

@@ -59,7 +59,7 @@ class PlanGenerator(private val catalog: ExerciseCatalog) {
             val (exercise, equipment) = pick
             inSession += exercise.id
             usedThisWeek += exercise.id
-            exercises += PlannedExercise(exercise, equipment, slot.role, prescribe(slot, exercise, goal, experience))
+            exercises += PlannedExercise(exercise, equipment, slot.role, prescribe(slot, exercise, equipment, goal, experience))
         }
         return PlannedSession(day, location.id, location.name, type, exercises, unfilled)
     }
@@ -75,18 +75,21 @@ class PlanGenerator(private val catalog: ExerciseCatalog) {
         val level = experience.level
         val wantsLoad = goal == Goal.BUILD_MUSCLE || goal == Goal.GET_STRONGER
         return catalog.exercises.withIndex()
-            .filter { (_, e) -> slot.matches(e) && e.id !in inSession }
+            .filter { (_, e) -> slot.matches(e) && e.id !in inSession && !(slot.role == SlotRole.MAIN && e.ballistic) }
             .mapNotNull { (index, e) -> e.supportedBy(inventory)?.let { Triple(index, e, it) } }
             .minWithOrNull(
                 compareBy<Triple<Int, Exercise, Set<EquipmentKind>>> { (_, e, equipment) ->
                     var score = 0
                     if (e.level > level) score += 10
                     if (slot.role == SlotRole.MAIN) {
-                        score += level - minOf(e.level, level)
+                        if (level - e.level >= 2) score += 1
+                        if (goal == Goal.GET_STRONGER && !e.heavy) score += 2
                         if (!e.compound) score += 3
                         if (e.unilateral) score += 1
                     }
                     if (slot.role != SlotRole.MAIN && e.heavy) score += 2
+                    // Experienced lifters shouldn't get the easiest option everywhere.
+                    if (slot.role != SlotRole.MAIN && level - e.level >= 2) score += 1
                     if (wantsLoad && equipment.isEmpty() && slot.role != SlotRole.CORE) score += 2
                     if (e.id in usedThisWeek) score += 4
                     score
@@ -140,33 +143,56 @@ class PlanGenerator(private val catalog: ExerciseCatalog) {
             return if (finisher) trimmed + Slot(MovementPattern.CONDITIONING, SlotRole.CONDITIONING) else trimmed
         }
 
-        fun prescribe(slot: Slot, exercise: Exercise, goal: Goal, experience: Experience): Prescription {
+        /**
+         * Sets, reps and rest from the goal, the slot's role and the exercise itself. Strength ranges (3–5) are
+         * only for [Exercise.heavy] lifts; bodyweight and single-side work stays in moderate ranges; beginners
+         * learn technique at 8–12.
+         */
+        fun prescribe(
+            slot: Slot,
+            exercise: Exercise,
+            equipment: Set<EquipmentKind>,
+            goal: Goal,
+            experience: Experience,
+        ): Prescription {
             val beginner = experience == Experience.NEW
             fun sets(n: Int) = if (beginner) maxOf(2, n - 1) else n
-            return when (exercise.unit) {
-                ExerciseUnit.MINUTES ->
+            val reps = ExerciseUnit.REPS
+            val bodyweight = equipment.isEmpty()
+            val light = bodyweight || exercise.unilateral
+            return when {
+                exercise.unit == ExerciseUnit.MINUTES && exercise.intervals ->
+                    Prescription(if (beginner) 6 else 8, 20, 30, ExerciseUnit.SECONDS, 40)
+                exercise.unit == ExerciseUnit.MINUTES ->
                     if (goal == Goal.LOSE_FAT) Prescription(1, 10, 15, ExerciseUnit.MINUTES, 0)
                     else Prescription(1, 8, 12, ExerciseUnit.MINUTES, 0)
-                ExerciseUnit.SECONDS ->
+                exercise.unit == ExerciseUnit.SECONDS ->
                     if (slot.pattern == MovementPattern.CARRY) Prescription(sets(3), 30, 45, ExerciseUnit.SECONDS, 90)
                     else if (beginner) Prescription(2, 20, 30, ExerciseUnit.SECONDS, 45)
                     else Prescription(3, 30, 45, ExerciseUnit.SECONDS, 45)
-                ExerciseUnit.REPS -> when (slot.role) {
-                    SlotRole.CORE, SlotRole.CONDITIONING -> Prescription(sets(3), 8, 12, ExerciseUnit.REPS, 45)
-                    SlotRole.MAIN -> when (goal) {
-                        Goal.GET_STRONGER -> Prescription(sets(4), 3, 5, ExerciseUnit.REPS, 180)
-                        Goal.BUILD_MUSCLE -> Prescription(sets(4), 6, 10, ExerciseUnit.REPS, 120)
-                        Goal.LOSE_FAT, Goal.GENERAL_FITNESS -> Prescription(sets(3), 8, 12, ExerciseUnit.REPS, 90)
-                    }
-                    SlotRole.ACCESSORY -> when (goal) {
-                        Goal.GET_STRONGER -> Prescription(sets(3), 6, 10, ExerciseUnit.REPS, 120)
-                        Goal.BUILD_MUSCLE -> Prescription(sets(3), 8, 12, ExerciseUnit.REPS, 90)
-                        Goal.LOSE_FAT, Goal.GENERAL_FITNESS -> Prescription(sets(3), 10, 15, ExerciseUnit.REPS, 60)
-                    }
-                    SlotRole.ISOLATION ->
-                        if (goal == Goal.LOSE_FAT || goal == Goal.GENERAL_FITNESS) Prescription(2, 12, 15, ExerciseUnit.REPS, 45)
-                        else Prescription(sets(3), 10, 15, ExerciseUnit.REPS, 60)
+                exercise.repsMin != null && exercise.repsMax != null ->
+                    Prescription(sets(3), exercise.repsMin, exercise.repsMax, reps, 120)
+                exercise.ballistic -> Prescription(sets(3), 10, 15, reps, 60)
+                slot.role == SlotRole.CORE || slot.role == SlotRole.CONDITIONING -> Prescription(sets(3), 8, 12, reps, 45)
+                slot.role == SlotRole.MAIN -> when {
+                    beginner -> Prescription(sets(3), 8, 12, reps, 90)
+                    goal == Goal.GET_STRONGER && exercise.heavy -> Prescription(4, 3, 5, reps, 180)
+                    goal == Goal.GET_STRONGER && !light -> Prescription(4, 5, 8, reps, 150)
+                    goal == Goal.GET_STRONGER -> Prescription(3, 6, 10, reps, 120)
+                    goal == Goal.BUILD_MUSCLE && bodyweight -> Prescription(3, 8, 15, reps, 90)
+                    goal == Goal.BUILD_MUSCLE && light -> Prescription(3, 8, 12, reps, 90)
+                    goal == Goal.BUILD_MUSCLE -> Prescription(4, 6, 10, reps, 120)
+                    bodyweight -> Prescription(3, 10, 15, reps, 90)
+                    else -> Prescription(3, 8, 12, reps, 90)
                 }
+                slot.role == SlotRole.ACCESSORY -> when (goal) {
+                    Goal.GET_STRONGER -> if (light) Prescription(sets(3), 8, 12, reps, 90) else Prescription(sets(3), 6, 10, reps, 120)
+                    Goal.BUILD_MUSCLE -> Prescription(sets(3), 8, 12, reps, 90)
+                    Goal.LOSE_FAT, Goal.GENERAL_FITNESS -> Prescription(sets(3), 10, 15, reps, 60)
+                }
+                else ->
+                    if (goal == Goal.LOSE_FAT || goal == Goal.GENERAL_FITNESS) Prescription(2, 12, 15, reps, 45)
+                    else Prescription(sets(3), 10, 15, reps, 60)
             }
         }
 

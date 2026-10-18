@@ -19,8 +19,22 @@ Phase 1b asked the owner to assign a location or "Rest" to each weekday. After t
     - 1–3 sessions: full body A/B/C.
     - 4 sessions: upper/lower ×2.
     - 5 sessions: upper/lower/push/pull/legs.
-  - **Exercises** fill each session's slots (movement pattern or target muscle) from the bundled catalog. Only exercises that the day's location can support are used; bodyweight always counts. The choice prefers the owner's level and loadable options, and avoids repeats within the week.
-  - **Sets, reps and rest** come from the goal and the slot's role (main lift, accessory, isolation), with fewer sets for beginners. Weight loads arrive with logging and progressive overload (Phase 1c-3).
+  - **Exercises** fill each session's slots (movement pattern or target muscle) from the bundled catalog. Only exercises that the day's location can support are used; bodyweight always counts, and an adjustable bench also works as a flat bench.
+  - **How exercises are chosen:**
+    - Nothing above the owner's level when an easier option exists.
+    - Not the easiest options for experienced lifters.
+    - Heavy barbell lifts only in main slots, and preferred there when the goal is strength.
+    - Explosive work (swings) never as a main lift.
+    - Loadable options preferred for muscle and strength goals.
+    - No repeats within a session, and fewer within the week.
+  - **Session size:** beginners get 5 exercises per session, others 6. Fat-loss and general-fitness sessions end with a conditioning finisher.
+  - **Sets, reps and rest** come from the goal, the slot's role (main lift, accessory, isolation) and the exercise itself:
+    - Strength ranges (3–5) are only for heavy lifts. Bodyweight and single-side work stays in moderate ranges.
+    - Beginners do 8–12 reps with fewer sets.
+    - High-intensity conditioning is done as 20–30 s rounds, steady cardio as one block.
+    - Slow negatives are always 3–5 reps.
+  - **Safety in the catalog:** barbell work needs plates, and barbell squats, bench press and overhead press need a rack (or a Smith machine).
+  - Weight loads arrive with logging and progressive overload (Phase 1c-3).
   - If a slot can't be filled at that location, the plan says so instead of inventing something.
 - **The plan is a pure function** of profile + setup + catalog, so it's stable and recomputed whenever they change. When the Coach gets tools (Phase 1c-2), its changes become stored, versioned, undoable overrides on top of this base plan (ADR 0008). The Coach's chat explains the plan from the engine's facts; it never writes sets, reps or loads itself.
 - **Injuries are free text** and aren't used by the engine yet. The Coach will read them and propose swaps through validated tools.

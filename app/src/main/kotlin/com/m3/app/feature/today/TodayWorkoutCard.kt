@@ -16,7 +16,7 @@ import com.m3.core.designsystem.component.Kicker
 import com.m3.core.designsystem.component.M3Card
 import com.m3.core.designsystem.component.SectionHeader
 import com.m3.core.designsystem.theme.M3
-import java.time.LocalDate
+import com.m3.app.feature.train.rememberToday
 
 /** Today's planned session, or a rest day (ADR 0009). */
 @Composable
@@ -29,10 +29,11 @@ fun TodayWorkoutCard(viewModel: TrainViewModel = hiltViewModel()) {
             TrainState.Loading -> Text(text = "Planning…", style = M3.typography.body, color = M3.colors.muted)
             TrainState.Failed -> Text(text = "Couldn't load your plan.", style = M3.typography.body, color = M3.colors.accent)
             is TrainState.Ready -> {
-                val session = s.plan.sessionOn(LocalDate.now().dayOfWeek)
+                val today = rememberToday().value.dayOfWeek
+                val session = s.plan.sessionOn(today)
                 if (session == null) {
                     Text(text = "Rest day", style = M3.typography.title, color = M3.colors.ink)
-                    val next = s.plan.sessions.firstOrNull { it.day > LocalDate.now().dayOfWeek } ?: s.plan.sessions.firstOrNull()
+                    val next = s.plan.sessions.firstOrNull { it.day > today } ?: s.plan.sessions.firstOrNull()
                     Text(
                         text = next?.let { "Next: ${it.type.displayName} on ${it.day.displayName} at ${it.locationName}." }
                             ?: "No sessions planned yet.",

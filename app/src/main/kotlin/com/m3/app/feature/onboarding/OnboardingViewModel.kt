@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import com.m3.app.data.PlanRepository
 import com.m3.core.training.WeekPlan
 
@@ -105,17 +107,27 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /** The Coach's split for the summary page, from what's been entered (ADR 0009). */
+    private var previewJob: Job? = null
+
     private fun previewPlan() {
+        previewJob?.cancel()
+        _state.update { it.copy(preview = null) }
         val state = _state.value
         val setup = state.setup.toSetup() ?: return
         val profile = state.profile.toProfile(currentYear)
-        viewModelScope.launch(Dispatchers.Default) {
+        previewJob = viewModelScope.launch(Dispatchers.Default) {
             val plan = plans.preview(profile, setup)
+            ensureActive()
             _state.update { it.copy(preview = plan) }
         }
     }
 
-    fun back() = _state.update { it.copy(index = (it.index - 1).coerceAtLeast(0), showErrors = false, saveError = null) }
+    fun back() {
+        previewJob?.cancel()
+        _state.update {
+            it.copy(index = (it.index - 1).coerceAtLeast(0), showErrors = false, saveError = null, preview = null)
+        }
+    }
 
     /** Why "Next" can't continue from the current step, or null if it can. */
     fun stepError(state: OnboardingState = _state.value): String? = when (val step = state.step) {

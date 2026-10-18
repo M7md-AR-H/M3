@@ -158,4 +158,48 @@ class PlanGeneratorTest {
         val p = profile(Goal.BUILD_MUSCLE, Experience.SOME)
         assertEquals(generator.generate(p, setup), generator.generate(p, setup))
     }
+
+    @Test
+    fun `strength ranges only for heavy lifts, bodyweight mains stay moderate`() {
+        val plan = generator.generate(profile(Goal.GET_STRONGER, Experience.SOME), TrainingSetup(listOf(home), all("home")))
+        plan.sessions.flatMap { it.exercises }.filter { it.prescription.unit == ExerciseUnit.REPS }.forEach {
+            assertTrue("${it.exercise.name} ${it.prescription}", it.prescription.min >= 6 || it.exercise.repsMin != null)
+        }
+    }
+
+    @Test
+    fun `swings never take a main slot`() {
+        val kettlebells = TrainingLocation("k", "Home", listOf(EquipmentItem.Catalog(EquipmentKind.KETTLEBELLS)))
+        val plan = generator.generate(profile(Goal.GET_STRONGER, Experience.EXPERIENCED), TrainingSetup(listOf(kettlebells), all("k")))
+        plan.sessions.flatMap { it.exercises }.filter { it.role == SlotRole.MAIN }.forEach { assertFalse(it.exercise.ballistic) }
+    }
+
+    @Test
+    fun `high-intensity conditioning is prescribed as rounds`() {
+        val ropes = TrainingLocation("r", "Park", listOf(EquipmentItem.Catalog(EquipmentKind.BATTLE_ROPES)))
+        val ex = catalog["battle_ropes"]!!
+        val p = PlanGenerator.prescribe(Slot(MovementPattern.CONDITIONING, SlotRole.CONDITIONING), ex, setOf(EquipmentKind.BATTLE_ROPES), Goal.LOSE_FAT, Experience.SOME)
+        assertEquals(Prescription(8, 20, 30, ExerciseUnit.SECONDS, 40), p)
+        assertTrue(ropes.equipment.isNotEmpty())
+    }
+
+    @Test
+    fun `an adjustable bench stands in for a flat bench and is shown as such`() {
+        val gear = setOf(EquipmentKind.DUMBBELLS, EquipmentKind.ADJUSTABLE_BENCH)
+        assertEquals(setOf(EquipmentKind.EZ_BAR, EquipmentKind.WEIGHT_PLATES, EquipmentKind.ADJUSTABLE_BENCH),
+            catalog["skull_crusher"]!!.supportedBy(gear + EquipmentKind.EZ_BAR + EquipmentKind.WEIGHT_PLATES))
+        assertEquals(setOf(EquipmentKind.DUMBBELLS, EquipmentKind.ADJUSTABLE_BENCH), catalog["chest_fly"]!!.supportedBy(gear))
+    }
+
+    @Test
+    fun `barbell work needs plates, and bench and overhead press need a rack`() {
+        catalog.exercises.filter { it.id != "inverted_row" }.forEach { e ->
+            e.equipment.filter { EquipmentKind.BARBELL in it || EquipmentKind.EZ_BAR in it }.forEach {
+                assertTrue("${e.id} $it", EquipmentKind.WEIGHT_PLATES in it)
+            }
+        }
+        listOf("bench_press", "overhead_press", "back_squat", "front_squat").forEach { id ->
+            catalog[id]!!.equipment.filter { EquipmentKind.BARBELL in it }.forEach { assertTrue(id, EquipmentKind.SQUAT_RACK in it) }
+        }
+    }
 }

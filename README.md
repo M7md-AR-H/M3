@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-18):** Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b built (branch `feat/phase-1b-foundation`, emulator-verified): app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Next: install 1b on the phone (needs the USB cable), then Phase 1c — fitness.
+**Status (2026-10-18):** Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 (branch `feat/phase-1c-plan`): the Coach now plans the week from your availability, goal and equipment. Next: Coach chat (1c-2).
 
 - Product & tech spec: [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md)
 - UI prototype (design source of truth): https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ
@@ -57,15 +57,27 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 - [x] Tests: 69 unit tests; 4 instrumented SQLCipher tests (emulator only)
 - [x] Emulator check: lock prompt (PIN), cancel → Unlock, onboarding end to end, edits saved, dark mode + profile survive a restart, short background stays unlocked
 - [x] Sonnet review fixes: weight lists checked against the same 0.5–200 kg range as the validator; re-lock keeps unsaved edits (app stays composed under an opaque lock layer that takes touches and Back); edit screens show a load error instead of crashing; unreadable saved UI config is never overwritten until the owner changes something; DB open can't leak on cancellation; Retry always restarts; unlock while backgrounded re-arms the timer; no auto-prompt again after rotation
+- [x] Phone install + owner's check (2026-10-18; PR #3 merged). Owner feedback: the Coach should decide the training/rest split → ADR 0009
+
+**1c-1 — Availability + Coach-planned week (branch `feat/phase-1c-plan`)**
+- [x] ADR 0009: the owner gives availability (place or "Not free" per day); Kotlin decides how many sessions and which days
+- [x] `schedule` → `availability` in model, data and onboarding ("When can you train?"; at least one free day required); same table, no migration
+- [x] `:core:training`: curated catalog of 100 exercises tagged with pattern, muscles, level and equipment alternatives (ADR 0008)
+- [x] Plan generator: sessions/week from goal + experience, day choice with rest in between, full body / upper-lower / push-pull-legs, exercises from each day's equipment, sets/reps/rest by goal; says when a slot can't be filled; 15 unit tests
+- [x] Train tab (week, reasons, session details), Today card (today's session or rest + next), onboarding summary shows the split
+- [x] Emulator check: split shown with reasons; unfillable slot explained; adding free days in Training setup re-plans (6 free → 4 sessions with rest)
+- [x] Sonnet review fixes: strength rep ranges only for heavy lifts (bodyweight/single-side stay moderate, beginners 8–12); swings never a main lift; high-intensity conditioning as 20–30 s rounds; slow negatives 3–5 reps; barbell work needs plates, bench/overhead press need a rack; adjustable bench counts as flat; ring dips split out as advanced; main slots prefer heavy lifts for strength and avoid too-easy picks; onboarding preview race fixed; "today" rolls over at midnight; collapsed cards say when something isn't possible
 - [ ] Phone install + owner's check (needs the USB cable)
 
-**1c — Fitness**
-- [ ] Offline exercise database (bundled, licensed data), tagged with equipment alternatives, movement pattern and muscles (ADR 0008)
-- [ ] Coach chat: streaming answers, labelled specialists, scoped schema-validated tools (incl. `ui.*`)
-- [ ] Workout plan generator (deterministic Kotlin; the model proposes, code validates)
-- [ ] Equipment adaptation engine + Coach tools (ADR 0008): day/session/week overrides ("only X and Y today"), substitutions by movement pattern + muscles, loads re-derived in Kotlin, diff → apply/undo, owner locks
+**1c-2 — Coach chat**
+- [ ] Coach chat: streaming answers, labelled specialists, scoped schema-validated tools (incl. `ui.*`); load E4B on GPU + MTP, CPU fallback, unload in background
+- [ ] Equipment adaptation + Coach tools (ADR 0008): day/session/week overrides ("only X and Y today"), substitutions by movement pattern + muscles, diff → apply/undo, owner locks; the Coach reads injuries and proposes swaps
+
+**1c-3 — Logging and progression**
 - [ ] Workout logging + live "focus mode" screen
-- [ ] Progressive overload rules (Kotlin)
+- [ ] Progressive overload rules (Kotlin), loads per exercise variant
+
+**1c-4 — Steps + check**
 - [ ] Phone step counter (no wearable)
 - [ ] Phase 1 "Try it yourself" list + phone check
 
@@ -91,7 +103,8 @@ M3/
   app/                    # Application, navigation, feature screens (packages: today, train, fuel, you, coach, aimodel)
   app/.../feature/onboarding/  # Onboarding flow + You → Profile / Training setup editors (shared form sections)
   core/designsystem/      # Colors, typography, fonts, shared components, UiConfig + store
-  core/model/             # Plain data shared by data and (later) training engine: equipment catalog, profile, training setup, validators, metric Units
+  core/training/          # Exercise catalog (JSON) + deterministic plan generator (ADR 0009)
+  core/model/             # Plain data shared by data and the training engine: equipment catalog, profile, training setup, validators, metric Units
   core/security/          # Tink + Keystore secret cipher, wrapped DB passphrase, app lock + unlock prompt
   core/data/              # Room + SQLCipher database, schema JSON (core/data/schemas), repositories
   ai/                     # On-device LLM: model catalog + verified store, LlmEngine (LiteRT-LM), benchmark; later prompts, tool schemas, vision
@@ -130,6 +143,11 @@ M3/
 | 2026-10-18 | Equipment: 50 kinds in 4 groups (free weights, stations & machines, cardio, small gear); bodyweight is not an item; only dumbbells and kettlebells take a kg list; custom items by name | ADR 0008 asked for ~40 kinds; a separate cardio group keeps the long stations list readable. "Bodyweight only" is just an empty list, which avoids contradictory states. Enums are stored by name, so reordering never changes saved data; unknown names from a newer build are skipped |
 | 2026-10-18 | Weight lists accept `2-24` (2 kg steps), `5-30/2.5` and `4, 8, 12`; parsed and range-checked in `Units` | Fast to type on a phone; one parser for all screens (metric only, ADR 0008) |
 | 2026-10-18 | Onboarding has one equipment page per location; everything is saved in one transaction only when the owner taps Start | No half-finished profile in the DB; the steps adapt as locations are added or removed |
+| 2026-10-18 | The owner gives availability; the Coach decides the training/rest split, in deterministic Kotlin | Owner's request after trying onboarding ("I want the coach to decide how the workout/rest split looks like"). Same `schedule_day` table with the meaning "free at" ([ADR 0009](docs/adr/0009-availability-coach-decides-split.md)) |
+| 2026-10-18 | Own curated exercise catalog (100 exercises, JSON in `:core:training` resources), not an import of free-exercise-db | free-exercise-db (Unlicense) only tags equipment as "machine"/"other", too coarse for per-location planning (ADR 0008). A smaller hand-tagged set gives reliable picks; free-exercise-db stays an option for instructions and images later |
+| 2026-10-18 | Equipment alternatives list the gear an exercise needs, in order of preference; generic names ("Biceps curl") with the chosen gear shown ("Dumbbells") | Fewer duplicate entries, more coverage per location, and the plan still says exactly what to use |
+| 2026-10-18 | Plan is recomputed from profile + availability + equipment on every change; nothing stored yet | It's a pure function, so it's always consistent. Stored, versioned overrides arrive with the Coach's tools (1c-2), as ADR 0008 plans |
+| 2026-10-18 | Max 5 sessions/week; heavy barbell lifts only in main slots; beginners get level-1 exercises; fat-loss and general-fitness sessions end with a 8–15 min conditioning finisher | Standard programming defaults (recovery, safety, adherence); all are constants in `PlanGenerator`, easy to tune |
 | 2026-10-18 | `:core:model` is a plain-Kotlin Android library (no Android code) | The training engine (Phase 1c) and `:core:data` both need the equipment enum; an Android library avoids adding the Kotlin JVM plugin and its verification entries |
 | 2026-10-16 | Toolchain: Gradle 9.8.1, AGP 9.4.1 (built-in Kotlin), Kotlin 2.4.21, KSP 2.3.12, compileSdk 37, targetSdk 36, minSdk 33 | Latest stable versions verified against Maven/Gradle metadata. compileSdk 37 is required: core-ktx 1.19.1, Compose UI 1.12.1, lifecycle 2.11.0 and hilt 1.4.0 declare `minCompileSdk=37` in their AAR metadata. targetSdk stays 36 until Android 17 behaviour changes are reviewed; minSdk 33 because the Poco F5 shipped with Android 13 |
 | 2026-10-17 | Keep targetSdk 36 for now and accept lint's `OldTargetApi` warning | Owner's phone runs Android 15 (AQ3A.250226.002); targeting 37 means adopting Android 17 behaviour changes, which can wait until there's a reason |
@@ -179,6 +197,11 @@ M3/
 | If the Keystore key is lost (very rare, e.g. a broken system update), the data can't be opened | That's what makes the data unreadable off the phone (ADR 0004). M³ then shows an error and deletes nothing | The planned encrypted export file as a backup |
 | Leaving Profile or Training setup with Back drops unsaved changes without asking | Simple list editors for Phase 1b | An "unsaved changes" prompt if it turns out to be annoying |
 | While locked, the app's screens stay loaded in memory behind the lock layer (hidden, untouchable, not readable by accessibility) | Keeps half-finished edits and navigation when the 5-minute lock kicks in | — (intended) |
+| The plan doesn't use injuries or custom equipment items yet | Injuries are free text and custom items are unknown to the catalog; guessing would be unsafe | The Coach (1c-2) reads them and proposes swaps through validated tools |
+| The plan ignores which dumbbell/kettlebell weights you listed (e.g. very light dumbbells still get a normal rep range) | Loads and the kg lists come together with logging | Progressive overload (1c-3) picks loads from your kg list |
+| No weights are prescribed yet; the plan gives sets, reps and rest plus "pick a weight you could lift 2–3 more times" | Loads need logged history to be right | Logging + progressive overload (1c-3) |
+| No exercise instructions or pictures yet | The catalog has tags only | Add instructions (e.g. from free-exercise-db, Unlicense) with focus mode (1c-3) |
+| The same week repeats until something changes | No history yet to vary or progress the plan | Progression and Coach adjustments (1c-2/1c-3) |
 | Release (minified) builds compile but weren't run on a device in Phase 1b | The phone gets debug builds (same key as the installed app); R8 rules for Tink/SQLCipher come from their own packages | Run the release build on the emulator before the first release install |
 
 ---

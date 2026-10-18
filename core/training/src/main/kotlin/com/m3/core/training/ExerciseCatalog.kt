@@ -39,7 +39,10 @@ class ExerciseCatalog(val version: Int, val exercises: List<Exercise>) {
                 if (e.equipment.isEmpty()) add("${e.id}: no equipment alternatives (use [[]] for bodyweight)")
                 if (e.primary.isEmpty() && e.pattern != MovementPattern.CONDITIONING) add("${e.id}: no primary muscle")
                 if (e.equipment.distinct().size != e.equipment.size) add("${e.id}: repeated alternative")
-            }
+                if ((e.repsMin == null) != (e.repsMax == null) || (e.repsMin != null && e.repsMin > e.repsMax!!)) {
+                    add("${e.id}: bad fixed reps")
+                }
+                if (e.intervals && e.unit != ExerciseUnit.MINUTES) add("${e.id}: intervals must be MINUTES work")            }
         }
 
         private val ID = Regex("[a-z0-9_]{2,40}")

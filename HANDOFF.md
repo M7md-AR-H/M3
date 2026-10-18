@@ -1,85 +1,72 @@
-# HANDOFF — 2026-10-18 (end of session 4)
+# HANDOFF — 2026-10-18 (session 4, Phase 1c-1 ready for review)
 
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 
 ## ▶ Next steps, in order
-1. **Owner decision:** review PR "Phase 1b" (`feat/phase-1b-foundation` → `main`) and say whether to squash-merge it. Don't merge without that.
-2. **Phone install** (needs the owner to plug in the USB cable, serial `c84e26c7`). It can happen before or after the merge, since it's the same debug build:
-   1. `adb devices` shows `c84e26c7` (`adb reconnect offline` if it's offline).
-   2. `./gradlew :app:assembleDebug`, then `adb -s c84e26c7 install -r app/build/outputs/apk/debug/app-debug.apk`. This upgrades in place, keeps the 3.66 GB model and uses the same debug key.
-   3. The owner opens M³, unlocks, and taps through onboarding following OWNER_TASKS "Try it yourself — Phase 1b" (Xiaomi blocks injected taps). Read the screen with `uiautomator dump /data/local/tmp/m3-ui.xml`, `cat` it, and `rm` it in the same command.
-   4. `adb -s c84e26c7 shell am force-stop com.m3.app`, then `adb kill-server`.
-   5. Report exactly what changed on the phone:
-      - The app was upgraded.
-      - New private files: `databases/m3.db` (+ `-wal`/`-shm`), `no_backup/db.key`, `shared_prefs/m3_keyset_prefs.xml`.
-      - A Keystore key `m3_master_key`.
-      - Nothing outside the app.
-   6. Tick "Phone install + owner's check" in the README.
-3. **Phase 1c** (README checkboxes):
-   - Exercise DB tagged with equipment/pattern/muscles.
-   - Adaptation engine + Coach tools (ADR 0008).
-   - Plan generator.
-   - Coach chat (E4B on GPU + MTP, CPU fallback, unload in background).
-   - Logging, overload, step counter.
-   - Equipment is in `:core:model` (`EquipmentKind`), and the setup is read via `TrainingSetupRepository.observe()`. `day_override` exists as a table but has no DAO yet.
+1. **Owner decision:** review the PR "Phase 1c-1" (`feat/phase-1c-plan` → `main`) and approve the squash-merge. Don't merge without that.
+2. **Phone install. The owner has disconnected the phone; wait until they say it's back.** Use the USB serial `c84e26c7`, or the wireless mDNS serial `adb-c84e26c7-…._adb-tls-connect._tcp` if USB isn't present.
+   1. `./gradlew :app:assembleDebug`
+   2. `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`
+   3. The owner follows OWNER_TASKS "Try it yourself — Phase 1c-1".
+   4. Force-stop the app, run `adb disconnect` and `adb kill-server`, then report what changed: only the app was upgraded; no new files. The plan isn't stored; it is recomputed from data already in `m3.db`.
+3. **Phase 1c-2: Coach chat** (README checkboxes). Give the owner a time estimate first.
+   - Load E4B with `LlmBackend.GPU` + `speculativeDecoding = true`. Fall back to CPU if GPU init fails, and unload when the app goes to the background.
+   - Streaming chat UI on the COACH tab.
+   - Schema-validated tool calls (kotlinx.serialization), with Kotlin deciding (ADR 0003):
+     - `ui.*` (ADR 0007, via `UiConfigStore.apply` with `Actor.Agent`);
+     - `training.setDayInventory` / `adaptPlan` / `setLocationInventory` / `assignLocation` (ADR 0008/0009).
+   - Store Coach plan changes as versioned, undoable overrides on top of `PlanGenerator`'s base plan. `day_override` already exists as a table, with no DAO yet.
+   - The Coach explains the plan from `WeekPlan` facts and reads injuries to propose swaps.
 
-## What was done this session
-- **Phase 1b built** on `feat/phase-1b-foundation`. Commits: `b59fbdc` (code), `c024e1e` (review fixes + docs), plus this handoff.
-  - **`:core:model`:** equipment catalog (50 kinds, 4 groups), profile, training setup, validators, `Units`.
-  - **`:core:security`:**
-    - `TinkSecretCipher`: Keystore master key `android-keystore://m3_master_key`, keyset in prefs `m3_keyset_prefs`.
-    - `DatabasePassphrase`: `no_backup/db.key`, written atomically, never overwritten.
-    - `AppLock`: 5 min, monotonic clock, one auto-prompt per lock.
-    - `UnlockPrompt`: platform BiometricPrompt, strong biometric or device credential.
-  - **`:core:data`:**
-    - Room 2.8.5 + SQLCipher 4.19.1, `m3.db`, schema v1 JSON in `core/data/schemas`.
-    - `DatabaseOpener`: lazy, IO, non-cancellable open, no destructive fallback.
-    - Repositories.
-  - **`:app`:**
-    - `AppStartup`: open DB, restore UI config, save every change after the first.
-    - `MainActivity` lock layer: the app stays composed under an opaque, touch- and Back-blocking lock screen.
-    - Onboarding in `feature/onboarding`, with shared form sections.
-    - You → Profile and You → Training setup.
-- **Checks:**
-  - 71 unit tests pass.
-  - Lint: 0 errors. Warnings: `OldTargetApi`, `ChromeOsAbiSupport`, and `NewerVersionAvailable` for Tink 1.24.0, which is deliberately not used yet (see decision log).
-  - 4 instrumented SQLCipher tests pass on the emulator.
-  - Debug and release builds assemble.
-- **Emulator check:**
-  - Lock prompt on cold start (emulator PIN 1234).
-  - Cancel shows the Locked screen; Unlock works.
-  - Full onboarding: validation hints, Gym/Home/Park, kg list `2-24`, custom item, schedule, summary.
-  - Edits saved; dark mode + profile survive a force-stop.
-  - Short background stays unlocked; more than 5 min locks again (passed twice on the fixed build).
-- **Sonnet review:** 10 findings. 1–8 fixed, 9 documented as a limitation. 10 is pre-existing debug-only benchmark logging that the decision log allows.
+## What was done this session (session 4)
+- **Phase 1b:** built, reviewed, merged (PR #3 → `main` `13ec534`), installed on the phone and checked by the owner. Owner feedback: the Coach should decide the training/rest split.
+- **Phase 1c-1** on `feat/phase-1c-plan`:
+  - **ADR 0009:** the owner gives availability; deterministic Kotlin decides the split.
+  - **Rename:** `schedule` → `availability` in model, data and onboarding. Same `schedule_day` table, no migration.
+  - **`:core:training`:**
+    - `exercises.json`: 101 curated exercises tagged with pattern, muscles, level, equipment alternatives and the flags heavy, ballistic, intervals and fixed reps.
+    - `ExerciseCatalog` validates the file on load.
+    - `PlanGenerator` and `WeekPlan`.
+  - **App:**
+    - `PlanRepository` (combines profile + setup → plan, on `Dispatchers.Default`).
+    - Train tab, Today card, onboarding "All set" preview.
+    - `PlanText` for wording; `Durations` in core/model `Units.kt`.
+  - **Sonnet review:** 12 findings. All fixed except dumbbell kg lists, which are now a README limitation until 1c-3.
+  - **Checks:**
+    - 91 unit tests pass; lint 0 errors.
+    - Emulator: split + reasons; unfillable slots explained; editing availability re-plans; Today card shows rest + next session.
 
 ## Current state
 - **Git:**
-  - `main` = `3a7b029`.
-  - `feat/phase-1b-foundation` is pushed with an open PR to `main`, not merged.
-- **Phone:** unchanged since session 3. Phase 1a build installed, model present, adb disconnected.
-- **PC:** emulator stopped, adb server stopped. The emulator still has the test app with test data and PIN 1234; that's fine, it's only the emulator.
+  - `main` = `13ec534` (Phase 1b).
+  - `feat/phase-1c-plan` is pushed with an open PR, not merged.
+- **Phone:**
+  - Phase 1b debug build installed, owner onboarded.
+  - Model and encrypted DB present.
+  - App force-stopped, adb disconnected.
+  - The phone is currently unplugged.
+- **PC:** emulator stopped, adb server stopped. The emulator has test data and PIN 1234 (emulator only).
 
 ## Open questions for the owner
-- Merge the Phase 1b PR? (Required before merging.)
+- Merge the Phase 1c-1 PR?
 - Not urgent (OWNER_TASKS #5): before going public, keep the Gmail address in commit history, or switch to the GitHub noreply address?
 
 ## Things to know
-- **Unexplained one-off:** the very first 5-minute lock test (build before the review fixes) came back unlocked. It wasn't timed, so it may not even have waited 5 minutes. The fixed build passed twice with uptime measured, including the exact same sequence (cancel → Unlock → PIN → Home → 310 s). The most likely cause is review finding 7: an unlock callback arriving after the activity stopped cleared the timer. That's now fixed and unit-tested. Re-check on the phone (OWNER_TASKS Phase 1b, step 7).
-- **SQLCipher passphrase:** SQLCipher keeps the passphrase array to open more connections, so it must not be zeroed (decision log).
-- **Locked state:** while locked, the app stays composed underneath. Anything new that runs in the background or takes key input must respect `locked`.
+- **The plan is a pure function** of profile + setup + catalog. Tuning knobs live in `PlanGenerator`: `targetSessions`, `TEMPLATES`, the `pick` scoring and `prescribe`. Catalog edits are checked by `ExerciseCatalog.validate` and by `PlanGeneratorTest` (plates/rack rules, full-gym coverage).
+- **Locked state:** while locked, the app stays composed under the lock layer. Anything new that runs in the background or takes key input must respect `locked`.
+- **SQLCipher passphrase:** must not be zeroed (decision log).
 
 ## Traps found
+- **Printing a sample plan:** write a throw-away JUnit test that `println`s the plan, read `<system-out>` in `core/training/build/test-results/testDebugUnitTest/TEST-*.xml`, then delete the test.
+- **Kotlin:** `with(EnumClass) { … }` doesn't compile; import the enum entries instead.
+- **`sed` edits** turn CRLF files into LF. Git shows them as modified with no content diff; that's harmless.
+- **Emulator:**
+  - After boot it shows its own lock screen. Run `input keyevent 82`, swipe up, type PIN 1234, Enter.
+  - Wait until "Unlock M³" appears before typing the app PIN.
+  - Instrumented tests: always set `ANDROID_SERIAL=emulator-5554`.
+- **Phone:** if USB isn't present, the phone may still be reachable over wireless debugging (mDNS serial). Always run `adb disconnect` + `adb kill-server` afterwards.
 - **This PC:**
-  - No Python. Bash heredocs with tricky quoting can fail, so write source files with the Write tool.
-  - `--write-verification-metadata` can fail at the very end with "user-mapped section open" (Windows file lock); just re-run it.
-- **Kotlin:** `StateFlow.conflate()` is a deprecation *error*, because StateFlow is already conflated.
-- **Instrumented tests:**
-  - Always set `ANDROID_SERIAL=emulator-5554` so they can never run on the phone.
-  - The result file name has spaces; use `find … -print0 | xargs -0`.
-- **Emulator UI checks:**
-  - `adb -e shell locksettings set-pin 1234` (emulator only, never the phone).
-  - In `uiautomator` dumps, Compose radio selection appears as `checked="true"` on the parent node.
-  - Field positions shift when error text appears; re-dump before each tap.
-  - The helper script from this session (`ui.sh`) lived in the session scratchpad and is gone. Its logic: dump → grep bounds → `input tap` at the centre.
-- **Older traps** (model copying over USB with resumable `exec-in`, Xiaomi tap blocking, LiteRT-LM quirks, `JAVA_HOME`, no `./gradlew clean`): see `git show ebfcf61:HANDOFF.md`. They still apply.
+  - No Python; use the Write tool for source files.
+  - `--write-verification-metadata` may fail on a Windows file lock; re-run it.
+  - `StateFlow.conflate()` is a deprecation error.
+- **Older traps** (model copying, Xiaomi, LiteRT-LM, `JAVA_HOME`): `git show ebfcf61:HANDOFF.md`.

@@ -54,12 +54,30 @@ data class Exercise(
     val level: Int,
     val compound: Boolean,
     val unilateral: Boolean = false,
-    /** A big barbell lift that belongs in a main slot, not as an accessory after another one. */
+    /** A big barbell lift that belongs in a main slot, not as an accessory after another one. Only these get strength rep ranges (3–5). */
     val heavy: Boolean = false,
+    /** Explosive work (e.g. swings): never a main lift, always moderate-to-high reps. */
+    val ballistic: Boolean = false,
+    /** High-intensity conditioning done as work/rest rounds, not one continuous block. */
+    val intervals: Boolean = false,
+    /** Fixed rep range for exercises that need one regardless of goal (e.g. slow negatives). */
+    val repsMin: Int? = null,
+    val repsMax: Int? = null,
     val unit: ExerciseUnit = ExerciseUnit.REPS,
     val equipment: List<Set<EquipmentKind>>,
 ) {
-    /** The first alternative the inventory supports, or null. Bodyweight is always available. */
-    fun supportedBy(inventory: Set<EquipmentKind>): Set<EquipmentKind>? =
-        equipment.firstOrNull { inventory.containsAll(it) }
+    /**
+     * The first alternative the inventory supports, as the gear actually used there, or null.
+     * Bodyweight is always available; an adjustable bench also works as a flat bench.
+     */
+    fun supportedBy(inventory: Set<EquipmentKind>): Set<EquipmentKind>? {
+        val benchStandIn = EquipmentKind.FLAT_BENCH !in inventory && EquipmentKind.ADJUSTABLE_BENCH in inventory
+        val effective = if (benchStandIn) inventory + EquipmentKind.FLAT_BENCH else inventory
+        val alternative = equipment.firstOrNull { effective.containsAll(it) } ?: return null
+        return if (benchStandIn && EquipmentKind.FLAT_BENCH in alternative) {
+            alternative - EquipmentKind.FLAT_BENCH + EquipmentKind.ADJUSTABLE_BENCH
+        } else {
+            alternative
+        }
+    }
 }

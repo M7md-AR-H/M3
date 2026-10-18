@@ -30,7 +30,7 @@ import com.m3.core.designsystem.component.SectionHeader
 import com.m3.core.designsystem.theme.M3
 import com.m3.core.training.PlannedSession
 import java.time.DayOfWeek
-import java.time.LocalDate
+
 
 @Composable
 fun TrainScreen(viewModel: TrainViewModel = hiltViewModel()) {
@@ -55,7 +55,7 @@ fun TrainScreen(viewModel: TrainViewModel = hiltViewModel()) {
                     style = M3.typography.body,
                     color = M3.colors.muted,
                 )
-                val today = LocalDate.now().dayOfWeek
+                val today = rememberToday().value.dayOfWeek
                 var expanded by rememberSaveable { mutableStateOf<DayOfWeek?>(today) }
                 DayOfWeek.entries.forEach { day ->
                     val session = s.plan.sessionOn(day)
@@ -105,7 +105,9 @@ fun SessionCard(session: PlannedSession, isToday: Boolean, expanded: Boolean, on
         Text(text = session.type.displayName, style = M3.typography.title, color = M3.colors.ink)
         if (!expanded) {
             Text(
-                text = "${session.exercises.size} exercises · tap to see them",
+                text = "${session.exercises.size} exercises" +
+                    (if (session.unfilled.isNotEmpty()) " · ${session.unfilled.size} not possible here" else "") +
+                    " · tap to see them",
                 style = M3.typography.bodySmall,
                 color = M3.colors.muted,
             )
