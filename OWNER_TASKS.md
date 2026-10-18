@@ -37,14 +37,30 @@ Tell Claude "Android Studio is installed" so the build can be checked.
 
 ---
 
-## 3. Accept the Gemma license on Hugging Face (needed in Phase 1, not yet)
+## 3. ~~Accept the Gemma license on Hugging Face~~ — no longer needed
+- [x] Not needed (2026-10-18): the chosen models (Gemma 4 E4B/E2B) are open (Apache-2.0) with no sign-in. Claude downloaded them to the PC's `M3\models` folder (ignored by git) and checked their checksums.
+
+---
+
+## 4. Get the phone ready for the AI model test — **needed for the next step**
 - [ ] Done
 
-1. Create a free account at https://huggingface.co/join (if you don't have one).
-2. Claude will give you the exact model page link when Phase 1 starts. On that page, click **Agree and access repository** and accept Google's Gemma terms.
-3. Download the model file Claude names (about 4.9 GB for the main model) into your PC's `Downloads` folder. Make sure the phone has at least 8 GB free storage.
+1. **Free space:** on the phone, open **Settings → About phone → Storage**. You need at least **8 GB free** (both test models together are about 6.3 GB). If you have less, delete something or tell Claude, who will test one model at a time.
+2. **Install via USB:** **Settings → Additional settings → Developer options** → turn on **Install via USB**. Xiaomi may ask you to sign in to your Mi account. That's Xiaomi's rule, not ours.
+3. **Wireless debugging:** in the same Developer options screen, turn on **Wireless debugging**. Your PC and phone must be on the same Wi-Fi.
+4. Tap **Wireless debugging** (the words, not the switch). If Claude asks for it, tap **Pair device with pairing code** and send Claude the **IP address & port** and the **6-digit code** shown. Never send passwords.
+5. Keep the phone **plugged into a charger** and **unlocked** during the test. Copying the model takes about 5–15 minutes over Wi-Fi, and the benchmark takes 5–15 more. A USB-C cable makes the copy much faster.
+6. When the popup **"Install M³?"** appears on the phone, tap **Install**.
 
-**Where it goes:** the file stays on your PC/phone only. Never commit it to the repo (it's in `.gitignore`).
+**What Claude will do on the phone (and only this):**
+- Install M³.
+- Copy the two model files into M³'s private folder. No files go anywhere else, and nothing is left in your Downloads or other folders.
+- Run the benchmark.
+- Close M³ and disconnect.
+
+Nothing else on the phone is touched, and no settings are changed. Uninstalling M³ removes everything.
+
+**How to check it worked:** Claude will tell you the results. You'll also see M³ in your app drawer.
 
 ---
 

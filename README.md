@@ -35,7 +35,30 @@ Target device: Xiaomi Poco F5, 12 GB RAM (Snapdragon 7+ Gen 2). Android only.
 - [ ] ~~App installs on the Poco F5~~ → deferred by owner to the Phase 1 model benchmark (first install that's worth it)
 
 ### Phase 1 — Foundation + Fitness (v0.1)
-Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 3n), workout plan generator, workout logging, progressive overload, offline exercise database, phone step counter. *(Split into tasks when the phase starts.)*
+Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), workout plan generator, workout logging, progressive overload, offline exercise database, phone step counter.
+
+**1a — On-device model (branch `feat/phase-1-model-benchmark`)**
+- [x] Re-check models: Gemma 4 E4B (3.66 GB) and E2B (2.59 GB) `.litertlm`, Apache-2.0, ungated; Gemma 3n dropped (ADR 0002 updated)
+- [x] `:ai` module: model catalog with SHA-256, `ModelStore` (hash-while-copy import, check, remove), `LlmEngine` + LiteRT-LM 0.18.0 implementation, benchmark runner, answer checks, report; unit tests (14)
+- [x] You → "AI model & benchmark" screen: add model file (system picker), check, remove, run benchmark, copy results
+- [x] Review fixes (Sonnet review): per-case peak RAM, cancellation-safe conversation, streaming on the engine thread, off-main-thread delete, free-space check
+- [x] Emulator check: screen renders; unchecked file → "Check file" → rejected → removed
+- [ ] Emulator end-to-end: Gemma 4 E2B on CPU answers the benchmark prompts
+- [ ] **Phone benchmark** (needs owner: "Install via USB" + Wireless debugging) → record results in ADR 0002, pick the model
+
+**1b — Foundation**
+- [ ] `:core:security`: Keystore-wrapped Tink keys, biometric/credential app lock
+- [ ] `:core:data`: Room + SQLCipher; persist `UiConfig` + change history (removes "customizations lost on restart")
+- [ ] Onboarding: profile, goal, units, equipment, experience, schedule
+
+**1c — Fitness**
+- [ ] Offline exercise database (bundled, licensed data)
+- [ ] Coach chat: streaming answers, labelled specialists, scoped schema-validated tools (incl. `ui.*`)
+- [ ] Workout plan generator (deterministic Kotlin; the model proposes, code validates)
+- [ ] Workout logging + live "focus mode" screen
+- [ ] Progressive overload rules (Kotlin)
+- [ ] Phone step counter (no wearable)
+- [ ] Phase 1 "Try it yourself" list + phone check
 
 ### Phase 2 — Nutrition (v0.2)
 TDEE/macros, meal photo → estimate + critique, barcode scanning, fridge mode, grocery list.
@@ -56,11 +79,11 @@ Built alongside Phase 1–2 as the `:research` module (ADR 0005).
 ## Project structure
 ```
 M3/
-  app/                    # Application, navigation, feature screens (packages: today, train, fuel, you, coach)
+  app/                    # Application, navigation, feature screens (packages: today, train, fuel, you, coach, aimodel)
   core/designsystem/      # Colors, typography, fonts, shared components
   core/security/          # (Phase 1) Keystore/Tink, biometric lock
   core/data/              # (Phase 1) Room + SQLCipher, repositories
-  ai/                     # (Phase 1) LLM runtime, prompts, tool schemas, vision
+  ai/                     # On-device LLM: model catalog + verified store, LlmEngine (LiteRT-LM), benchmark; later prompts, tool schemas, vision
   research/               # (later) the ONLY module allowed network access
   docs/                   # Spec, ADRs, working rules
 ```
@@ -72,6 +95,14 @@ M3/
 |---|---|---|
 | 2026-10-16 | Native Android, Kotlin + Compose, Android-only | On-device AI, camera and Keystore are first-class there ([ADR 0001](docs/adr/0001-native-android-kotlin-compose.md)) |
 | 2026-10-16 | LiteRT-LM runtime; Gemma 3n E4B int4 as baseline, re-benchmarked vs newer small Gemma at Phase 1 start | MediaPipe LLM API is maintenance-only; LiteRT-LM is Google's supported path with GPU + image input ([ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md)) |
+| 2026-10-18 | Model candidates switched to **Gemma 4 E4B** (preferred) and **E2B** (fallback); final pick by on-phone benchmark | Gemma 4 `.litertlm` builds are Apache-2.0 and ungated (no Hugging Face account needed), smaller than Gemma 3n E4B (3.66 vs 4.92 GB), newer, and support GPU speculative decoding ([ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md)) |
+| 2026-10-18 | Added `litertlm-android` 0.18.0 (pulls in Gson 2.14.0 and kotlin-reflect 2.4.0) in `:ai` only | Google's supported on-device LLM runtime; Gson/kotlin-reflect are its own dependencies (Google/JetBrains). Checksums added to dependency verification |
+| 2026-10-18 | Model files: owner picks the file (system picker) or Claude streams it over adb into app-private storage; used only after size + SHA-256 match; verified state cached in a marker tied to size + mtime | App has no network (ADR 0005); hashing 3.66 GB on every launch would cost tens of seconds; any change to the file forces a re-check |
+| 2026-10-18 | Model files are not encrypted at rest | Public files with no personal data; already in app-private, non-backed-up storage |
+| 2026-10-18 | One native thread per engine; engine close blocks until freed before the next model loads | GPU contexts shouldn't be touched from several threads; two 3 GB models in memory at once could get the app killed |
+| 2026-10-18 | Release builds ship arm64 native code only; debug keeps x86_64 | The phone is arm64; x86_64 is only for the emulator. Saves ~26 MB. Lint's `ChromeOsAbiSupport` warning accepted |
+| 2026-10-18 | Benchmark prompts/answers may be logged (tag `M3Bench`) in debug builds only | They are fixed test prompts with no personal data; lets Claude read results over adb. User content is never logged |
+| 2026-10-18 | Phase 1 built on a branch stacked on the Phase 0 branch | PR #1 awaits the owner's merge approval; work continues without merging |
 | 2026-10-16 | Toolchain: Gradle 9.8.1, AGP 9.4.1 (built-in Kotlin), Kotlin 2.4.21, KSP 2.3.12, compileSdk 37, targetSdk 36, minSdk 33 | Latest stable versions verified against Maven/Gradle metadata. compileSdk 37 is required: core-ktx 1.19.1, Compose UI 1.12.1, lifecycle 2.11.0 and hilt 1.4.0 declare `minCompileSdk=37` in their AAR metadata. targetSdk stays 36 until Android 17 behaviour changes are reviewed; minSdk 33 because the Poco F5 shipped with Android 13 |
 | 2026-10-17 | Keep targetSdk 36 for now and accept lint's `OldTargetApi` warning | Owner's phone runs Android 15 (AQ3A.250226.002); targeting 37 means adopting Android 17 behaviour changes, which can wait until there's a reason |
 | 2026-10-17 | Don't install on the phone until there's something worth testing; first phone install is the Phase 1 model benchmark. Use the emulator meanwhile | Owner's call: the Phase 0 shell is mostly empty; the emulator covers UI checks without touching the daily phone |
@@ -106,3 +137,8 @@ M3/
 | Dark mode, colours and fonts were only checked structurally on the emulator, not visually | `FLAG_SECURE` blocks screenshots in automated checks | The owner's visual check on the phone in Phase 1 |
 | Dark mode may flash light for a moment at app start | Window background is the light ground colour before Compose draws | Day/night window background resources (`values-night`) |
 | No wearable data (heart rate, sleep tracking) | Owner has no watch/band | Health Connect integration if a wearable is added |
+| The model benchmark has no timeout, and Stop can't interrupt a model load in progress | LiteRT-LM's load is one blocking native call | A watchdog/timeout around load, if hangs are seen on the phone |
+| Benchmark results disappear when you leave the screen, and leaving stops a running benchmark (copy results first) | Benchmark is a one-off diagnostic, not user data | Save results to the encrypted DB if they become useful over time |
+| "Peak RAM" in the benchmark is the app process's RAM; GPU memory isn't fully counted | Android exposes no simple per-app GPU memory figure | Read GPU memory from vendor tools during the phone run |
+| Importing a model from Downloads temporarily needs its size twice in free space (up to ~7.5 GB) | The app can't read the Downloads file in place (no storage permission, by design) and copies it into private storage | Claude can stream it over adb instead (needs the size once), then delete the Downloads copy |
+| Uninstalling M³ deletes the AI model; it must be copied again | App-private storage is removed with the app | — (intended: nothing is left behind) |

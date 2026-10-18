@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "M3"
 
-include(":app", ":core:designsystem")
+include(":app", ":core:designsystem", ":ai")

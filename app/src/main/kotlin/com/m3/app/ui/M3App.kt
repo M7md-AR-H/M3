@@ -11,11 +11,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.m3.app.feature.aimodel.AiModelScreen
 import com.m3.app.feature.coach.CoachScreen
 import com.m3.app.feature.fuel.FuelScreen
 import com.m3.app.feature.today.TodayScreen
 import com.m3.app.feature.train.TrainScreen
 import com.m3.app.feature.you.YouScreen
+import com.m3.app.ui.nav.AiModelRoute
 import com.m3.app.ui.nav.CoachRoute
 import com.m3.app.ui.nav.FuelRoute
 import com.m3.app.ui.nav.M3BottomBar
@@ -56,7 +58,8 @@ fun M3App(config: UiConfig) {
             composable<TodayRoute> { TodayScreen(cards = config.todayCards) }
             composable<TrainRoute> { TrainScreen() }
             composable<FuelRoute> { FuelScreen() }
-            composable<YouRoute> { YouScreen() }
+            composable<YouRoute> { YouScreen(onOpenAiModel = { navController.navigate(AiModelRoute) }) }
+            composable<AiModelRoute> { AiModelScreen(onBack = { navController.popBackStack() }) }
             composable<CoachRoute> { CoachScreen() }
         }
     }

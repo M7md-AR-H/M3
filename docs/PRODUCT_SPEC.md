@@ -30,7 +30,7 @@ Target device: **Xiaomi Poco F5, 12 GB RAM** (Snapdragon 7+ Gen 2, Adreno 725). 
 One multimodal LLM plays all coach personas via system prompts + tool calls. Small specialized models handle vision tasks.
 
 ```
-User ──► Coach (Gemma 3n E4B + persona prompt + memory)
+User ──► Coach (Gemma 4 E4B + persona prompt + memory)
               │ tool calls
               ├─► calc_tdee(), plan_workout(), log_meal(), check_safety()  ← Kotlin (deterministic)
               ├─► search_knowledge(...)                                   ← RAG over bundled + researched docs
@@ -43,7 +43,7 @@ User ──► Coach (Gemma 3n E4B + persona prompt + memory)
 
 | Role | Model | Runtime |
 |---|---|---|
-| Main brain (text + image + audio) | **Gemma 3n E4B** (int4 `.litertlm`, ~4.9 GB file; re-benchmarked vs newer small Gemma in Phase 1 — ADR 0002) | LiteRT-LM (GPU) |
+| Main brain (text + image + audio) | **Gemma 4 E4B** (`.litertlm`, 3.66 GB, Apache-2.0; E2B 2.59 GB as fallback; final pick by on-phone benchmark — ADR 0002) | LiteRT-LM (GPU) |
 | Pose / rep counting / form | MediaPipe Pose Landmarker | MediaPipe Tasks |
 | Face shape / grooming | MediaPipe Face Landmarker | MediaPipe Tasks |
 | Body/clothing segmentation | MediaPipe Image Segmenter | MediaPipe Tasks |
@@ -97,7 +97,7 @@ Purpose: let the coach look up things it doesn't know (new exercises, studies, f
 ### v0.1 — Foundation + Fitness
 - Onboarding: goals, body stats, experience, equipment, schedule, injuries
 - Encrypted storage, biometric lock
-- Coach chat (Gemma 3n), persistent memory
+- Coach chat (Gemma 4), persistent memory
 - Workout plan generator (rules engine + LLM explanation)
 - Workout logging: sets, reps, weight, RPE, rest timer
 - Progressive overload + deload logic
@@ -233,7 +233,7 @@ M3/
 
 - Android Studio (latest stable) — includes JDK and Android SDK
 - Poco F5 with Developer Options + USB debugging enabled
-- Model files (Gemma 3n E4B LiteRT build etc.) downloaded once and pushed to the phone
+- Model files (Gemma 4 E4B `.litertlm` etc.) downloaded once and pushed to the phone
 
 ---
 

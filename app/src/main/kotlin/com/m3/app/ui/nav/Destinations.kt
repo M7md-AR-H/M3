@@ -46,3 +46,7 @@ val TabId.icon: ImageVector
         TabId.YOU -> M3Icons.You
         TabId.COACH -> M3Icons.Coach
     }
+
+/** Not a tab: opened from You → On-device AI. */
+@Serializable
+data object AiModelRoute
