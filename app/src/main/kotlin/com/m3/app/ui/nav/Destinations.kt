@@ -50,3 +50,11 @@ val TabId.icon: ImageVector
 /** Not a tab: opened from You → On-device AI. */
 @Serializable
 data object AiModelRoute
+
+/** Not a tab: opened from You → Your setup. */
+@Serializable
+data object ProfileEditRoute
+
+/** Not a tab: opened from You → Your setup. */
+@Serializable
+data object TrainingSetupRoute

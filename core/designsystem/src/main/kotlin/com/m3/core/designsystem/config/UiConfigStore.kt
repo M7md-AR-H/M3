@@ -11,6 +11,12 @@ data class UiHistoryEntry(
     val timestampMillis: Long,
 )
 
+/** The config and its history at one moment; what gets persisted. */
+data class UiConfigSnapshot(
+    val config: UiConfig,
+    val history: List<UiHistoryEntry>,
+)
+
 sealed interface RejectReason {
     data object Denied : RejectReason
     data class Invalid(val errors: List<UiConfigError>) : RejectReason
@@ -23,7 +29,7 @@ sealed interface ApplyResult {
 
 /**
  * Holds the current [UiConfig] and its undo history.
- * Phase 1: persisted in the encrypted DB.
+ * The app restores it from the encrypted DB at startup and saves every [snapshot] (ADR 0004, ADR 0007).
  */
 class UiConfigStore(
     initial: UiConfig = UiConfig(),
@@ -34,6 +40,11 @@ class UiConfigStore(
 
     private val _history = MutableStateFlow<List<UiHistoryEntry>>(emptyList())
     val history: StateFlow<List<UiHistoryEntry>> = _history.asStateFlow()
+
+    private val _snapshot = MutableStateFlow(UiConfigSnapshot(initial, emptyList()))
+
+    /** Config and history together, updated atomically. Collect this to persist. */
+    val snapshot: StateFlow<UiConfigSnapshot> = _snapshot.asStateFlow()
 
     @Synchronized
     fun apply(change: UiChange, actor: Actor): ApplyResult {
@@ -47,8 +58,7 @@ class UiConfigStore(
             return ApplyResult.Rejected(RejectReason.Invalid(errors))
         }
         val entry = UiHistoryEntry(actor, change.describe(), current, clock())
-        _history.value = (_history.value + entry).takeLast(MAX_HISTORY)
-        _config.value = updated
+        set(updated, (_history.value + entry).takeLast(MAX_HISTORY))
         return ApplyResult.Applied(entry)
     }
 
@@ -56,8 +66,7 @@ class UiConfigStore(
     @Synchronized
     fun undo(): Boolean {
         val entry = _history.value.lastOrNull() ?: return false
-        _history.value = _history.value.dropLast(1)
-        _config.value = entry.previous.copy(locks = _config.value.locks)
+        set(entry.previous.copy(locks = _config.value.locks), _history.value.dropLast(1))
         return true
     }
 
@@ -65,10 +74,33 @@ class UiConfigStore(
     @Synchronized
     fun setLock(key: LockKey, locked: Boolean) {
         val current = _config.value
-        _config.value = current.copy(locks = if (locked) current.locks + key else current.locks - key)
+        set(current.copy(locks = if (locked) current.locks + key else current.locks - key), _history.value)
     }
 
-    private companion object {
+    /**
+     * Replaces everything with a saved snapshot (app start). An invalid saved config falls back to the
+     * default, keeping the saved locks; invalid history entries are dropped.
+     */
+    @Synchronized
+    fun restore(saved: UiConfigSnapshot) {
+        val config = if (UiConfigValidator.validate(saved.config).isEmpty()) {
+            saved.config
+        } else {
+            UiConfig(locks = saved.config.locks)
+        }
+        val history = saved.history
+            .filter { UiConfigValidator.validate(it.previous).isEmpty() }
+            .takeLast(MAX_HISTORY)
+        set(config, history)
+    }
+
+    private fun set(config: UiConfig, history: List<UiHistoryEntry>) {
+        _config.value = config
+        _history.value = history
+        _snapshot.value = UiConfigSnapshot(config, history)
+    }
+
+    companion object {
         const val MAX_HISTORY = 100
     }
 }
