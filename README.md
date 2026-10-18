@@ -62,7 +62,7 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 **1c-1 — Availability + Coach-planned week (branch `feat/phase-1c-plan`)**
 - [x] ADR 0009: the owner gives availability (place or "Not free" per day); Kotlin decides how many sessions and which days
 - [x] `schedule` → `availability` in model, data and onboarding ("When can you train?"; at least one free day required); same table, no migration
-- [x] `:core:training`: curated catalog of 100 exercises tagged with pattern, muscles, level and equipment alternatives (ADR 0008)
+- [x] `:core:training`: curated catalog of 101 exercises tagged with pattern, muscles, level and equipment alternatives (ADR 0008)
 - [x] Plan generator: sessions/week from goal + experience, day choice with rest in between, full body / upper-lower / push-pull-legs, exercises from each day's equipment, sets/reps/rest by goal; says when a slot can't be filled; 15 unit tests
 - [x] Train tab (week, reasons, session details), Today card (today's session or rest + next), onboarding summary shows the split
 - [x] Emulator check: split shown with reasons; unfillable slot explained; adding free days in Training setup re-plans (6 free → 4 sessions with rest)
@@ -144,7 +144,7 @@ M3/
 | 2026-10-18 | Weight lists accept `2-24` (2 kg steps), `5-30/2.5` and `4, 8, 12`; parsed and range-checked in `Units` | Fast to type on a phone; one parser for all screens (metric only, ADR 0008) |
 | 2026-10-18 | Onboarding has one equipment page per location; everything is saved in one transaction only when the owner taps Start | No half-finished profile in the DB; the steps adapt as locations are added or removed |
 | 2026-10-18 | The owner gives availability; the Coach decides the training/rest split, in deterministic Kotlin | Owner's request after trying onboarding ("I want the coach to decide how the workout/rest split looks like"). Same `schedule_day` table with the meaning "free at" ([ADR 0009](docs/adr/0009-availability-coach-decides-split.md)) |
-| 2026-10-18 | Own curated exercise catalog (100 exercises, JSON in `:core:training` resources), not an import of free-exercise-db | free-exercise-db (Unlicense) only tags equipment as "machine"/"other", too coarse for per-location planning (ADR 0008). A smaller hand-tagged set gives reliable picks; free-exercise-db stays an option for instructions and images later |
+| 2026-10-18 | Own curated exercise catalog (101 exercises, JSON in `:core:training` resources), not an import of free-exercise-db | free-exercise-db (Unlicense) only tags equipment as "machine"/"other", too coarse for per-location planning (ADR 0008). A smaller hand-tagged set gives reliable picks; free-exercise-db stays an option for instructions and images later |
 | 2026-10-18 | Equipment alternatives list the gear an exercise needs, in order of preference; generic names ("Biceps curl") with the chosen gear shown ("Dumbbells") | Fewer duplicate entries, more coverage per location, and the plan still says exactly what to use |
 | 2026-10-18 | Plan is recomputed from profile + availability + equipment on every change; nothing stored yet | It's a pure function, so it's always consistent. Stored, versioned overrides arrive with the Coach's tools (1c-2), as ADR 0008 plans |
 | 2026-10-18 | Max 5 sessions/week; heavy barbell lifts only in main slots; beginners get level-1 exercises; fat-loss and general-fitness sessions end with a 8–15 min conditioning finisher | Standard programming defaults (recovery, safety, adherence); all are constants in `PlanGenerator`, easy to tune |
