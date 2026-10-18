@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,11 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.core.designsystem.component.DoubleRule
+import com.m3.core.designsystem.component.M3OutlineButton
 import com.m3.core.designsystem.component.SectionHeader
 import com.m3.core.designsystem.theme.M3
 
 @Composable
-fun YouScreen(viewModel: YouViewModel = hiltViewModel()) {
+fun YouScreen(onOpenAiModel: () -> Unit, viewModel: YouViewModel = hiltViewModel()) {
     val config by viewModel.config.collectAsStateWithLifecycle()
     val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -58,6 +60,12 @@ fun YouScreen(viewModel: YouViewModel = hiltViewModel()) {
                 onAgentsMayChange = viewModel::setAgentsMayChange,
                 onUndo = viewModel::undo,
                 onSimulateCoachChange = viewModel::simulateCoachChange,
+            )
+            SectionHeader(title = "On-device AI")
+            M3OutlineButton(
+                text = "AI model & benchmark",
+                onClick = onOpenAiModel,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
         SnackbarHost(
