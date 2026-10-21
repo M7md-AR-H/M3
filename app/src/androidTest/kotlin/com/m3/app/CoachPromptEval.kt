@@ -9,6 +9,7 @@ import com.m3.ai.engine.LlmLoadConfig
 import com.m3.coach.CoachFacts
 import com.m3.coach.CoachPrompt
 import com.m3.coach.CoachTools
+import com.m3.coach.ExerciseProgress
 import com.m3.coach.ReplyParser
 import com.m3.coach.ToolContext
 import com.m3.coach.ToolResult
@@ -23,8 +24,12 @@ import com.m3.core.model.Profile
 import com.m3.core.model.Sex
 import com.m3.core.model.TrainingLocation
 import com.m3.core.model.TrainingSetup
+import com.m3.core.model.Units
 import com.m3.core.training.ExerciseCatalog
+import com.m3.core.training.LoggedSet
+import com.m3.core.training.PastPerformance
 import com.m3.core.training.PlanGenerator
+import com.m3.core.training.Progression
 import java.io.File
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -42,7 +47,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class CoachPromptEval {
     /** [planLocked]: the owner locked "Your plan"; the model should still write the tool line (the app blocks it). */
-    private data class Case(val message: String, val expectTool: String?, val planLocked: Boolean = false)
+    private data class Case(
+        val message: String,
+        val expectTool: String?,
+        val planLocked: Boolean = false,
+        /** Text the reply must contain, e.g. the app's next weight ("{NEXT_KG}" is filled in from the facts). */
+        val expectText: String? = null,
+    )
 
     private val cases = listOf(
         Case("Today I only have dumbbells and a pull-up bar.", "day_equipment"),
@@ -58,6 +69,8 @@ class CoachPromptEval {
         // Seen on the phone (2026-10-21): no tool line, and the reply claimed the change was done.
         Case("Please suggest the dark theme", "theme"),
         Case("On Saturday I have no equipment, only body weight", "day_equipment", planLocked = true),
+        // Phase 1c-3: weights must come from the app's progression, never the model.
+        Case("What weight should I use for my first exercise today?", null, expectText = "{NEXT_KG}"),
     )
 
     @Test
@@ -74,11 +87,23 @@ class CoachPromptEval {
         val profile = Profile(1990, Sex.FEMALE, 170, 65.0, Goal.BUILD_MUSCLE, Experience.SOME, "")
         // A fixed training day (Monday, gym) so results don't depend on when the eval runs.
         val today = LocalDate.of(2026, 10, 19)
+        val plan = PlanGenerator(catalog).generate(profile, setup)
+        // Last Monday every set was at the top of the range, so the app's progression steps each load up.
+        val progress = plan.sessionOn(DayOfWeek.MONDAY)!!.exercises.associate { e ->
+            val last = PastPerformance(today.minusDays(7), List(e.prescription.sets) { LoggedSet(40.0, reps = e.prescription.max, seconds = e.prescription.max) })
+            Progression.variantKey(e.exercise.id, e.equipment) to ExerciseProgress(last.date, last.sets, Progression.next(e, listOf(last)))
+        }
+        val firstNext = progress.getValue(plan.sessionOn(DayOfWeek.MONDAY)!!.exercises.first().let { Progression.variantKey(it.exercise.id, it.equipment) }).next
+        val nextKg = firstNext.kg?.let { Units.number(it) }
+        Log.i(TAG, "first exercise next target: ${firstNext.kind} $nextKg")
         val facts = CoachFacts(
             today = today,
             profile = profile,
             setup = setup,
-            plan = PlanGenerator(catalog).generate(profile, setup),
+            plan = plan,
+            progress = progress,
+            workoutsLast28Days = 4,
+            lastWorkout = today.minusDays(3),
             avoided = emptyMap(),
             dayEquipment = emptyMap(),
             themeMode = ThemeMode.LIGHT,
@@ -104,10 +129,12 @@ class CoachPromptEval {
                 val tool = parsed.toolJson?.let { CoachTools.validate(it, ToolContext(today, setup, catalog)) }
                     ?.takeUnless { it == ToolResult.Ignored || (it is ToolResult.Valid && !CoachTools.relevantTo(it.action, case.message)) }
                 val toolName = (tool as? ToolResult.Valid)?.action?.let { it::class.simpleName }
-                val ok = when (case.expectTool) {
+                val toolOk = when (case.expectTool) {
                     null -> tool == null
                     else -> tool is ToolResult.Valid && parsed.toolJson.orEmpty().contains("\"${case.expectTool}\"")
                 }
+                val wanted = case.expectText?.replace("{NEXT_KG}", nextKg ?: "no-kg-target")
+                val ok = toolOk && (wanted == null || wanted in parsed.text)
                 if (ok) passed++
                 val claim = CoachTools.claimsChange(parsed.text)
                 if (claim) claims++

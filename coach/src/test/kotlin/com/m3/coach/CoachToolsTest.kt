@@ -201,10 +201,36 @@ class CoachPromptTest {
     }
 
     @Test
+    fun `logged history shows last time and the app's next target`() {
+        val f = facts()
+        val bench = f.plan.sessions.flatMap { it.exercises }.first { it.exercise.id == "bench_press" }
+        val key = com.m3.core.training.Progression.variantKey(bench.exercise.id, bench.equipment)
+        val progress = ExerciseProgress(
+            LocalDate.of(2026, 10, 12),
+            List(3) { com.m3.core.training.LoggedSet(60.0, reps = 10) },
+            com.m3.core.training.Target(com.m3.core.training.TargetKind.INCREASE, 62.5, "top"),
+        )
+        val system = CoachPrompt.system(f.copy(progress = mapOf(key to progress), workoutsLast28Days = 3, lastWorkout = LocalDate.of(2026, 10, 16)))
+        assertTrue("(last 60 kg x 10,10,10; next 62.5 kg up)" in system)
+        assertTrue("Workouts logged in the last 4 weeks: 3; last on 16 Oct." in system)
+    }
+
+    @Test
     fun `system prompt plus a full history fits the context window`() {
         val history = (1..40).map { ChatTurn(if (it % 2 == 0) ChatRole.COACH else ChatRole.OWNER, "message number $it ".repeat(12)) }
         val turn = CoachPrompt.turn(history, "Can I swap squats today?")
-        val totalChars = CoachPrompt.system(facts()).length + turn.length
+        // Worst case: every exercise of the week has logged history.
+        val all = facts().plan.sessions.flatMap { it.exercises }.associate { e ->
+            com.m3.core.training.Progression.variantKey(e.exercise.id, e.equipment) to ExerciseProgress(
+                LocalDate.of(2026, 10, 12),
+                List(e.prescription.sets) { com.m3.core.training.LoggedSet(102.5, reps = 12) },
+                com.m3.core.training.Target(com.m3.core.training.TargetKind.DECREASE, 92.5, "x"),
+            )
+        }
+        val systemChars = CoachPrompt.system(facts().copy(progress = all, workoutsLast28Days = 20, lastWorkout = LocalDate.of(2026, 10, 16))).length
+        // Leave room for the owner's message (2,000 max) and some history inside the app's own budget.
+        assertTrue("system prompt too long: $systemChars chars", systemChars + 2_000 + 1_000 <= CoachPrompt.PROMPT_CHARS)
+        val totalChars = systemChars + turn.length
         // ~4 characters per token; leave room for a 512-token answer in 4096.
         assertTrue("prompt too long: $totalChars chars", totalChars / 4 < 4096 - 512)
         assertTrue(turn.endsWith("Reply as the Coach to the owner's last message."))

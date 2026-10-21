@@ -74,4 +74,41 @@ class MigrationTest {
         assertEquals("knee", stored.excluded["back_squat"])
         opener.get().close()
     }
+
+    /** The phone has a v2 database since 2026-10-21; v3 adds the workout tables and keeps chat and overrides. */
+    @Test
+    fun encryptedV2WithDataOpensAsV3AndLogsWorkouts() = runTest {
+        helper.createDatabase(DatabaseOpener.DATABASE_NAME, 2).apply {
+            execSQL("INSERT INTO app_state (id, onboardingCompleted, schemaVersion) VALUES (1, 1, 2)")
+            execSQL("INSERT INTO chat_message (role, text, createdAt) VALUES ('owner', 'hi', 1)")
+            execSQL("INSERT INTO excluded_exercise (exerciseId, reason, createdAt) VALUES ('walking_lunge', 'knee pain', 1)")
+            close()
+        }
+
+        val opener = DatabaseOpener(context, { key.copyOf() })
+        assertEquals("hi", ChatRepository(opener).observe().first().single().text)
+        assertEquals("knee pain", PlanOverridesRepository(opener).observe().first().excluded["walking_lunge"])
+
+        var now = 1_000L
+        val workouts = WorkoutRepository(opener, clock = { now++ })
+        val monday = LocalDate.of(2026, 10, 19)
+        val w = workouts.startOrResume(monday, "FULL_BODY_A", "g", "Gym")
+        // Starting again resumes the same open workout.
+        assertEquals(w.id, workouts.startOrResume(monday, "FULL_BODY_A", "g", "Gym").id)
+        workouts.logSet(StoredSet(w.id, "back_squat", "back_squat@BARBELL", 1, 60.0, 10, null, null, 0))
+        workouts.logSet(StoredSet(w.id, "back_squat", "back_squat@BARBELL", 1, 60.0, 12, null, 8.0, 0))
+        workouts.logSet(StoredSet(w.id, "back_squat", "back_squat@BARBELL", 2, 60.0, 11, null, null, 0))
+        assertEquals(listOf(12, 11), workouts.observeSets(w.id).first().map { it.reps })
+        assertEquals(w.id, workouts.observeOpen().first()!!.id)
+        workouts.finish(w.id)
+        assertEquals(null, workouts.observeOpen().first())
+        val recent = workouts.observeRecent().first().single()
+        assertEquals(2, recent.sets.size)
+
+        // A workout with nothing logged is dropped, not kept empty.
+        val empty = workouts.startOrResume(monday.plusDays(2), "FULL_BODY_B", "g", "Gym")
+        workouts.finish(empty.id)
+        assertEquals(1, workouts.observeRecent().first().size)
+        opener.get().close()
+    }
 }
