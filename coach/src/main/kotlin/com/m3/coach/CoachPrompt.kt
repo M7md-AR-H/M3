@@ -34,7 +34,10 @@ data class CoachFacts(
     val themeMode: ThemeMode,
     val cards: List<CardPlacement>,
     val locks: Set<LockKey>,
-    /** Variant key (Progression.variantKey) → last performance and next target, for this week's exercises. */
+    /**
+     * [progressKey] (day + variant) → last performance and next target, for this week's exercises. Per day, because the
+     * same variant can have a different prescription, and so a different target, on another day.
+     */
     val progress: Map<String, ExerciseProgress> = emptyMap(),
     /** Finished workouts in the 28 days up to today, and the date of the latest one. */
     val workoutsLast28Days: Int = 0,
@@ -43,6 +46,9 @@ data class CoachFacts(
 
 /** What the owner logged last time for one exercise variant, and what the app's progression picked next. */
 data class ExerciseProgress(val lastDate: LocalDate, val lastSets: List<LoggedSet>, val next: Target)
+
+/** The key of [CoachFacts.progress]: "MONDAY:back_squat@BARBELL+…". */
+fun progressKey(day: DayOfWeek, variantKey: String) = "${day.name}:$variantKey"
 
 enum class ChatRole { OWNER, COACH }
 
@@ -135,7 +141,7 @@ object CoachPrompt {
             } else {
                 val override = if (day in f.plan.overriddenDays) " [equipment set for this day only]" else ""
                 val exercises = session.exercises.joinToString("; ") {
-                    "${it.exercise.name} [${it.exercise.id}] ${amount(it)}" + progressNote(f.progress[Progression.variantKey(it.exercise.id, it.equipment)], it)
+                    "${it.exercise.name} [${it.exercise.id}] ${amount(it)}" + progressNote(f.progress[progressKey(day, Progression.variantKey(it.exercise.id, it.equipment))], it)
                 }
                 val missing = if (session.unfilled.isEmpty()) "" else " (${session.unfilled.size} slot(s) not possible with this equipment)"
                 appendLine("- ${day.label}$todayMark: ${session.type.displayName} at ${session.locationName}$override: $exercises$missing")
@@ -166,15 +172,29 @@ object CoachPrompt {
     /** " (last 20 kg x 12,12,11; next 22.5 kg up)", or "" when never logged. Compact: it repeats per exercise. */
     private fun progressNote(progress: ExerciseProgress?, planned: PlannedExercise): String {
         if (progress == null || progress.lastSets.isEmpty()) return ""
-        val seconds = planned.prescription.unit == ExerciseUnit.SECONDS
+        val unit = planned.prescription.unit
         val kg = progress.lastSets.mapNotNull { it.kg }.maxOrNull()
-        val amounts = progress.lastSets.joinToString(",") { (if (seconds) it.seconds else it.reps)?.toString() ?: "-" }
-        val last = (if (kg != null) "${Units.kg(kg)} x " else "") + amounts + if (seconds) " s" else ""
+        // Minutes are stored as seconds.
+        val amounts = progress.lastSets.joinToString(",") { set ->
+            when (unit) {
+                ExerciseUnit.REPS -> set.reps
+                ExerciseUnit.SECONDS -> set.seconds
+                ExerciseUnit.MINUTES -> set.seconds?.div(SECONDS_PER_MINUTE)
+            }?.toString() ?: "-"
+        }
+        val suffix = when (unit) {
+            ExerciseUnit.REPS -> ""
+            ExerciseUnit.SECONDS -> " s"
+            ExerciseUnit.MINUTES -> " min"
+        }
+        val last = (if (kg != null) "${Units.kg(kg)} x " else "") + amounts + suffix
         val next = progress.next.kg?.let { "; next ${Units.kg(it)} ${NEXT_WORDS.getValue(progress.next.kind)}" } ?: ""
         return " (last $last$next)"
     }
 
-    private val SHORT_DATE = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+    private const val SECONDS_PER_MINUTE = 60
+
+    private val SHORT_DATE =DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
     private val NEXT_WORDS = mapOf(TargetKind.START to "first time", TargetKind.INCREASE to "up", TargetKind.HOLD to "same", TargetKind.DECREASE to "lighter")
 
     private fun amount(planned: PlannedExercise): String {

@@ -4,6 +4,7 @@ import com.m3.core.model.EquipmentKind
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProgressionTest {
@@ -55,6 +56,33 @@ class ProgressionTest {
         assertEquals(90.0, t.kg!!, 0.0)
         // Only once below the range: hold.
         assertEquals(TargetKind.HOLD, Progression.next(planned("back_squat", barbell), listOf(session(3, 100.0, 9, 7, 6), session(7, 97.5, 10, 9, 8))).kind)
+    }
+
+    @Test
+    fun `one heavier top set doesn't move the target past the working load`() {
+        val mixed = PastPerformance(day.minusDays(3), listOf(LoggedSet(20.0, 12), LoggedSet(20.0, 12), LoggedSet(25.0, 12)))
+        val t = Progression.next(planned("dumbbell_bench_press", dumbbells), listOf(mixed), listOf(20.0, 22.5, 25.0, 27.5))
+        assertEquals(TargetKind.INCREASE, t.kind)
+        assertEquals(22.5, t.kg!!, 0.0)
+        // A lighter back-off set counts as below the working load, so it isn't "every set at the load".
+        val backOff = PastPerformance(day.minusDays(3), listOf(LoggedSet(30.0, 12), LoggedSet(30.0, 12), LoggedSet(20.0, 12)))
+        assertEquals(TargetKind.HOLD, Progression.next(planned("dumbbell_bench_press", dumbbells), listOf(backOff), listOf(20.0, 30.0, 32.5)).kind)
+    }
+
+    @Test
+    fun `stacks step 5 kg, listed bells step down to the next lighter one`() {
+        val pulldown = planned("lat_pulldown", setOf(EquipmentKind.LAT_PULLDOWN))
+        assertEquals(55.0, Progression.next(pulldown, listOf(session(3, 50.0, 12, 12, 12))).kg!!, 0.0)
+        val missed = listOf(session(3, 22.5, 7, 6, 6), session(7, 22.5, 7, 7, 6))
+        assertEquals(20.0, Progression.next(planned("dumbbell_bench_press", dumbbells), missed, listOf(15.0, 20.0, 22.5)).kg!!, 0.0)
+    }
+
+    @Test
+    fun `timed sets use seconds, not reps`() {
+        val plank = planned("plank", emptySet(), min = 30, max = 45, unit = ExerciseUnit.SECONDS)
+        val atTop = PastPerformance(day.minusDays(3), List(3) { LoggedSet(null, seconds = 45) })
+        assertEquals(TargetKind.HOLD, Progression.next(plank, listOf(atTop)).kind)
+        assertTrue(Progression.next(plank, listOf(atTop)).reason.startsWith("Top of the range"))
     }
 
     @Test

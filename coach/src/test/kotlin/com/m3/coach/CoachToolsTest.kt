@@ -203,8 +203,9 @@ class CoachPromptTest {
     @Test
     fun `logged history shows last time and the app's next target`() {
         val f = facts()
-        val bench = f.plan.sessions.flatMap { it.exercises }.first { it.exercise.id == "bench_press" }
-        val key = com.m3.core.training.Progression.variantKey(bench.exercise.id, bench.equipment)
+        val benchSession = f.plan.sessions.first { s -> s.exercises.any { it.exercise.id == "bench_press" } }
+        val bench = benchSession.exercises.first { it.exercise.id == "bench_press" }
+        val key = progressKey(benchSession.day, com.m3.core.training.Progression.variantKey(bench.exercise.id, bench.equipment))
         val progress = ExerciseProgress(
             LocalDate.of(2026, 10, 12),
             List(3) { com.m3.core.training.LoggedSet(60.0, reps = 10) },
@@ -220,8 +221,8 @@ class CoachPromptTest {
         val history = (1..40).map { ChatTurn(if (it % 2 == 0) ChatRole.COACH else ChatRole.OWNER, "message number $it ".repeat(12)) }
         val turn = CoachPrompt.turn(history, "Can I swap squats today?")
         // Worst case: every exercise of the week has logged history.
-        val all = facts().plan.sessions.flatMap { it.exercises }.associate { e ->
-            com.m3.core.training.Progression.variantKey(e.exercise.id, e.equipment) to ExerciseProgress(
+        val all = facts().plan.sessions.flatMap { s -> s.exercises.map { s.day to it } }.associate { (day, e) ->
+            progressKey(day, com.m3.core.training.Progression.variantKey(e.exercise.id, e.equipment)) to ExerciseProgress(
                 LocalDate.of(2026, 10, 12),
                 List(e.prescription.sets) { com.m3.core.training.LoggedSet(102.5, reps = 12) },
                 com.m3.core.training.Target(com.m3.core.training.TargetKind.DECREASE, 92.5, "x"),

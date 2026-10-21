@@ -63,7 +63,8 @@ class WorkoutRepository(
             val dao = db.workoutDao()
             val open = dao.open()
             if (open != null && open.date == date.toString() && open.sessionType == sessionType) return@withTransaction open.toStored()
-            if (open != null) closeOrDrop(open.id)
+            // Left open on an earlier day: it ended with its last set, not now.
+            if (open != null) closeOrDrop(open.id, endedAt = dao.lastSetAt(open.id))
             val entity = WorkoutSessionEntity(
                 date = date.toString(), sessionType = sessionType, locationId = locationId, locationName = locationName, startedAt = clock(),
             )
@@ -71,16 +72,23 @@ class WorkoutRepository(
         }
     }
 
-    /** Saves a finished set, replacing an earlier entry for the same set. */
+    /**
+     * Saves a finished set, replacing an earlier entry for the same set. One transaction, so two saves of the same
+     * set can't both insert. An edit keeps the time the set was first done.
+     */
     suspend fun logSet(set: StoredSet) {
-        val dao = opener.get().workoutDao()
-        val existing = dao.set(set.sessionId, set.variantKey, set.setNumber)
-        dao.upsertSet(
-            WorkoutSetEntity(
-                id = existing?.id ?: 0, sessionId = set.sessionId, exerciseId = set.exerciseId, variantKey = set.variantKey,
-                setNumber = set.setNumber, kg = set.kg, reps = set.reps, seconds = set.seconds, rpe = set.rpe, completedAt = clock(),
-            ),
-        )
+        val db = opener.get()
+        db.withTransaction {
+            val dao = db.workoutDao()
+            val existing = dao.set(set.sessionId, set.variantKey, set.setNumber)
+            dao.upsertSet(
+                WorkoutSetEntity(
+                    id = existing?.id ?: 0, sessionId = set.sessionId, exerciseId = set.exerciseId, variantKey = set.variantKey,
+                    setNumber = set.setNumber, kg = set.kg, reps = set.reps, seconds = set.seconds, rpe = set.rpe,
+                    completedAt = existing?.completedAt ?: clock(),
+                ),
+            )
+        }
     }
 
     suspend fun removeSet(sessionId: Long, variantKey: String, setNumber: Int) =
@@ -92,9 +100,9 @@ class WorkoutRepository(
         db.withTransaction { closeOrDrop(sessionId) }
     }
 
-    private suspend fun closeOrDrop(sessionId: Long) {
+    private suspend fun closeOrDrop(sessionId: Long, endedAt: Long? = null) {
         val dao = opener.get().workoutDao()
-        if (dao.setCount(sessionId) == 0) dao.deleteSession(sessionId) else dao.finish(sessionId, clock())
+        if (dao.setCount(sessionId) == 0) dao.deleteSession(sessionId) else dao.finish(sessionId, endedAt ?: clock())
     }
 
     /** The last [sessions] finished workouts with their sets, newest first. */

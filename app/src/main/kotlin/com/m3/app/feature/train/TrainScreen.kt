@@ -165,8 +165,8 @@ fun SessionDetails(session: PlannedSession) {
         if (session.exercises.any { it.equipment.isNotEmpty() }) {
             SectionHeader(title = "Loads", modifier = Modifier.padding(top = M3.spacing.s))
             Text(
-                text = "Pick a weight you could lift 2–3 more times at the end of each set. Logging and automatic " +
-                    "progression arrive next.",
+                text = "Pick a weight you could lift 2–3 more times at the end of each set. Once you log a workout, " +
+                    "the app suggests the next weight for each exercise.",
                 style = M3.typography.bodySmall,
                 color = M3.colors.muted,
             )

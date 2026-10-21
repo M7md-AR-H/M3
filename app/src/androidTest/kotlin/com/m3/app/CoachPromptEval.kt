@@ -10,6 +10,7 @@ import com.m3.coach.CoachFacts
 import com.m3.coach.CoachPrompt
 import com.m3.coach.CoachTools
 import com.m3.coach.ExerciseProgress
+import com.m3.coach.progressKey
 import com.m3.coach.ReplyParser
 import com.m3.coach.ToolContext
 import com.m3.coach.ToolResult
@@ -91,9 +92,11 @@ class CoachPromptEval {
         // Last Monday every set was at the top of the range, so the app's progression steps each load up.
         val progress = plan.sessionOn(DayOfWeek.MONDAY)!!.exercises.associate { e ->
             val last = PastPerformance(today.minusDays(7), List(e.prescription.sets) { LoggedSet(40.0, reps = e.prescription.max, seconds = e.prescription.max) })
-            Progression.variantKey(e.exercise.id, e.equipment) to ExerciseProgress(last.date, last.sets, Progression.next(e, listOf(last)))
+            progressKey(DayOfWeek.MONDAY, Progression.variantKey(e.exercise.id, e.equipment)) to
+                ExerciseProgress(last.date, last.sets, Progression.next(e, listOf(last)))
         }
-        val firstNext = progress.getValue(plan.sessionOn(DayOfWeek.MONDAY)!!.exercises.first().let { Progression.variantKey(it.exercise.id, it.equipment) }).next
+        val first = plan.sessionOn(DayOfWeek.MONDAY)!!.exercises.first()
+        val firstNext = progress.getValue(progressKey(DayOfWeek.MONDAY, Progression.variantKey(first.exercise.id, first.equipment))).next
         val nextKg = firstNext.kg?.let { Units.number(it) }
         Log.i(TAG, "first exercise next target: ${firstNext.kind} $nextKg")
         val facts = CoachFacts(

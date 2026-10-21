@@ -77,7 +77,9 @@ object Progression {
 
         val amounts = last.sets.map { if (p.unit == ExerciseUnit.SECONDS) it.seconds else it.reps }
         val load = workingLoad(last)
-        val allAtTop = last.sets.size >= p.sets && amounts.all { it != null && it >= p.max }
+        // Every planned set at the working load (or heavier) and at the top of the range.
+        val atLoad = last.sets.count { load == null || (it.kg ?: 0.0) >= load - EPSILON }
+        val allAtTop = atLoad >= p.sets && amounts.all { it != null && it >= p.max }
         val maxedOut = last.sets.any { (it.rpe ?: 0.0) >= MAX_RPE }
         if (kind == LoadKind.NONE || load == null) {
             val reason = if (allAtTop) "Top of the range last time: slow the lowering or pause at the hardest point." else "Same as last time; try for one more."
@@ -98,8 +100,13 @@ object Progression {
         return Target(TargetKind.HOLD, load, "Same weight; aim for one more rep than last time.")
     }
 
-    /** The heaviest load used in a workout's sets; null when none had a load. */
-    private fun workingLoad(performance: PastPerformance): Double? = performance.sets.mapNotNull { it.kg }.maxOrNull()
+    /**
+     * The load used for most sets (ties → the heavier), so one heavier top set or a lighter back-off set doesn't
+     * move the target. Null when no set had a load.
+     */
+    private fun workingLoad(performance: PastPerformance): Double? =
+        performance.sets.mapNotNull { it.kg }.groupingBy { it }.eachCount()
+            .maxWithOrNull(compareBy<Map.Entry<Double, Int>> { it.value }.thenBy { it.key })?.key
 
     private fun below(set: LoggedSet, p: Prescription): Boolean {
         val amount = if (p.unit == ExerciseUnit.SECONDS) set.seconds else set.reps

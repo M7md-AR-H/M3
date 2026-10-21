@@ -185,6 +185,9 @@ interface WorkoutDao {
     @Query("SELECT COUNT(*) FROM workout_set WHERE sessionId = :sessionId")
     suspend fun setCount(sessionId: Long): Int
 
+    @Query("SELECT MAX(completedAt) FROM workout_set WHERE sessionId = :sessionId")
+    suspend fun lastSetAt(sessionId: Long): Long?
+
     @Upsert
     suspend fun upsertSet(set: WorkoutSetEntity)
 

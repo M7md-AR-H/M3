@@ -10,6 +10,7 @@ import com.m3.coach.CoachFacts
 import com.m3.coach.CoachPrompt
 import com.m3.coach.CoachTools
 import com.m3.coach.ExerciseProgress
+import com.m3.coach.progressKey
 import com.m3.coach.ReplyParser
 import com.m3.coach.ToolContext
 import com.m3.coach.ToolResult
@@ -232,11 +233,12 @@ class CoachController @Inject constructor(
         val config = uiStore.config.value
         val today = LocalDate.now()
         // Every number here comes from Progression; the model only explains them.
-        val progress = inputs.plan.sessions.flatMap { WorkoutTargets.forSession(it, inputs.setup, recent) }
-            .filter { it.last.isNotEmpty() }
-            .associate { t ->
-                t.variantKey to ExerciseProgress(WorkoutTargets.history(t.variantKey, recent).first().date, t.last, t.target)
+        val progress = inputs.plan.sessions.flatMap { session ->
+            WorkoutTargets.forSession(session, inputs.setup, recent).filter { it.last.isNotEmpty() }.map { t ->
+                progressKey(session.day, t.variantKey) to
+                    ExerciseProgress(WorkoutTargets.history(t.variantKey, recent).first().date, t.last, t.target)
             }
+        }.toMap()
         return CoachFacts(
             progress = progress,
             workoutsLast28Days = recent.count { !it.workout.date.isBefore(today.minusDays(27)) },

@@ -35,6 +35,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -44,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalView
@@ -56,7 +59,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.m3.app.ui.LocalAppLocked
 import com.m3.core.designsystem.component.Kicker
 import com.m3.core.designsystem.component.M3Button
 import com.m3.core.designsystem.config.ThemeMode
@@ -75,14 +82,28 @@ private val EffortChoices = listOf(7.0, 8.0, 9.0, 10.0)
 @Composable
 fun WorkoutScreen(tokens: ThemeTokens, onClose: () -> Unit, viewModel: WorkoutViewModel = hiltViewModel()) {
     M3Theme(tokens.copy(mode = ThemeMode.DARK)) {
-        KeepScreenOnWithLightIcons()
+        val locked = LocalAppLocked.current
+        KeepScreenOnWithLightIcons(enabled = !locked)
         val state by viewModel.state.collectAsStateWithLifecycle()
+        val finishFailed by viewModel.finishFailed.collectAsStateWithLifecycle()
         var confirmEnd by rememberSaveable { mutableStateOf(false) }
         var closing by remember { mutableStateOf(false) }
-        val close = { closing = true; onClose() }
-        val end = { viewModel.finish(close) }
+        val close = {
+            if (!closing) {
+                closing = true
+                onClose()
+            }
+        }
+        val end = {
+            // Hide "No workout in progress" while finishing; the view model guards against a second Finish.
+            closing = true
+            viewModel.finish { onClose() }
+        }
+        LaunchedEffect(finishFailed) { if (finishFailed) closing = false }
+        // The dialog is its own window and would sit above the lock layer, so it closes when the app locks.
+        LaunchedEffect(locked) { if (locked) confirmEnd = false }
 
-        BackHandler { confirmEnd = true }
+        BackHandler(enabled = !locked) { confirmEnd = true }
         Box(
             Modifier
                 .fillMaxSize()
@@ -92,7 +113,7 @@ fun WorkoutScreen(tokens: ThemeTokens, onClose: () -> Unit, viewModel: WorkoutVi
         ) {
             when (val s = state) {
                 WorkoutState.Loading -> Unit
-                WorkoutState.NoWorkout -> if (!closing) Notice(text = "No workout in progress.", button = "Back", onClick = onClose)
+                WorkoutState.NoWorkout -> if (!closing) Notice(text = "No workout in progress.", button = "Back", onClick = close)
                 is WorkoutState.Missing -> Notice(
                     text = "This session isn't in your plan any more, so it can't be shown. Sets you logged are kept.",
                     button = "End workout",
@@ -103,10 +124,12 @@ fun WorkoutScreen(tokens: ThemeTokens, onClose: () -> Unit, viewModel: WorkoutVi
                     viewModel = viewModel,
                     onEnd = { confirmEnd = true },
                     onFinish = end,
+                    finishFailed = finishFailed,
+                    ticking = !locked,
                 )
             }
         }
-        if (confirmEnd) {
+        if (confirmEnd && !locked) {
             AlertDialog(
                 onDismissRequest = { confirmEnd = false },
                 containerColor = M3.colors.surface,
@@ -128,12 +151,19 @@ fun WorkoutScreen(tokens: ThemeTokens, onClose: () -> Unit, viewModel: WorkoutVi
     }
 }
 
-/** Screen stays on while visible; system bar icons turn light for the dark screen and are restored on leaving. */
+/**
+ * Screen stays on while visible and unlocked (so a locked phone can still time out); system bar icons turn light
+ * for the dark screen. Both are restored to what they were on leaving.
+ */
 @Composable
-private fun KeepScreenOnWithLightIcons() {
+private fun KeepScreenOnWithLightIcons(enabled: Boolean) {
     val view = LocalView.current
+    DisposableEffect(view, enabled) {
+        val wasOn = view.keepScreenOn
+        view.keepScreenOn = enabled
+        onDispose { view.keepScreenOn = wasOn }
+    }
     DisposableEffect(view) {
-        view.keepScreenOn = true
         val window = view.context.findActivity()?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, view) }
         val lightStatus = controller?.isAppearanceLightStatusBars
@@ -141,9 +171,23 @@ private fun KeepScreenOnWithLightIcons() {
         controller?.isAppearanceLightStatusBars = false
         controller?.isAppearanceLightNavigationBars = false
         onDispose {
-            view.keepScreenOn = false
             lightStatus?.let { controller.isAppearanceLightStatusBars = it }
             lightNav?.let { controller.isAppearanceLightNavigationBars = it }
+        }
+    }
+}
+
+/** Wall-clock time, updated while [ticking] and the screen is started; only its readers recompose. */
+@Composable
+private fun rememberNow(ticking: Boolean, periodMillis: Long = TICK_MILLIS): State<Long> {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    return produceState(System.currentTimeMillis(), ticking, lifecycle) {
+        if (!ticking) return@produceState
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                value = System.currentTimeMillis()
+                delay(periodMillis)
+            }
         }
     }
 }
@@ -168,13 +212,15 @@ private fun Notice(text: String, button: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ReadyContent(s: WorkoutState.Ready, viewModel: WorkoutViewModel, onEnd: () -> Unit, onFinish: () -> Unit) {
-    val now by produceState(System.currentTimeMillis()) {
-        while (true) {
-            value = System.currentTimeMillis()
-            delay(TICK_MILLIS)
-        }
-    }
+private fun ReadyContent(
+    s: WorkoutState.Ready,
+    viewModel: WorkoutViewModel,
+    onEnd: () -> Unit,
+    onFinish: () -> Unit,
+    finishFailed: Boolean,
+    ticking: Boolean,
+) {
+    val now = rememberNow(ticking)
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = M3.spacing.m),
@@ -184,7 +230,7 @@ private fun ReadyContent(s: WorkoutState.Ready, viewModel: WorkoutViewModel, onE
             TextButton(onClick = onEnd, modifier = Modifier.heightIn(min = Touch)) {
                 Text("← End", style = M3.typography.body.copy(fontWeight = FontWeight.SemiBold), color = M3.colors.ink)
             }
-            Kicker(text = "Exercise ${s.current.index + 1} of ${s.count} · ${WorkoutLogic.clock(now - s.startedAt)}")
+            ElapsedKicker(index = s.current.index, count = s.count, startedAt = s.startedAt, now = now)
         }
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = M3.spacing.l),
@@ -200,9 +246,22 @@ private fun ReadyContent(s: WorkoutState.Ready, viewModel: WorkoutViewModel, onE
             }
             val rest = s.rest
             if (rest != null) RestPanel(rest = rest, now = now, onSkip = viewModel::skipRest)
+            if (finishFailed) {
+                Text(
+                    text = "Couldn't end the workout. Your sets are saved; try again.",
+                    style = M3.typography.bodySmall,
+                    color = M3.colors.accent,
+                )
+            }
         }
         Footer(s = s, onPrevious = viewModel::previous, onNext = if (s.isLast) onFinish else viewModel::next)
     }
+}
+
+/** Reads the ticking clock here, so only this line recomposes every tick. */
+@Composable
+private fun ElapsedKicker(index: Int, count: Int, startedAt: Long, now: State<Long>) {
+    Kicker(text = "Exercise ${index + 1} of $count · ${WorkoutLogic.clock(now.value - startedAt)}")
 }
 
 @Composable
@@ -223,7 +282,7 @@ private fun ExerciseBody(s: WorkoutState.Ready, ex: ExerciseUi, viewModel: Worko
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(M3.spacing.s)) {
                 Kicker(text = "Effort", modifier = Modifier.padding(end = M3.spacing.xs))
                 EffortChoices.forEach { rpe ->
-                    EffortChip(label = Units.number(rpe), selected = ex.effort == rpe, onClick = { viewModel.setEffort(rpe) })
+                    EffortChip(label = Units.number(rpe), selected = ex.effort == rpe, onClick = { viewModel.setEffort(ex.index, rpe) })
                 }
             }
         }
@@ -250,7 +309,7 @@ private fun SetRow(row: RowUi, ex: ExerciseUi, viewModel: WorkoutViewModel) {
                 color = M3.colors.muted,
                 modifier = Modifier.weight(1f),
             )
-            DoneToggle(done = row.done, label = "Set ${row.setNumber} done", onToggle = { viewModel.toggleDone(row.setNumber) })
+            DoneToggle(done = row.done, label = "Set ${row.setNumber} done", onToggle = { viewModel.toggleDone(ex.index, row.setNumber) })
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(M3.spacing.m), verticalAlignment = Alignment.CenterVertically) {
             if (ex.showKg) {
@@ -258,10 +317,10 @@ private fun SetRow(row: RowUi, ex: ExerciseUi, viewModel: WorkoutViewModel) {
                     value = row.kg?.let { Units.number(it) }.orEmpty(),
                     description = "kg, set ${row.setNumber}",
                     keyboardType = KeyboardType.Decimal,
-                    onMinus = { viewModel.stepKg(row.setNumber, -1) },
-                    onPlus = { viewModel.stepKg(row.setNumber, +1) },
+                    onMinus = { viewModel.stepKg(ex.index, row.setNumber, -1) },
+                    onPlus = { viewModel.stepKg(ex.index, row.setNumber, +1) },
                     onText = { text ->
-                        if (text.isBlank()) viewModel.setKg(row.setNumber, null) else Units.parseDecimal(text)?.let { viewModel.setKg(row.setNumber, it) }
+                        if (text.isBlank()) viewModel.setKg(ex.index, row.setNumber, null) else Units.parseDecimal(text)?.let { viewModel.setKg(ex.index, row.setNumber, it) }
                     },
                     modifier = Modifier.weight(1f),
                 )
@@ -274,10 +333,10 @@ private fun SetRow(row: RowUi, ex: ExerciseUi, viewModel: WorkoutViewModel) {
                 value = row.amount?.toString().orEmpty(),
                 description = "${amountLabel(ex.amountUnit)}, set ${row.setNumber}",
                 keyboardType = KeyboardType.Number,
-                onMinus = { viewModel.stepAmount(row.setNumber, -1) },
-                onPlus = { viewModel.stepAmount(row.setNumber, +1) },
+                onMinus = { viewModel.stepAmount(ex.index, row.setNumber, -1) },
+                onPlus = { viewModel.stepAmount(ex.index, row.setNumber, +1) },
                 onText = { text ->
-                    if (text.isBlank()) viewModel.setAmount(row.setNumber, null) else Units.parseWhole(text)?.let { viewModel.setAmount(row.setNumber, it) }
+                    if (text.isBlank()) viewModel.setAmount(ex.index, row.setNumber, null) else Units.parseWhole(text)?.let { viewModel.setAmount(ex.index, row.setNumber, it) }
                 },
                 modifier = Modifier.weight(1f),
             )
@@ -298,16 +357,24 @@ private fun Stepper(
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         SquareButton(symbol = "−", description = "Less $description", onClick = onMinus)
-        var text by remember(value) { mutableStateOf(value) }
+        var text by remember { mutableStateOf(value) }
+        var focused by remember { mutableStateOf(false) }
+        // While typing, the saved value echoes back a keystroke late; only take it over when not editing.
+        LaunchedEffect(value, focused) { if (!focused) text = value }
         BasicTextField(
             value = text,
             onValueChange = { new ->
-                if (new.length <= MAX_FIELD_CHARS && new.all { it.isDigit() || it == '.' || it == ',' }) {
+                // At most what Units can parse (4 digits), so the field never shows a value that wasn't saved.
+                if (new.count { it.isDigit() } <= MAX_FIELD_DIGITS && new.all { it.isDigit() || it == '.' || it == ',' }) {
                     text = new
                     onText(new)
                 }
             },
-            modifier = Modifier.weight(1f).widthIn(min = 32.dp).semantics { contentDescription = description },
+            modifier = Modifier
+                .weight(1f)
+                .widthIn(min = 32.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .semantics { contentDescription = description },
             singleLine = true,
             textStyle = M3.typography.title.copy(color = M3.colors.ink, textAlign = TextAlign.Center),
             cursorBrush = SolidColor(M3.colors.ink),
@@ -370,8 +437,8 @@ private fun EffortChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun RestPanel(rest: RestTimer, now: Long, onSkip: () -> Unit) {
-    val remaining = WorkoutLogic.restRemainingMillis(rest.endAt, now)
+private fun RestPanel(rest: RestTimer, now: State<Long>, onSkip: () -> Unit) {
+    val remaining = WorkoutLogic.restRemainingMillis(rest.endAt, now.value)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
         Rule()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -390,7 +457,7 @@ private fun RestPanel(rest: RestTimer, now: Long, onSkip: () -> Unit) {
         Box(Modifier.fillMaxWidth().height(2.dp).background(M3.colors.rule)) {
             Box(
                 Modifier
-                    .fillMaxWidth(WorkoutLogic.restFraction(rest.endAt, rest.totalMillis, now))
+                    .fillMaxWidth(WorkoutLogic.restFraction(rest.endAt, rest.totalMillis, now.value))
                     .height(2.dp)
                     .background(M3.colors.accent),
             )
@@ -430,4 +497,4 @@ private fun Rule() {
 
 private const val TICK_MILLIS = 250L
 private const val DONE_ALPHA = 0.6f
-private const val MAX_FIELD_CHARS = 7
+private const val MAX_FIELD_DIGITS = 4

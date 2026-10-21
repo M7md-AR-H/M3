@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.app.feature.coach.CoachRuntime
 import com.m3.app.feature.onboarding.OnboardingScreen
 import com.m3.app.ui.LoadingScreen
+import com.m3.app.ui.LocalAppLocked
 import com.m3.app.ui.LockScreen
 import com.m3.app.ui.M3App
 import com.m3.app.ui.StorageErrorScreen
@@ -75,7 +77,9 @@ class MainActivity : ComponentActivity() {
                         when (val state = startup) {
                             StartupState.Failed -> StorageErrorScreen(onRetry = viewModel::retryStartup)
                             StartupState.Loading -> LoadingScreen()
-                            is StartupState.Ready -> if (state.onboardingCompleted) M3App(config) else OnboardingScreen()
+                            is StartupState.Ready -> CompositionLocalProvider(LocalAppLocked provides locked) {
+                                if (state.onboardingCompleted) M3App(config) else OnboardingScreen()
+                            }
                         }
                     }
                     if (locked) LockScreen(message = lockMessage.value, onUnlock = ::requestUnlock, onBack = { moveTaskToBack(true) })
