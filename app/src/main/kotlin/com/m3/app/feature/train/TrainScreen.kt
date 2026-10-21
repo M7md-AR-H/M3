@@ -1,5 +1,11 @@
 package com.m3.app.feature.train
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,6 +34,7 @@ import com.m3.core.designsystem.component.Kicker
 import com.m3.core.designsystem.component.M3Card
 import com.m3.core.designsystem.component.SectionHeader
 import com.m3.core.designsystem.theme.M3
+import com.m3.core.designsystem.theme.Motion
 import com.m3.core.training.PlannedSession
 import java.time.DayOfWeek
 
@@ -95,6 +102,7 @@ private fun RestDayRow(day: DayOfWeek, isToday: Boolean) {
 fun SessionCard(session: PlannedSession, isToday: Boolean, expanded: Boolean, onToggle: () -> Unit) {
     M3Card(
         Modifier
+            .animateContentSize(Motion.medium())
             .fillMaxWidth()
             .clickable(role = Role.Button, onClickLabel = if (expanded) "Hide exercises" else "Show exercises", onClick = onToggle),
     ) {
@@ -103,7 +111,11 @@ fun SessionCard(session: PlannedSession, isToday: Boolean, expanded: Boolean, on
             color = if (isToday) M3.colors.accent else M3.colors.muted,
         )
         Text(text = session.type.displayName, style = M3.typography.title, color = M3.colors.ink)
-        if (!expanded) {
+        AnimatedVisibility(
+            visible = !expanded,
+            enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+            exit = fadeOut(Motion.short()) + shrinkVertically(Motion.short()),
+        ) {
             Text(
                 text = "${session.exercises.size} exercises" +
                     (if (session.unfilled.isNotEmpty()) " · ${session.unfilled.size} not possible here" else "") +
@@ -111,7 +123,12 @@ fun SessionCard(session: PlannedSession, isToday: Boolean, expanded: Boolean, on
                 style = M3.typography.bodySmall,
                 color = M3.colors.muted,
             )
-        } else {
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+            exit = fadeOut(Motion.short()) + shrinkVertically(Motion.short()),
+        ) {
             SessionDetails(session)
         }
     }
@@ -136,12 +153,21 @@ fun SessionDetails(session: PlannedSession) {
         session.unfilled.forEach { slot ->
             Text(text = PlanText.unfilled(slot, byAvoided = slot in session.unfilledByAvoided),style = M3.typography.bodySmall, color = M3.colors.accent)
         }
-        SectionHeader(title = "Loads", modifier = Modifier.padding(top = M3.spacing.s))
-        Text(
-            text = "Pick a weight you could lift 2–3 more times at the end of each set. Logging and automatic " +
-                "progression arrive next.",
-            style = M3.typography.bodySmall,
-            color = M3.colors.muted,
-        )
+        if (session.exercises.any { it.equipment.isNotEmpty() }) {
+            SectionHeader(title = "Loads", modifier = Modifier.padding(top = M3.spacing.s))
+            Text(
+                text = "Pick a weight you could lift 2–3 more times at the end of each set. Logging and automatic " +
+                    "progression arrive next.",
+                style = M3.typography.bodySmall,
+                color = M3.colors.muted,
+            )
+        } else if (session.exercises.isNotEmpty()) {
+            Text(
+                text = "Bodyweight session: stop each set 2–3 reps before you'd fail.",
+                style = M3.typography.bodySmall,
+                color = M3.colors.muted,
+                modifier = Modifier.padding(top = M3.spacing.s),
+            )
+        }
     }
 }

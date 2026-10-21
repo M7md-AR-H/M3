@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -42,6 +43,8 @@ fun M3TextField(
     keyboardType: KeyboardType = KeyboardType.Text,
     singleLine: Boolean = true,
     minLines: Int = 1,
+    imeAction: ImeAction? = null,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         OutlinedTextField(
@@ -57,8 +60,9 @@ fun M3TextField(
             textStyle = M3.typography.body,
             keyboardOptions = KeyboardOptions(
                 keyboardType = keyboardType,
-                imeAction = if (singleLine) ImeAction.Next else ImeAction.Default,
+                imeAction = imeAction ?: if (singleLine) ImeAction.Next else ImeAction.Default,
             ),
+            keyboardActions = keyboardActions,
             shape = M3.shapes.shape,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = M3.colors.ink,

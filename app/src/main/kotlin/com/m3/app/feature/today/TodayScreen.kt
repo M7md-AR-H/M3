@@ -15,6 +15,7 @@ import com.m3.core.designsystem.component.Masthead
 import com.m3.core.designsystem.config.CardPlacement
 import com.m3.core.designsystem.theme.M3
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -29,12 +30,19 @@ fun TodayScreen(cards: List<CardPlacement>, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(M3.spacing.m),
     ) {
         Masthead(issueLine = issueLine)
-        Kicker(text = "Phase 0")
-        Text(text = "Your coach is almost here.", style = M3.typography.headline, color = M3.colors.ink)
+        Kicker(text = "Today")
+        Text(text = remember { greeting() }, style = M3.typography.headline, color = M3.colors.ink)
         cards.filter { it.visible }.forEach { placement ->
             CardRegistry[placement.type]?.invoke(placement)
         }
     }
+}
+
+private fun greeting(): String = when (LocalTime.now().hour) {
+    in 5..11 -> "Good morning."
+    in 12..17 -> "Good afternoon."
+    in 18..22 -> "Good evening."
+    else -> "Rest well."
 }
 
 private fun todayLabel(): String =

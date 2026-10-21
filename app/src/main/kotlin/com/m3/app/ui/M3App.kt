@@ -1,5 +1,7 @@
 package com.m3.app.ui
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -31,6 +33,7 @@ import com.m3.app.ui.nav.YouRoute
 import com.m3.app.ui.nav.route
 import com.m3.core.designsystem.config.UiConfig
 import com.m3.core.designsystem.theme.M3
+import com.m3.core.designsystem.theme.Motion
 
 @Composable
 fun M3App(config: UiConfig) {
@@ -58,6 +61,10 @@ fun M3App(config: UiConfig) {
             navController = navController,
             startDestination = TodayRoute,
             modifier = Modifier.padding(innerPadding),
+            enterTransition = { fadeIn(Motion.medium()) },
+            exitTransition = { fadeOut(Motion.short()) },
+            popEnterTransition = { fadeIn(Motion.medium()) },
+            popExitTransition = { fadeOut(Motion.short()) },
         ) {
             composable<TodayRoute> { TodayScreen(cards = config.todayCards) }
             composable<TrainRoute> { TrainScreen() }

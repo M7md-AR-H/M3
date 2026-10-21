@@ -13,23 +13,23 @@ import com.m3.core.designsystem.theme.M3
 
 /** Maps each card type to its renderer. Types without an entry are skipped by [TodayScreen]. */
 val CardRegistry: Map<CardType, @Composable (CardPlacement) -> Unit> = mapOf(
-    CardType.CHECK_IN to placeholderCard("Morning check-in"),
+    CardType.CHECK_IN to placeholderCard("Morning check-in", "Coming with daily check-ins"),
     CardType.TODAY_WORKOUT to { _ -> TodayWorkoutCard() },
-    CardType.FUEL_SUMMARY to placeholderCard("Fuel"),
-    CardType.COACH_NOTE to placeholderCard("Editor's note"),
-    CardType.HABITS to placeholderCard("Habits"),
-    CardType.WEIGHT_TREND to placeholderCard("Weight trend"),
+    CardType.FUEL_SUMMARY to placeholderCard("Fuel", "Coming with nutrition (Phase 2)"),
+    CardType.COACH_NOTE to placeholderCard("Editor's note", "Ask your Coach anything on the COACH tab."),
+    CardType.HABITS to placeholderCard("Habits", "Coming with daily check-ins"),
+    CardType.WEIGHT_TREND to placeholderCard("Weight trend", "Coming with progress tracking"),
 )
 
-private fun placeholderCard(title: String): @Composable (CardPlacement) -> Unit = { _ ->
-    PlaceholderCard(title)
+private fun placeholderCard(title: String, note: String): @Composable (CardPlacement) -> Unit = { _ ->
+    PlaceholderCard(title, note)
 }
 
 @Composable
-private fun PlaceholderCard(title: String) {
+private fun PlaceholderCard(title: String, note: String) {
     M3Card {
         SectionHeader(title = title)
         Spacer(Modifier.height(M3.spacing.s))
-        Text(text = "Arrives in Phase 1", style = M3.typography.body, color = M3.colors.muted)
+        Text(text = note, style = M3.typography.body, color = M3.colors.muted)
     }
 }
