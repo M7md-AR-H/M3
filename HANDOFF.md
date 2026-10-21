@@ -4,14 +4,9 @@
 
 ## ▶ Next steps, in order
 1. Do the normal session start: CLAUDE.md, docs/WORKING_RULES.md, this file, README roadmap + decision log, `git status`, `git log -5`. Give a time estimate first.
-2. **Phone check of PR #6 and PR #7 together.** Only once the owner says the phone is connected.
-   1. Check out `feat/phase-1c-logging`, which contains #6. Build with `./gradlew :app:assembleDebug`, then `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`. The DB migrates v2 → v3 by itself; the migration test passed on the emulator.
-   2. The owner follows OWNER_TASKS "Phase 1c-2 fixes — re-check" and "Phase 1c-3 — log a workout". Claude reads the screen with the polling dump (see Traps) and doesn't ask "are you there?".
-   3. Clean up: force-stop the app, then `adb disconnect` and `adb kill-server`. Report the phone changes:
-      - The app was upgraded.
-      - New workout tables in the same `m3.db`.
-      - Any workouts the owner logged during the test (they're real data, so leave them).
-3. **Merge, after asking the owner:** first #6 into `main`, then retarget #7 to `main` and merge it. Both are squash merges.
+2. **Install the keep-screen-on fix on the phone** (commit on `feat/phase-1c-logging`, PR #7) when the owner next connects it, and re-check: start a workout, Home, wait 5½ min, come back → `dumpsys window windows` shows no `KEEP_SCREEN_ON` on M³'s window while it's locked, and it's back after unlocking. Claude drives the phone (see Traps → "Driving the phone").
+3. **Merge, after asking the owner:** first #6 into `main`, then retarget #7 to `main` and merge it. Both are squash merges. The phone check of both is done (session 5, below).
+   - Ask the owner whether to tap **Clear** in COACH: the chat holds only test messages from the two phone checks.
 4. **Decide on the model, using evidence.** The owner is open to replacing Gemma 4 E4B (see memory and the decision log). Evidence so far:
    - The tool line is left out (phone).
    - The model claims changes were done (2–3 of 12–13 eval replies).
@@ -76,7 +71,12 @@
     - 139 unit tests pass; lint 0 errors.
     - `:core:data` instrumented tests (6 + 4 + 2, including the v2 → v3 migration with data).
     - Prompt eval **12/13**: the new "what weight" case answered with the app's 42.5 kg. The miss: "make my plan harder" got `set_day`.
-  - **Not yet:** a phone check, and an automated test for the ViewModel (known limitation).
+  - **Not yet:** an automated test for the ViewModel (known limitation).
+- **Phone check of PR #6 + #7 (evening):** the owner turned on Xiaomi's "USB debugging (Security settings)", so Claude tapped through everything over adb (`scripts/phone.sh`); the owner only unlocked M³ twice. All items in README passed.
+  - **Bug found and fixed:** after the 5-minute lock, M³'s window kept `KEEP_SCREEN_ON` (and a screen wake lock) behind the lock layer. Debug logging on the emulator showed Compose set `view.keepScreenOn = false` and every view was off, but the change never reached the window. Fix: `KeepScreenOnWithLightIcons` uses `window.addFlags/clearFlags(FLAG_KEEP_SCREEN_ON)`. Verified on the emulator (with a temporary 10 s lock timeout, reverted): on in the workout, off while locked, on after unlock, off after End. Tests + lint pass. Not yet on the phone.
+  - **Not checked:** progression and the Coach's weight with real history (would need a saved workout; all test sets were unticked, the empty workout dropped).
+  - **Noted for the owner:** an avoided family leaves its slot empty (no substitute); the Coach once said "not specified in the current facts" (both in Known limitations).
+  - **Phone changes:** app upgraded (2026-10-21 20:06); DB v2 → v3 (workout tables, empty); Coach chat gained test messages; theme, lock and plan are as before (all undone). Nothing in `/data/local/tmp`; M³ force-stopped.
 
 ## Current state
 - **Git:**
@@ -85,10 +85,10 @@
   - PR #7 (`feat/phase-1c-logging`, base `fix/phase-1c-phone-feedback`) is open.
   - Nothing is merged without the owner's OK.
 - **Phone:**
-  - It has the 1c-2 build (`main`) from 2026-10-21. #6 and #7 aren't installed.
-  - The app is force-stopped; adb is disconnected.
+  - It has the #6 + #7 build from 2026-10-21 20:06, **without** the keep-screen-on fix.
+  - The app is force-stopped; the owner unplugged the phone.
 - **PC:**
-  - Emulator stopped; adb server stopped.
+  - Emulator stopped; adb server stopped. The emulator now has M³ installed and onboarded (test profile, Home with dumbbells, free every day) but no model.
   - The emulator's AVD RAM was raised to 6 GB (backup of the old config in the session scratchpad; old value `hw.ramSize=2048`).
   - The emulator has no M³ app or model; `/data/local/tmp/m3-eval` was removed.
 
@@ -127,6 +127,14 @@
   - adb is at `$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe` and isn't on PATH.
   - There's no Python and no `bc`.
 - **The phone over USB is flaky.** Wireless serial: `adb-c84e26c7-oQZ4D2._adb-tls-connect._tcp`. USB serial: `c84e26c7`.
+- **Driving the phone (since session 5):** `M3_SERIAL=<serial> bash scripts/phone.sh tap|type|key|swipe|screen|pos|wait …`.
+  - It only taps while `com.m3.app` has focus, so it can't hit another app or the system prompt. The owner unlocks M³ (fingerprint/PIN); send a PushNotification when that's needed.
+  - The bottom tabs are best tapped by position (`tapxy 108|324|540|756|972 2229`): chat labels also say "YOU"/"COACH".
+  - Switch state isn't in the text; read `checked="true"` from the raw dump (the node just before the label).
+  - `uiautomator dump` can stall for a long time while the workout timer ticks; the script wraps calls in `timeout`. Keep one action per command when timing matters.
+  - Leave no data: untick test sets and Finish/End (an empty workout is dropped); Undo every applied card; restore any switch.
+  - USB drops right after connecting sometimes; wait for it with a loop on `adb devices`.
+- **Keep-screen-on:** don't use `View.keepScreenOn` for anything that changes when the app restarts or locks; use the window flag (decision log).
 - **Reading the phone screen while the owner taps:**
   - Use a loop of `uiautomator dump /data/local/tmp/m3-ui.xml; cat …; rm …`, filtered to `package="com.m3.app"` nodes.
   - The owner often reads this chat in the Claude app on the same phone. Unfiltered dumps would read that app; never do that.

@@ -3,6 +3,7 @@ package com.m3.app.feature.workout
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -158,10 +159,14 @@ fun WorkoutScreen(tokens: ThemeTokens, onClose: () -> Unit, viewModel: WorkoutVi
 @Composable
 private fun KeepScreenOnWithLightIcons(enabled: Boolean) {
     val view = LocalView.current
+    // A window flag, not View.keepScreenOn: a view change made while the activity restarts (the moment it locks)
+    // can be dropped by the platform, leaving the screen held on behind the lock layer (found on the phone).
     DisposableEffect(view, enabled) {
-        val wasOn = view.keepScreenOn
-        view.keepScreenOn = enabled
-        onDispose { view.keepScreenOn = wasOn }
+        val window = view.context.findActivity()?.window
+        val flag = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        val wasOn = window != null && (window.attributes.flags and flag) != 0
+        if (enabled) window?.addFlags(flag) else window?.clearFlags(flag)
+        onDispose { if (wasOn) window?.addFlags(flag) else window?.clearFlags(flag) }
     }
     DisposableEffect(view) {
         val window = view.context.findActivity()?.window

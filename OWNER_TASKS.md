@@ -144,7 +144,7 @@ The Coach runs on the phone. The first answer after opening M³ takes a little l
 8. Tap **Stop** while the Coach is answering. **Expect:** the answer disappears at once and your question is back in the box; asking again works. Also press Home while it answers and come back: the answer stopped, nothing was saved, other apps stay responsive.
 9. **Broken if:** anything changes without you tapping Apply, the app closes by itself, or the Coach invents sets/reps different from TRAIN.
 
-### Phase 1c-2 fixes — re-check after the next install
+### Phase 1c-2 fixes — re-check (Claude checked these on your phone on 2026-10-21; only no. 6, smoothness, is yours to judge)
 1. **Dark mode:** in **COACH**, type **Switch to dark mode**. **Expect:** a card **"Switch the theme to dark"** with **Apply**. Apply turns the app dark with a short fade; Undo turns it back. **Broken if:** no card, or the Coach says it's already done without a note from the app below it.
 2. **Locked:** in **YOU → Customize**, turn off **"Let agents change: Your plan"**. In COACH, type **On Saturday I have no equipment**. **Expect:** a card marked **"Locked by you"**, and nothing changes. Turn the lock back on.
 3. **Pain:** type **My knee hurts on lunges**. **Expect:** a card **"Stop using all lunges (knee pain) until you allow them again"**. Apply it. On **TRAIN**, no lunge, split squat or step-up appears; where one was, a red line says you're avoiding them. Undo brings them back.
@@ -153,7 +153,7 @@ The Coach runs on the phone. The first answer after opening M³ takes a little l
 6. **Smoothness:** switch tabs, open and close a session on TRAIN, and watch an answer appear. **Expect:** short fades and smooth expanding, with no jumps. While an answer streams, scroll up: it shouldn't pull you back down.
 7. **TODAY:** the header no longer says "Phase 0"; the unfinished cards say what's coming. A session with only bodyweight exercises has no "pick a weight" note.
 
-### Phase 1c-3 — log a workout (after the next install)
+### Phase 1c-3 — log a workout (Claude checked 1–6 and 9 on your phone on 2026-10-21; 7 and 8 need a real workout of yours)
 Do this on a day TRAIN shows a session (or change a day to free in YOU → Training setup to get one today).
 1. **Start:** on **TODAY** (or TRAIN → today's session) tap **Start workout**. **Expect:** a dark screen with "← End", "Exercise 1 of N · 0:0x" counting up, the exercise name, a line like "3 × 8–12 · rest 90 s" and "First time: pick a weight…". The screen stays on.
 2. **Log a set:** set the kg with − / + (dumbbells step through *your* listed weights; a barbell steps 2.5 kg) and the reps, then tap the square **Done** box. **Expect:** it fills in red, the row dims, and **Rest** counts down with a thin red bar. **Skip** hides it. Changing set 1's kg moves the later, untouched sets with it.
