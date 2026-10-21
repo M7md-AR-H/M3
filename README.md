@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone; fixes from that check on `fix/phase-1c-phone-feedback` (owner re-check pending). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
+**Status (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone. Fixes from that check: PR #6 (owner re-check pending). Phase 1c-3 (workout logging, focus mode, progressive overload) built on `feat/phase-1c-logging`, stacked on PR #6; not yet on the phone. Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
 
 - Product & tech spec: [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md)
 - UI prototype (design source of truth): https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ
@@ -92,9 +92,15 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 - [ ] Owner re-check on the phone
 - Later: change a place's saved equipment via the Coach, labelled specialists
 
-**1c-3 — Logging and progression**
-- [ ] Workout logging + live "focus mode" screen
-- [ ] Progressive overload rules (Kotlin), loads per exercise variant
+**1c-3 — Logging and progression (branch `feat/phase-1c-logging`, on top of the 1c-2 fixes)**
+- [x] DB v3 (auto-migration, new tables only): `workout_session` (an open one can be resumed) and `workout_set` (one row per session, variant and set number)
+- [x] `WorkoutRepository`: start or resume, log or remove a set, finish (empty workouts are dropped), recent history
+- [x] Progressive overload in Kotlin (`Progression`), per variant (exercise + equipment), from the owner's kg lists; unit tests
+- [x] Coach facts: last performance and the app's next target per planned exercise, workouts in the last 4 weeks; worst-case prompt budget test
+- [x] Focus-mode screen (Sonnet, from the Opus spec): forced dark palette, set rows with kg/reps steppers and Done, optional effort 7–10, rest timer (wall clock), Prev/Next/Finish, End with confirm, resume after the app closes, screen kept on; Start/Resume on Train and Today
+- [x] Instrumented: v2 → v3 migration with data (6+4+2 DB tests pass); prompt eval 12/13 (13 cases incl. "the reply quotes the app's next weight": it said 42.5 kg, the app's target). The miss: "make my plan harder" got a `set_day` proposal (needs Apply; the same case passed in the previous run)
+- [x] Sonnet review and fixes: writes serialised and re-read inside the lock; `logSet` in one transaction keeping the first completion time; "later sets follow" only for rows not set directly; untick keeps values; Finish can't run twice and shows a failure; no End dialog, keep-screen-on or timers while locked (`LocalAppLocked`) or in the background; text fields keep typing; working load = the load of most sets; abandoned workouts close at their last set; Coach targets per day + variant; minutes shown as minutes
+- [ ] Owner phone check
 
 **1c-4 — Steps + check**
 - [ ] Phone step counter (no wearable)
@@ -196,6 +202,10 @@ M3/
 | 2026-10-21 | Locks: the prompt now asks the model to still write the tool line for a locked change; code shows "Locked by you" | With "don't propose locked changes" the model stayed silent, so the owner got no feedback (phone check) |
 | 2026-10-21 | Avoiding an exercise for pain avoids its whole movement family (squats, hinges, lunges, presses, rows, pull-ups) in one transaction and one Undo. Dislikes, and isolation, core, carry and conditioning work, stay single-exercise | Knee pain on walking lunges swapped in reverse lunge and split squat. Those patterns load the same joints alike; the mixed patterns don't |
 | 2026-10-21 | `ProposalStatus.NO_CHANGE`: a valid proposal that changes nothing shows "Nothing to change" and no Apply | The phone showed Apply on "No change: Wednesday already fits". Stored by enum name, so no DB migration |
+| 2026-10-21 | Progressive overload is double progression per variant: every planned set at the working load (the load of most sets) and at the top of the rep range (not at RPE 10) → one load step up; below the range in the last two workouts at the same load → one step down (~10% for plates); otherwise the same load, one more rep. Steps: the owner's dumbbell/kettlebell kg list (2 kg / 4 kg if not listed), 2.5 kg plates, 5 kg machine stacks; bodyweight and fixed loads progress reps only | Simple, well-known, safe for a beginner to intermediate lifter; one step at a time can't overshoot. Numbers stay in Kotlin (ADR 0003); variant keys keep home and gym apart (ADR 0008) |
+| 2026-10-21 | `LocalAppLocked` (set by MainActivity) tells screens the lock layer is up; the workout screen closes its dialog and stops keep-screen-on and timers while locked | The app stays composed under the lock layer, and a dialog is its own window above it (found in review) |
+| 2026-10-21 | Workouts are stored set by set the moment a set is ticked; only one workout is open at a time; finishing a workout with no sets drops it | A closed app or a dead battery loses nothing; history stays free of empty workouts |
+| 2026-10-21 | The Coach sees "last … ; next …" per planned exercise in a compact form, and the prompt says weights come only from "next" | It can explain progress without inventing loads; compact so the worst case (history on every exercise) still fits the prompt budget |
 | 2026-10-21 | Gemma 4 E4B stays for now but may be replaced: the owner is open to switching models if it proves unreliable. A switch needs on-phone benchmark + prompt eval evidence (ADR 0002) | Phone check and eval show tool lines left out, false "done" claims and unrelated tools. Code guards cover them today; if failures continue, a better model beats more workarounds |
 | 2026-10-21 | Motion tokens (`Motion`, 150/220/300 ms, FastOutSlowIn): fades between tabs, animated chat items and cards, theme colours cross-fade. Coach keyboard closes on send; its Enter key sends | Owner asked for smoother animations and for the keyboard to close. Short durations, scaled by the system animation setting |
 
@@ -236,12 +246,17 @@ M3/
 | Only the most recent applied Coach change can be undone from the chat | Undoing an older one would overwrite changes made after it | Per-target undo history if needed |
 | The model sometimes words a suggestion as if it were already done ("I've hidden the card") | 4B model; seen in evals even with the instruction | The proposal card always says "Suggested change" and nothing changes until Apply |
 | Prompt evals ran on the emulator CPU, not the phone's GPU | The emulator can't run the GPU path | Re-check answers on the phone (OWNER_TASKS 1c-2) |
-| The plan ignores which dumbbell/kettlebell weights you listed (e.g. very light dumbbells still get a normal rep range) | Loads and the kg lists come together with logging | Progressive overload (1c-3) picks loads from your kg list |
-| No weights are prescribed yet; the plan gives sets, reps and rest plus "pick a weight you could lift 2–3 more times" | Loads need logged history to be right | Logging + progressive overload (1c-3) |
-| No exercise instructions or pictures yet | The catalog has tags only | Add instructions (e.g. from free-exercise-db, Unlicense) with focus mode (1c-3) |
-| The same week repeats until something changes | No history yet to vary or progress the plan | Progression and Coach adjustments (1c-2/1c-3) |
+| The plan's rep ranges ignore how heavy your dumbbells are (very light dumbbells still get a normal range); the kg list is used for the next load | Choosing exercises by load needs history first | Use logged loads to pick harder variants when the heaviest bell is too easy |
+| The first workout of an exercise has no suggested weight ("pick a weight you could lift 2–3 more times") | No history to base it on, and guessing a load is unsafe | The first logged workout sets the starting point |
+| No exercise instructions or pictures yet | The catalog has tags only; mapping 101 exercises to a dataset is its own task | Add instructions (e.g. from free-exercise-db, Unlicense) in a later step |
+| The exercises of a week stay the same; only loads and reps progress | Rotating exercises is a separate planning rule | Variation rules once there are weeks of history |
 | Release (minified) builds compile but weren't run on a device in Phase 1b | The phone gets debug builds (same key as the installed app); R8 rules for Tink/SQLCipher come from their own packages | Run the release build on the emulator before the first release install |
 | The app can't make the model propose something it chose not to; only theme requests have a code fallback (eval: 11/12, and the model still claims changes in about 1 in 4 replies) | Equipment, pain and schedule need the model to read free text; a keyword guess would be unsafe | Better prompts measured by the eval, or a larger model |
+| The workout screen's tap handling (queue, "later sets follow", double-tap Finish) has no automated test; the pure parts (`WorkoutLogic`, `Progression`) do | It needs a fake repository and a coroutine test setup that isn't in the project yet | A `WorkoutViewModel` test with an in-memory Room DB |
+| No planned deload week; loads only drop after two missed workouts | Needs weeks of logged history to tune | Weekly review (Phase 3) can schedule deloads from the trend |
+| Machine stacks are assumed to move in 5 kg steps | Stacks differ between gyms and aren't in the equipment details yet | A per-place step setting, like the kg lists |
+| The rest timer only shows on screen: no sound, vibration or notification | Notifications need a new permission; the screen stays on during a workout | Add a vibration (no runtime permission) or notification if the owner wants it |
+| Progression doesn't use RPE beyond "10 = don't increase" | Most sets won't have RPE; the rule must work without it | RPE-based autoregulation once enough RPE is logged |
 | The theme cross-fade recomposes every colour reader for ~220 ms | Seven animated colour tokens; simplest correct approach | Animate one progress value and lerp, if it ever stutters on the phone |
 | In the Coach box, Enter sends; there's no newline key | Chat style, and the owner wanted the keyboard gone after sending | A setting, if newlines are ever needed |
 

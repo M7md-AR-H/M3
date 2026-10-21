@@ -1,88 +1,111 @@
-# HANDOFF — 2026-10-21 (session 5)
+# HANDOFF — 2026-10-21 (end of session 5)
 
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 
 ## ▶ Next steps, in order
 1. Do the normal session start: CLAUDE.md, docs/WORKING_RULES.md, this file, README roadmap + decision log, `git status`, `git log -5`. Give a time estimate first.
-2. **Owner re-check of `fix/phase-1c-phone-feedback` on the phone.** Only once the owner says the phone is connected.
-   1. Build with `./gradlew :app:assembleDebug`, then `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`.
-   2. The owner follows OWNER_TASKS "Phase 1c-2 fixes — re-check". Claude reads the screen with the polling dump (see Traps).
-   3. Clean up: force-stop the app, then `adb disconnect` and `adb kill-server`. Report the changes on the phone; this time it's only the app upgrade.
-3. **Open a PR** for `fix/phase-1c-phone-feedback`. Ask the owner before squash-merging.
-4. **Decide on the model, using evidence.** The owner is open to replacing Gemma 4 E4B if it proves unreliable. Signs so far:
-   - It sometimes leaves out the tool line.
-   - It claims changes were done (3 of 12 replies in the eval).
-   - It attaches unrelated tools (dropped by the relevance guard).
-   - It used `set_day` for "tomorrow".
+2. **Phone check of PR #6 and PR #7 together.** Only once the owner says the phone is connected.
+   1. Check out `feat/phase-1c-logging`, which contains #6. Build with `./gradlew :app:assembleDebug`, then `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`. The DB migrates v2 → v3 by itself; the migration test passed on the emulator.
+   2. The owner follows OWNER_TASKS "Phase 1c-2 fixes — re-check" and "Phase 1c-3 — log a workout". Claude reads the screen with the polling dump (see Traps) and doesn't ask "are you there?".
+   3. Clean up: force-stop the app, then `adb disconnect` and `adb kill-server`. Report the phone changes:
+      - The app was upgraded.
+      - New workout tables in the same `m3.db`.
+      - Any workouts the owner logged during the test (they're real data, so leave them).
+3. **Merge, after asking the owner:** first #6 into `main`, then retarget #7 to `main` and merge it. Both are squash merges.
+4. **Decide on the model, using evidence.** The owner is open to replacing Gemma 4 E4B (see memory and the decision log). Evidence so far:
+   - The tool line is left out (phone).
+   - The model claims changes were done (2–3 of 12–13 eval replies).
+   - It attaches unrelated tools.
+   - It used `set_day` for "tomorrow" or for "make my plan harder" (these vary run to run).
 
-   If the re-check still shows real failures:
+   If the phone check still shows real failures:
    - Research on-device candidates that run on LiteRT-LM on the Poco F5 and whose licence allows redistribution.
-   - Run them through the existing benchmark and `CoachPromptEval`.
-   - Propose a switch, recording it in ADR 0002 and the decision log.
-5. **Phase 1c-3: workout logging, focus mode, progressive overload.** See the notes below. Give an estimate first (2–3 h guess). It could include the idle unload (free the model after ~5 min with no Coach message); the owner was offered it but hasn't agreed yet.
+   - Benchmark them, and run `CoachPromptEval` on each.
+   - Propose a switch.
+5. **Phase 1c-4:** the phone step counter, then the Phase 1 "Try it yourself" list and phone check. Give an estimate first. The owner hasn't decided on the idle model unload (free the model after ~5 min with no Coach message).
 
 ## Session 5 (2026-10-21): what was done
 - **Phone check of 1c-1 and 1c-2** (README ticked). The owner tapped; Claude read the screen.
   - **Passed:**
-    - Runs on the GPU: the status line says so, and there's an `mldrift` program cache of 33 MB.
-    - Answer times: cold ~25–45 s including the load, warm ~6 s.
+    - The Coach runs on the GPU.
+    - Answer times: cold ~25–45 s, warm ~6 s.
     - Week, sessions and the Today card are correct.
-    - One-day bodyweight change: Apply, then Undo, both work.
+    - Apply and Undo work.
     - Avoid exercise works.
-    - A plain question gets no card.
     - Stop works.
-    - Home frees the model; the app is ~164 MB afterwards.
+    - Home frees the model (~164 MB afterwards).
   - **Phone changes:**
-    - App upgraded in place.
+    - App upgraded.
     - DB v2 tables added.
     - `no_backup/llm-cache` written (33 MB).
     - Old `cache/llm` (3.2 GB) deleted.
-    - Force-stopped, disconnected, adb server killed.
-- **Fixes on branch `fix/phase-1c-phone-feedback`** (README "1c-2 fixes" and decision log, 2026-10-21):
-  - **Theme fallback:** a plain theme request gets an app-made proposal when the model gives no usable tool line, including after a rejected one. Negations and questions don't trigger it.
-  - **Claim notes:** a reply that claims a change gets a note from the app, with three variants: not done yet, nothing changed, or locked.
-  - **Locks:** the prompt asks the model to still write the tool line for locked changes, so the "Locked by you" card appears.
-  - **Pain:** a pain reason avoids the whole movement family, and "use … again" lifts the family again. One transaction, one Undo (`UndoInfo.Exercises`). Train says when a slot is empty because of avoided exercises (`PlannedSession.unfilledByAvoided`).
-  - **`ProposalStatus.NO_CHANGE`:** "Nothing to change", with no Apply.
-  - **UI (Sonnet):**
-    - `Motion` tokens; NavHost fades; animated chat items and cards; theme colours cross-fade.
-    - The keyboard closes on send, and the Enter key sends.
-    - Today shows a greeting and honest placeholder cards.
-    - The "Loads" note shows only when the session uses equipment.
+- **PR #6, `fix/phase-1c-phone-feedback` (open, not merged):** fixes from that check. Details are in README "1c-2 fixes" and the decision log.
+  - The app proposes plain theme requests itself.
+  - A reply that claims a change gets a note from the app.
+  - A request for a locked area shows the "Locked by you" card.
+  - Pain avoids the whole movement family.
+  - A new "Nothing to change" card state.
+  - UI: `Motion` tokens, fades, keyboard closes on send, Today copy.
+  - **Checks:** 115 unit tests, lint 0, eval 11/12, Sonnet review fixed.
+  - **Owner re-check:** postponed by the owner.
+- **Phase 1c-3, `feat/phase-1c-logging` (PR #7, stacked on #6):**
+  - **DB v3:** auto-migration that adds `workout_session` and `workout_set`.
+  - **`WorkoutRepository`:**
+    - Start or resume a workout.
+    - Log a set in one transaction, keeping the set's first completion time.
+    - Remove a set.
+    - Finish a workout; an empty one is dropped, and an abandoned one closes at its last set's time.
+  - **`Progression` (core:training):**
+    - Double progression per variant; the working load is the load used for most sets.
+    - Load steps: the owner's kg lists, 2.5 kg plates, 5 kg stacks.
+    - One step at a time; it steps down after two misses.
+  - **`WorkoutTargets`** joins the plan, the kg lists and the history.
+  - **Coach facts:** "last …; next …" per day and variant, plus workouts in the last 4 weeks. The prompt says weights come only from "next".
+  - **Focus-mode screen** (`WorkoutScreen`, `WorkoutViewModel`, `WorkoutLogic`, `StartWorkout.kt`):
+    - Built by Sonnet from the Opus spec, then reviewed and fixed.
+    - Forced dark, with set rows, steppers, an effort score, a rest timer, Prev/Next/Finish and End with confirm.
+    - Resume after the app closes; the screen stays on.
+    - Start or Resume buttons on Train and Today.
+  - **`LocalAppLocked`** (`app/ui/AppLocked.kt`, provided in MainActivity): screens know when the lock layer is up. The workout screen closes its dialog and pauses keep-screen-on and its timers while locked.
+  - **Review fixes:**
+    - Writes are serialised and the saved row is re-read inside the lock.
+    - "Later sets follow" only applies to rows the owner hasn't set directly.
+    - Finish can't run twice.
+    - Text fields keep what's being typed.
   - **Checks:**
-    - 115 unit tests pass; lint 0 errors; debug APK builds.
-    - Prompt eval: **11/12** (emulator CPU; new cases for the locked request and "suggest the dark theme"); claims in 3 of 12.
-    - Sonnet review: findings fixed, except the theme fade cost, which is listed as a known limitation.
-  - **Not yet:** phone re-check, PR.
+    - 139 unit tests pass; lint 0 errors.
+    - `:core:data` instrumented tests (6 + 4 + 2, including the v2 → v3 migration with data).
+    - Prompt eval **12/13**: the new "what weight" case answered with the app's 42.5 kg. The miss: "make my plan harder" got `set_day`.
+  - **Not yet:** a phone check, and an automated test for the ViewModel (known limitation).
 
 ## Current state
 - **Git:**
-  - `main` holds Phases 0–1c-2 (PRs #1–#5).
-  - Branch `fix/phase-1c-phone-feedback` is committed locally and not pushed. No PR yet.
+  - `main` holds Phases 0–1c-2.
+  - PR #6 (`fix/phase-1c-phone-feedback`) is open.
+  - PR #7 (`feat/phase-1c-logging`, base `fix/phase-1c-phone-feedback`) is open.
+  - Nothing is merged without the owner's OK.
 - **Phone:**
-  - It has the 1c-2 build (main) from 2026-10-21, not the fix branch.
-  - The app is force-stopped and adb is disconnected.
+  - It has the 1c-2 build (`main`) from 2026-10-21. #6 and #7 aren't installed.
+  - The app is force-stopped; adb is disconnected.
 - **PC:**
   - Emulator stopped; adb server stopped.
-  - The emulator's app was uninstalled for the eval, so its test data and its model copy are gone. Re-onboard it if it's needed.
+  - The emulator's AVD RAM was raised to 6 GB (backup of the old config in the session scratchpad; old value `hw.ramSize=2048`).
+  - The emulator has no M³ app or model; `/data/local/tmp/m3-eval` was removed.
 
-## Phase 1c-3 notes (not started)
-- **Logging:**
-  - A DB v3 migration: sessions and sets (exercise id, kg, reps/seconds, optional RPE, date).
-  - Log from Train or Today.
-  - A "focus mode" screen (inverted dark, per the decision log) for live sets, with a rest timer.
-- **Progressive overload, in deterministic Kotlin (ADR 0003):**
-  - Per exercise *variant*: the exercise id plus the equipment used (ADR 0008).
-  - Loads come from the owner's dumbbell/kettlebell kg lists (`EquipmentDetails.weightsKg`).
-- **Coach:**
-  - It reads the logged history facts.
-  - Keep the prompt budget.
-  - Re-run the prompt eval after any prompt change.
-- **Steps (1c-4):** phone step counter, then the Phase 1 "Try it yourself" list.
+## Phase 1c-4 notes (not started)
+- **Steps:** the phone's step counter sensor (`TYPE_STEP_COUNTER`) needs the `ACTIVITY_RECOGNITION` runtime permission. Ask for it in context, with a clear reason, and store daily totals in the encrypted DB.
+- **Today card:** show the steps, with no network and no Google Fit.
+- **Then:** the Phase 1 "Try it yourself" list and the phone check.
 
 ## How to re-run the prompt eval
-1. **Start the emulator:** `$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe -avd Medium_Phone_API_37.0 -no-snapshot-save -no-audio -no-boot-anim` (run it in the background).
+1. **Start the emulator:** `$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe -avd Medium_Phone_API_37.0 -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -memory 6144` (run it in the background).
+   - With 4 GB the low-memory killer kills the eval during case 2 (the model uses ~2.5 GB RSS).
+   - `hw.ramSize` in `~/.android/avd/Medium_Phone.avd/config.ini` was raised from 2048 to 6144 on 2026-10-21.
+   - Run `./gradlew --stop` first to free PC RAM; the PC has 15.7 GB.
 2. **Unlock it** (PIN 1234), then run `svc power stayon true`.
+   - Unlocking right after `sys.boot_completed` can silently fail.
+   - Check with `adb shell dumpsys user | grep State` → it must say `RUNNING_UNLOCKED`.
+   - Otherwise every instrumented test fails with "Required key not available".
 3. **Free space:** the disk is 10 GB. Uninstall `com.m3.app` on the emulator if it holds a model copy.
 4. **Push the model:** `adb push models/gemma-4-E4B-it.litertlm /data/local/tmp/m3-eval/model.litertlm` (needs `MSYS_NO_PATHCONV=1`), then `chmod 644`.
 5. **Run the eval:** `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.m3.app.CoachPromptEval`.
