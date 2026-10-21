@@ -36,8 +36,15 @@ sealed interface CoachAction {
         val allIds: List<String> get() = listOf(exerciseId) + similar
     }
 
-    data class AllowExercise(val exerciseId: String, val exerciseName: String) : CoachAction {
+    /** Use an exercise again; [similar] is the rest of a family that was avoided together for pain. */
+    data class AllowExercise(
+        val exerciseId: String,
+        val exerciseName: String,
+        val similar: List<String> = emptyList(),
+        val familyName: String? = null,
+    ) : CoachAction {
         override val lock get() = LockKey.TRAINING_PLAN
+        val allIds: List<String> get() = listOf(exerciseId) + similar
     }
 
     /** Where the owner is free to train on a weekday; null location = not free (ADR 0009). */

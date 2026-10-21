@@ -83,6 +83,21 @@ class CoachToolsTest {
         // Isolation and core work is too mixed to treat as one family.
         val plank = valid("""{"name":"avoid_exercise","exercise":"plank","reason":"my back hurts"}""") as CoachAction.AvoidExercise
         assertTrue(plank.similar.isEmpty())
+        // Whole words only.
+        val reached = valid("""{"name":"avoid_exercise","exercise":"walking_lunge","reason":"reached failure, too hard"}""") as CoachAction.AvoidExercise
+        assertTrue(reached.similar.isEmpty())
+    }
+
+    @Test
+    fun `allowing one exercise of a family avoided for pain lifts the whole family`() {
+        val lunges = catalog.exercises.filter { it.pattern == com.m3.core.training.MovementPattern.LUNGE }.map { it.id }
+        val excluded = lunges.associateWith { "knee pain" } + ("plank" to "boring")
+        val withExcluded = context.copy(excluded = excluded)
+        val allow = (CoachTools.validate("""{"name":"allow_exercise","exercise":"reverse_lunge"}""", withExcluded) as ToolResult.Valid).action as CoachAction.AllowExercise
+        assertEquals(lunges.toSet(), allow.allIds.toSet())
+        assertEquals("lunges", allow.familyName)
+        val single = (CoachTools.validate("""{"name":"allow_exercise","exercise":"plank"}""", withExcluded) as ToolResult.Valid).action as CoachAction.AllowExercise
+        assertTrue(single.similar.isEmpty())
     }
 
     @Test
@@ -96,6 +111,11 @@ class CoachToolsTest {
         assertNull(CoachTools.themeRequest("Why is Wednesday a rest day?"))
         assertNull(CoachTools.themeRequest("It's dark outside, can I run?"))
         assertNull(CoachTools.themeRequest("Today I only have a light dumbbell"))
+        assertEquals(ThemeMode.LIGHT, CoachTools.themeRequest("dark mode off"))
+        assertEquals(ThemeMode.DARK, CoachTools.themeRequest("Switch to dark mode, I'm off to bed"))
+        assertNull(CoachTools.themeRequest("I don't want light mode"))
+        assertNull(CoachTools.themeRequest("How do I turn off dark mode?"))
+        assertNull(CoachTools.themeRequest("I hate dark mode"))
     }
 
     @Test
@@ -106,6 +126,8 @@ class CoachToolsTest {
         assertTrue(CoachTools.claimsChange("Your plan has been updated."))
         assertTrue(!CoachTools.claimsChange("I suggest using only dumbbells on Saturday. Tap Apply to use it."))
         assertTrue(!CoachTools.claimsChange("Tuesday is a rest day so your muscles can recover."))
+        assertTrue(!CoachTools.claimsChange("Your body will automatically adapt to the load."))
+        assertTrue(CoachTools.claimsChange("Dark mode is now on."))
     }
 
     @Test

@@ -15,7 +15,7 @@ import com.m3.core.designsystem.theme.M3
 val CardRegistry: Map<CardType, @Composable (CardPlacement) -> Unit> = mapOf(
     CardType.CHECK_IN to placeholderCard("Morning check-in", "Coming with daily check-ins"),
     CardType.TODAY_WORKOUT to { _ -> TodayWorkoutCard() },
-    CardType.FUEL_SUMMARY to placeholderCard("Fuel", "Coming with nutrition (Phase 2)"),
+    CardType.FUEL_SUMMARY to placeholderCard("Fuel", "Coming with nutrition tracking"),
     CardType.COACH_NOTE to placeholderCard("Editor's note", "Ask your Coach anything on the COACH tab."),
     CardType.HABITS to placeholderCard("Habits", "Coming with daily check-ins"),
     CardType.WEIGHT_TREND to placeholderCard("Weight trend", "Coming with progress tracking"),

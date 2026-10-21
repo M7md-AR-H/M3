@@ -12,6 +12,7 @@ import com.m3.coach.CoachTools
 import com.m3.coach.ReplyParser
 import com.m3.coach.ToolContext
 import com.m3.coach.ToolResult
+import com.m3.core.designsystem.config.LockKey
 import com.m3.core.designsystem.config.ThemeMode
 import com.m3.core.designsystem.config.UiConfig
 import com.m3.core.model.EquipmentItem
@@ -40,7 +41,8 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class CoachPromptEval {
-    private data class Case(val message: String, val expectTool: String?)
+    /** [planLocked]: the owner locked "Your plan"; the model should still write the tool line (the app blocks it). */
+    private data class Case(val message: String, val expectTool: String?, val planLocked: Boolean = false)
 
     private val cases = listOf(
         Case("Today I only have dumbbells and a pull-up bar.", "day_equipment"),
@@ -53,6 +55,9 @@ class CoachPromptEval {
         Case("What should I eat after training?", null),
         Case("Can you make my plan harder?", null),
         Case("Tomorrow I'm stuck in a hotel room with no equipment.", "day_equipment"),
+        // Seen on the phone (2026-10-21): no tool line, and the reply claimed the change was done.
+        Case("Please suggest the dark theme", "theme"),
+        Case("On Saturday I have no equipment, only body weight", "day_equipment", planLocked = true),
     )
 
     @Test
@@ -81,14 +86,20 @@ class CoachPromptEval {
             locks = emptySet(),
         )
         val system = CoachPrompt.system(facts)
+        val lockedSystem = CoachPrompt.system(facts.copy(locks = setOf(LockKey.TRAINING_PLAN)))
         Log.i(TAG, "system prompt chars=${system.length}")
         val cache = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "llm-eval").apply { mkdirs() }
         LiteRtLmEngine().use { engine ->
             val loadSeconds = engine.load(LlmLoadConfig(model, LlmBackend.CPU, speculativeDecoding = false, maxTokens = 4096, cacheDir = cache))
             Log.i(TAG, "loaded in ${"%.1f".format(loadSeconds)} s")
             var passed = 0
+            var claims = 0
             cases.forEachIndexed { index, case ->
-                val result = engine.generate(CoachPrompt.turn(emptyList(), case.message), systemInstruction = system, maxOutputTokens = 400)
+                val result = engine.generate(
+                    CoachPrompt.turn(emptyList(), case.message),
+                    systemInstruction = if (case.planLocked) lockedSystem else system,
+                    maxOutputTokens = 400,
+                )
                 val parsed = ReplyParser.parse(result.text)
                 val tool = parsed.toolJson?.let { CoachTools.validate(it, ToolContext(today, setup, catalog)) }
                     ?.takeUnless { it == ToolResult.Ignored || (it is ToolResult.Valid && !CoachTools.relevantTo(it.action, case.message)) }
@@ -98,12 +109,14 @@ class CoachPromptEval {
                     else -> tool is ToolResult.Valid && parsed.toolJson.orEmpty().contains("\"${case.expectTool}\"")
                 }
                 if (ok) passed++
-                Log.i(TAG, "CASE ${index + 1} ${if (ok) "PASS" else "FAIL"} expect=${case.expectTool} got=$toolName " +
+                val claim = CoachTools.claimsChange(parsed.text)
+                if (claim) claims++
+                Log.i(TAG, "CASE ${index + 1} ${if (ok) "PASS" else "FAIL"} expect=${case.expectTool} got=$toolName claim=$claim " +
                     "invalid=${(tool as? ToolResult.Invalid)?.message} tps=${result.stats?.decodeTokensPerSecond}")
                 Log.i(TAG, "  Q: ${case.message}")
                 result.text.lines().forEach { Log.i(TAG, "  A: $it") }
             }
-            Log.i(TAG, "SCORE $passed/${cases.size}")
+            Log.i(TAG, "SCORE $passed/${cases.size} claims=$claims")
         }
     }
 

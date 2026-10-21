@@ -45,6 +45,8 @@ data class ToolContext(
     val today: LocalDate,
     val setup: TrainingSetup,
     val catalog: ExerciseCatalog,
+    /** Avoided exercise id → reason, so allowing one again can lift the family it was avoided with. */
+    val excluded: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -108,7 +110,7 @@ object CoachTools {
         // Pain: avoid the whole movement family, or the planner swaps in an exercise that loads the joint the
         // same way (seen on the phone: knee pain on walking lunges → reverse lunge). Dislikes stay one exercise.
         val family = FAMILY_NAMES[exercise.pattern]
-        if (family != null && PAIN_WORDS.any { it in reason.lowercase() }) {
+        if (family != null && isPain(reason)) {
             val similar = context.catalog.exercises.filter { it.pattern == exercise.pattern && it.id != exercise.id }.map { it.id }
             return ToolResult.Valid(CoachAction.AvoidExercise(exercise.id, exercise.name, reason, similar, family))
         }
@@ -117,8 +119,19 @@ object CoachTools {
 
     private fun allow(call: ToolSchemas.AllowExercise, context: ToolContext): ToolResult {
         val exercise = findExercise(call.exercise, context) ?: return invalid("The Coach named an exercise I don't know.")
+        // Undo a family avoided for pain as a whole: the same pattern, avoided with the same reason.
+        val reason = context.excluded[exercise.id]
+        val family = FAMILY_NAMES[exercise.pattern]
+        if (reason != null && family != null && isPain(reason)) {
+            val similar = context.catalog.exercises
+                .filter { it.pattern == exercise.pattern && it.id != exercise.id && context.excluded[it.id] == reason }
+                .map { it.id }
+            if (similar.isNotEmpty()) return ToolResult.Valid(CoachAction.AllowExercise(exercise.id, exercise.name, similar, family))
+        }
         return ToolResult.Valid(CoachAction.AllowExercise(exercise.id, exercise.name))
     }
+
+    private fun isPain(reason: String) = PAIN.containsMatchIn(reason)
 
     private fun setDay(call: ToolSchemas.SetDay, context: ToolContext): ToolResult {
         val day = DayOfWeek.entries.firstOrNull { it.name == normalize(call.day).uppercase() }
@@ -174,10 +187,12 @@ object CoachTools {
      */
     fun themeRequest(ownerMessage: String): ThemeMode? {
         val text = ownerMessage.lowercase()
+        // "I don't want dark mode", "how do I turn off dark mode?": not a plain request, leave it to the model.
+        if (Regex("\\b(don'?t|do not|never|hate|why|how|what)\\b").containsMatchIn(text)) return null
         val dark = Regex("\\b(dark|night)\\s*(mode|theme)\\b|\\b(mode|theme)\\s+(to\\s+)?dark\\b|\\bmake\\s+(it|the app)\\s+dark\\b").containsMatchIn(text)
         val light = Regex("\\blight\\s*(mode|theme)\\b|\\b(mode|theme)\\s+(to\\s+)?light\\b|\\bmake\\s+(it|the app)\\s+light\\b").containsMatchIn(text)
         val system = Regex("\\b(system|phone'?s?|automatic|auto)\\s+(mode|theme|setting)\\b|\\bfollow\\s+(the\\s+|my\\s+)?(system|phone)\\b").containsMatchIn(text)
-        val off = Regex("\\b(turn|switch)\\s+off\\b|\\bdisable\\b|\\bno\\s+more\\b|\\bstop\\s+using\\b").containsMatchIn(text)
+        val off = Regex("\\b(turn|switch)\\s+off\\b|\\b(mode|theme)\\s+off\\b|\\bdisable\\b|\\bno\\s+more\\b|\\bstop\\s+using\\b").containsMatchIn(text)
         return when {
             system && !dark && !light -> ThemeMode.SYSTEM
             dark && !light -> if (off) ThemeMode.LIGHT else ThemeMode.DARK
@@ -199,7 +214,9 @@ object CoachTools {
             RegexOption.IGNORE_CASE,
         ),
         Regex("\\b(?:has|have)\\s+(?:now\\s+|already\\s+)*been\\s+(?:switched|set|changed|updated|applied|turned|enabled|adjusted|removed|added|swapped|replaced)\\b", RegexOption.IGNORE_CASE),
-        Regex("\\bwill\\s+automatically\\b", RegexOption.IGNORE_CASE),
+        // "Your body will automatically recover" is advice; only the app or planner acting by itself is a claim.
+        Regex("\\b(?:app|planner|plan|coach|system)\\s+will\\s+automatically\\b", RegexOption.IGNORE_CASE),
+        Regex("\\b(?:mode|theme|plan|it)\\s+is\\s+now\\s+(?:on|off|set|enabled|disabled|active|dark|light)\\b", RegexOption.IGNORE_CASE),
     )
 
     /** "today", "tomorrow", a weekday name or an ISO date, within the next 7 days (today + 6). */
@@ -276,7 +293,8 @@ object CoachTools {
         MovementPattern.HORIZONTAL_PULL to "rows",
         MovementPattern.VERTICAL_PULL to "pull-ups and pulldowns",
     )
-    private val PAIN_WORDS = listOf("pain", "hurt", "injur", "sore", "ache", "aching", "strain", "sprain", "twinge", "sharp")
+    /** Whole words only: "reached" or "teacher" must not count as pain. */
+    private val PAIN = Regex("\\b(pain\\w*|hurts?|hurting|injur\\w*|sore\\w*|aches?|aching|strain\\w*|sprain\\w*|twinge\\w*|sharp)\\b", RegexOption.IGNORE_CASE)
 
     private const val MAX_ITEMS = 60
     private const val MAX_DAYS_AHEAD = 6L

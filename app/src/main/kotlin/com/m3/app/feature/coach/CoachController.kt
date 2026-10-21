@@ -28,6 +28,7 @@ import com.m3.core.designsystem.config.UiConfigStore
 import com.m3.core.designsystem.config.displayName
 import com.m3.core.model.EquipmentKind
 import com.m3.core.training.PlanDiff
+import com.m3.core.training.WeekPlan
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -111,9 +112,11 @@ class CoachController @Inject constructor(
             ).text
         }
         val parsed = ReplyParser.parse(raw)
-        val proposal = parsed.toolJson?.let { proposalFor(it, inputs, trimmed) }
-            // A plain theme request the model answered without a tool line (seen on the phone): Kotlin proposes it.
+        val fromModel = parsed.toolJson?.let { proposalFor(it, inputs, trimmed) }
+        // A plain theme request the model answered without a usable tool line (seen on the phone): Kotlin proposes it.
+        val proposal = fromModel.takeUnless { it == null || it.status == ProposalStatus.REJECTED }
             ?: CoachTools.themeRequest(trimmed)?.let { proposalFor(themeJson(it), inputs, trimmed) }
+            ?: fromModel
         val text = parsed.text.ifBlank { proposal?.summary ?: "Sorry, I didn't get an answer. Please try again." }
         chat.addTurn(trimmed, withClaimCorrection(text, proposal), proposal)
     }
@@ -126,7 +129,7 @@ class CoachController @Inject constructor(
         if (!CoachTools.claimsChange(text)) return text
         val note = when (proposal?.status) {
             ProposalStatus.PENDING -> NOT_YET_NOTE
-            ProposalStatus.BLOCKED -> return text
+            ProposalStatus.BLOCKED -> LOCKED_NOTE
             else -> NOTHING_CHANGED_NOTE
         }
         return "$text\n\n$note"
@@ -218,7 +221,7 @@ class CoachController @Inject constructor(
 
     private suspend fun currentInputs(): PlanInputs = plans.observeInputs().first()
 
-    private fun toolContext(inputs: PlanInputs) = ToolContext(LocalDate.now(), inputs.setup, plans.catalog)
+    private fun toolContext(inputs: PlanInputs) = ToolContext(LocalDate.now(), inputs.setup, plans.catalog, inputs.stored.excluded)
 
     private fun facts(inputs: PlanInputs): CoachFacts {
         val config = uiStore.config.value
@@ -246,29 +249,39 @@ class CoachController @Inject constructor(
             is ToolResult.Valid -> {
                 val action = result.action
                 if (!CoachTools.relevantTo(action, ownerMessage)) return null
-                val status = when {
-                    changesNothing(action, inputs) -> ProposalStatus.NO_CHANGE
-                    action.lock in uiStore.config.value.locks -> ProposalStatus.BLOCKED
-                    else -> ProposalStatus.PENDING
+                val locks = uiStore.config.value.locks
+                withContext(Dispatchers.Default) {
+                    val status = when {
+                        changesNothing(action, inputs) -> ProposalStatus.NO_CHANGE
+                        action.lock in locks -> ProposalStatus.BLOCKED
+                        else -> ProposalStatus.PENDING
+                    }
+                    StoredProposal(toolJson, status, summary(action), planChanges(action, inputs))
                 }
-                StoredProposal(toolJson, status, summary(action), withContext(Dispatchers.Default) { planChanges(action, inputs) })
             }
         }
 
     /** True when applying [action] would leave everything as it is, so the card offers no Apply. */
     private fun changesNothing(action: CoachAction, inputs: PlanInputs): Boolean = when (action) {
-        is CoachAction.SetDayEquipment -> dayDiff(action, inputs).isEmpty()
+        // Whole sessions, equipment included: the same exercises with other equipment is still a change.
+        is CoachAction.SetDayEquipment -> dayPlans(action, inputs).let { (before, after) ->
+            before.sessionOn(action.day) == after.sessionOn(action.day)
+        }
         is CoachAction.AvoidExercise -> action.allIds.all { it in inputs.stored.excluded }
-        is CoachAction.AllowExercise -> action.exerciseId !in inputs.stored.excluded
+        is CoachAction.AllowExercise -> action.allIds.none { it in inputs.stored.excluded }
         is CoachAction.SetAvailability -> inputs.setup.availability[action.day] == action.locationId
         is CoachAction.Ui -> (action.change as? UiChange.SetThemeMode)?.mode == uiStore.config.value.theme.mode
     }
 
-    private fun dayDiff(action: CoachAction.SetDayEquipment, inputs: PlanInputs): List<String> {
-        // Compare within the target day's own week (it may be next week, e.g. "tomorrow" on a Sunday).
+    /** The target day's week before and after; it may be next week, e.g. "tomorrow" on a Sunday. */
+    private fun dayPlans(action: CoachAction.SetDayEquipment, inputs: PlanInputs): Pair<WeekPlan, WeekPlan> {
         val before = plans.preview(inputs.profile, inputs.setup, inputs.stored, today = action.date)
         val withDay = inputs.stored.copy(dayEquipment = inputs.stored.dayEquipment + (action.date to action.items))
-        val after = plans.preview(inputs.profile, inputs.setup, withDay, today = action.date)
+        return before to plans.preview(inputs.profile, inputs.setup, withDay, today = action.date)
+    }
+
+    private fun dayDiff(action: CoachAction.SetDayEquipment, inputs: PlanInputs): List<String> {
+        val (before, after) = dayPlans(action, inputs)
         return PlanDiff.describe(before, after).filter { it.startsWith(dayLabel(action.date.dayOfWeek)) }
     }
 
@@ -279,7 +292,7 @@ class CoachController @Inject constructor(
             is CoachAction.AvoidExercise ->
                 plans.preview(inputs.profile, inputs.setup, inputs.stored.copy(excluded = inputs.stored.excluded + action.allIds.associateWith { action.reason }))
             is CoachAction.AllowExercise ->
-                plans.preview(inputs.profile, inputs.setup, inputs.stored.copy(excluded = inputs.stored.excluded - action.exerciseId))
+                plans.preview(inputs.profile, inputs.setup, inputs.stored.copy(excluded = inputs.stored.excluded - action.allIds.toSet()))
             is CoachAction.SetAvailability -> {
                 val availability = inputs.setup.availability.let { if (action.locationId == null) it - action.day else it + (action.day to action.locationId) }
                 plans.preview(inputs.profile, inputs.setup.copy(availability = availability), inputs.stored)
@@ -302,13 +315,18 @@ class CoachController @Inject constructor(
             Outcome.Done(UndoInfo.Exercise(action.exerciseId, previous))
         } else {
             val previous = action.allIds.associateWith { overrides.excludedReason(it) }
-            overrides.setExcluded(action.allIds.associateWith { previous[it] ?: action.reason })
+            // One reason for the whole family, so "use lunges again" can find it as one group.
+            overrides.setExcluded(action.allIds.associateWith { action.reason })
             Outcome.Done(UndoInfo.Exercises(previous))
         }
-        is CoachAction.AllowExercise -> {
+        is CoachAction.AllowExercise -> if (action.similar.isEmpty()) {
             val previous = overrides.excludedReason(action.exerciseId)
             overrides.setExcluded(action.exerciseId, null)
             Outcome.Done(UndoInfo.Exercise(action.exerciseId, previous))
+        } else {
+            val previous = action.allIds.associateWith { overrides.excludedReason(it) }
+            overrides.setExcluded(action.allIds.associateWith { null })
+            Outcome.Done(UndoInfo.Exercises(previous))
         }
         is CoachAction.SetAvailability -> {
             val setup = inputs.setup
@@ -336,6 +354,7 @@ class CoachController @Inject constructor(
         const val LOCKED_MESSAGE = "You've locked this for agents (You → Customize), so nothing changed."
         const val NOTHING_CHANGED_NOTE = "(From the app: nothing has changed. Changes only happen when you tap Apply on a suggestion card.)"
         const val NOT_YET_NOTE = "(From the app: not done yet. Tap Apply below to make this change.)"
+        const val LOCKED_NOTE = "(From the app: nothing has changed, because you've locked this for agents.)"
 
         /** The tool call the app writes itself for a plain theme request; it's validated like the model's. */
         fun themeJson(mode: com.m3.core.designsystem.config.ThemeMode) = """{"name":"theme","mode":"${mode.name}"}"""
@@ -375,7 +394,8 @@ class CoachController @Inject constructor(
                 if (action.familyName == null) "Stop using ${action.exerciseName}$why until you allow it again"
                 else "Stop using all ${action.familyName}$why until you allow them again"
             }
-            is CoachAction.AllowExercise -> "Use ${action.exerciseName} again"
+            is CoachAction.AllowExercise ->
+                if (action.familyName == null) "Use ${action.exerciseName} again" else "Use all ${action.familyName} again"
             is CoachAction.SetAvailability -> {
                 val day = action.day.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
                 if (action.locationName == null) "$day: not free" else "$day: free at ${action.locationName}"

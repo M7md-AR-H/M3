@@ -151,12 +151,12 @@ fun CoachScreen(viewModel: CoachViewModel = hiltViewModel()) {
                     )
                 }
             }
-            pending?.let { text -> item(key = "pending") { Column(Modifier.animateItem()) { OwnerBubble(text) } } }
+            // No item animation here: these two are swapped for the stored messages when the turn ends, and a
+            // fade-out would briefly show the answer twice.
+            pending?.let { text -> item(key = "pending") { OwnerBubble(text) } }
             streaming?.let { text ->
                 item(key = "streaming") {
-                    Column(Modifier.animateItem()) {
-                        CoachText(text.ifEmpty { "Thinking…" }, muted = text.isEmpty())
-                    }
+                    CoachText(text.ifEmpty { "Thinking…" }, muted = text.isEmpty())
                 }
             }
         }

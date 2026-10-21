@@ -8,8 +8,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import com.m3.app.feature.train.rememberToday
 import com.m3.core.designsystem.component.Kicker
 import com.m3.core.designsystem.component.Masthead
 import com.m3.core.designsystem.config.CardPlacement
@@ -18,10 +21,19 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 @Composable
 fun TodayScreen(cards: List<CardPlacement>, modifier: Modifier = Modifier) {
-    val issueLine = remember { "Issue 001 · ${todayLabel()}" }
+    // Both roll over while the screen stays open (checked every minute).
+    val today by rememberToday()
+    val hour by produceState(LocalTime.now().hour) {
+        while (true) {
+            delay(60_000L)
+            value = LocalTime.now().hour
+        }
+    }
+    val issueLine = remember(today) { "Issue 001 · ${todayLabel(today)}" }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -31,19 +43,19 @@ fun TodayScreen(cards: List<CardPlacement>, modifier: Modifier = Modifier) {
     ) {
         Masthead(issueLine = issueLine)
         Kicker(text = "Today")
-        Text(text = remember { greeting() }, style = M3.typography.headline, color = M3.colors.ink)
+        Text(text = greeting(hour), style = M3.typography.headline, color = M3.colors.ink)
         cards.filter { it.visible }.forEach { placement ->
             CardRegistry[placement.type]?.invoke(placement)
         }
     }
 }
 
-private fun greeting(): String = when (LocalTime.now().hour) {
+private fun greeting(hour: Int): String = when (hour) {
     in 5..11 -> "Good morning."
     in 12..17 -> "Good afternoon."
     in 18..22 -> "Good evening."
     else -> "Rest well."
 }
 
-private fun todayLabel(): String =
-    LocalDate.now().format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)).uppercase(Locale.ENGLISH)
+private fun todayLabel(today: LocalDate): String =
+    today.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)).uppercase(Locale.ENGLISH)
