@@ -19,7 +19,8 @@ import kotlinx.serialization.json.Json
 
 enum class ChatAuthor { OWNER, COACH }
 
-enum class ProposalStatus { PENDING, APPLIED, DISMISSED, UNDONE, REJECTED, BLOCKED }
+/** Stored by name, so adding a value needs no migration. NO_CHANGE: valid, but it wouldn't change anything. */
+enum class ProposalStatus { PENDING, APPLIED, DISMISSED, UNDONE, REJECTED, BLOCKED, NO_CHANGE }
 
 data class StoredProposal(
     /** The model's tool JSON; null when the reply's tool couldn't be read at all. */
@@ -149,6 +150,12 @@ class PlanOverridesRepository(
     suspend fun setExcluded(exerciseId: String, reason: String?) {
         val dao = opener.get().planOverridesDao()
         if (reason == null) dao.deleteExcluded(exerciseId) else dao.upsertExcluded(ExcludedExerciseEntity(exerciseId, reason, clock()))
+    }
+
+    /** Exercise id → reason (null allows it again), all or nothing: a family avoided for pain is one change. */
+    suspend fun setExcluded(changes: Map<String, String?>) {
+        val db = opener.get()
+        db.withTransaction { changes.forEach { (id, reason) -> setExcluded(id, reason) } }
     }
 
     /** Day overrides only matter for the current week; older ones are dropped. */

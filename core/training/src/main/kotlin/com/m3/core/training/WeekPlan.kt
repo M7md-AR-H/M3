@@ -50,6 +50,8 @@ data class PlannedSession(
     val exercises: List<PlannedExercise>,
     /** Slots nothing at this location could fill. The plan says so rather than inventing something. */
     val unfilled: List<Slot>,
+    /** The [unfilled] slots that the equipment could fill, but only with exercises the owner avoids. */
+    val unfilledByAvoided: Set<Slot> = emptySet(),
 )
 
 /** One week of training. Days without a session are rest days. */

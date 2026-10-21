@@ -73,6 +73,42 @@ class CoachToolsTest {
     }
 
     @Test
+    fun `pain avoids the whole movement family, a dislike only the exercise`() {
+        val pain = valid("""{"name":"avoid_exercise","exercise":"walking_lunge","reason":"knee pain"}""") as CoachAction.AvoidExercise
+        assertEquals("lunges", pain.familyName)
+        assertTrue(listOf("reverse_lunge", "split_squat", "step_up", "bulgarian_split_squat").all { it in pain.similar })
+        assertTrue("walking_lunge" !in pain.similar && pain.allIds.first() == "walking_lunge")
+        val dislike = valid("""{"name":"avoid_exercise","exercise":"walking_lunge","reason":"boring"}""") as CoachAction.AvoidExercise
+        assertTrue(dislike.similar.isEmpty() && dislike.familyName == null)
+        // Isolation and core work is too mixed to treat as one family.
+        val plank = valid("""{"name":"avoid_exercise","exercise":"plank","reason":"my back hurts"}""") as CoachAction.AvoidExercise
+        assertTrue(plank.similar.isEmpty())
+    }
+
+    @Test
+    fun `plain theme requests are recognised, questions about other things are not`() {
+        assertEquals(ThemeMode.DARK, CoachTools.themeRequest("Switch to dark mode"))
+        assertEquals(ThemeMode.DARK, CoachTools.themeRequest("Please suggest the dark theme"))
+        assertEquals(ThemeMode.DARK, CoachTools.themeRequest("set the theme to dark please"))
+        assertEquals(ThemeMode.LIGHT, CoachTools.themeRequest("Turn off dark mode"))
+        assertEquals(ThemeMode.LIGHT, CoachTools.themeRequest("light mode"))
+        assertEquals(ThemeMode.SYSTEM, CoachTools.themeRequest("Follow the system theme"))
+        assertNull(CoachTools.themeRequest("Why is Wednesday a rest day?"))
+        assertNull(CoachTools.themeRequest("It's dark outside, can I run?"))
+        assertNull(CoachTools.themeRequest("Today I only have a light dumbbell"))
+    }
+
+    @Test
+    fun `claims that a change happened are caught`() {
+        assertTrue(CoachTools.claimsChange("I have switched the app theme to dark mode for you."))
+        assertTrue(CoachTools.claimsChange("I have already set the app theme to DARK mode for you."))
+        assertTrue(CoachTools.claimsChange("The planner will automatically select bodyweight exercises."))
+        assertTrue(CoachTools.claimsChange("Your plan has been updated."))
+        assertTrue(!CoachTools.claimsChange("I suggest using only dumbbells on Saturday. Tap Apply to use it."))
+        assertTrue(!CoachTools.claimsChange("Tuesday is a rest day so your muscles can recover."))
+    }
+
+    @Test
     fun `set day needs a real place or not free`() {
         assertEquals(CoachAction.SetAvailability(DayOfWeek.FRIDAY, "g", "Gym"), valid("""{"name":"set_day","day":"friday","place":"gym"}"""))
         assertEquals(CoachAction.SetAvailability(DayOfWeek.MONDAY, null, null), valid("""{"name":"set_day","day":"MONDAY","place":"not_free"}"""))

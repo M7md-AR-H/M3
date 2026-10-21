@@ -43,7 +43,12 @@ class CoachControllerTest {
         )
         assertEquals("Bodyweight only on Monday 19 October (that day only)", CoachController.summary(CoachAction.SetDayEquipment(monday, emptySet())))
         assertEquals("Friday: not free", CoachController.summary(CoachAction.SetAvailability(DayOfWeek.FRIDAY, null, null)))
-        assertEquals("Stop using Plank (sore back)", CoachController.summary(CoachAction.AvoidExercise("plank", "Plank", "sore back")))
+        assertEquals("Stop using Plank (sore back) until you allow it again", CoachController.summary(CoachAction.AvoidExercise("plank", "Plank", "sore back")))
+        assertEquals(
+            "Stop using all lunges (knee pain) until you allow them again",
+            CoachController.summary(CoachAction.AvoidExercise("walking_lunge", "Walking lunge", "knee pain", listOf("reverse_lunge"), "lunges")),
+        )
+        assertEquals("""{"name":"theme","mode":"DARK"}""", CoachController.themeJson(ThemeMode.DARK))
         assertEquals("Hide the Habits card on Today", CoachController.summary(CoachAction.Ui(UiChange.SetCardVisible(CardType.HABITS, false))))
     }
 

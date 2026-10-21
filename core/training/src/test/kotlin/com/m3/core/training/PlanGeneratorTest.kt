@@ -233,6 +233,18 @@ class PlanGeneratorTest {
     }
 
     @Test
+    fun `slots left empty by avoided exercises are told apart from missing equipment`() {
+        val p = profile(Goal.BUILD_MUSCLE, Experience.SOME)
+        val setup = TrainingSetup(listOf(gym), all("gym"))
+        val lunges = ExerciseCatalog.bundled().exercises.filter { it.pattern == MovementPattern.LUNGE }.map { it.id }.toSet()
+        val plan = generator.generate(p, setup, PlanOverrides(excludedExercises = lunges))
+        val lungeSlots = plan.sessions.flatMap { s -> s.unfilled.filter { it.pattern == MovementPattern.LUNGE }.map { s to it } }
+        assertTrue(lungeSlots.isNotEmpty())
+        assertTrue(lungeSlots.all { (session, slot) -> slot in session.unfilledByAvoided })
+        assertTrue(generator.generate(p, setup).sessions.all { it.unfilledByAvoided.isEmpty() })
+    }
+
+    @Test
     fun `availability changes show as new sessions or rest days`() {
         val p = profile(Goal.GENERAL_FITNESS, Experience.NEW)
         val before = generator.generate(p, TrainingSetup(listOf(gym), mapOf(MONDAY to "gym", WEDNESDAY to "gym", FRIDAY to "gym")))

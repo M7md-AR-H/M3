@@ -29,7 +29,7 @@ object PlanText {
     fun equipment(planned: PlannedExercise): String =
         if (planned.equipment.isEmpty()) "Bodyweight" else planned.equipment.joinToString(" + ") { it.displayName }
 
-    fun unfilled(slot: Slot): String {
+    fun unfilled(slot: Slot, byAvoided: Boolean = false): String {
         val what = slot.muscle?.displayName?.lowercase() ?: when (slot.pattern) {
             MovementPattern.SQUAT -> "squat"
             MovementPattern.HINGE -> "hip hinge"
@@ -43,6 +43,7 @@ object PlanText {
             MovementPattern.ISOLATION -> "isolation"
             MovementPattern.CONDITIONING -> "conditioning"
         }
+        if (byAvoided) return "No $what exercise: you're avoiding the ones possible here. Ask the Coach to use one again."
         return "No $what exercise possible with the equipment here."
     }
 

@@ -227,6 +227,7 @@ private fun ProposalCard(
                 ProposalStatus.UNDONE -> "Undone"
                 ProposalStatus.REJECTED -> "Couldn't use this suggestion"
                 ProposalStatus.BLOCKED -> "Locked by you"
+                ProposalStatus.NO_CHANGE -> "Nothing to change"
             },
             color = if (proposal.status == ProposalStatus.PENDING) M3.colors.accent else M3.colors.muted,
         )

@@ -20,8 +20,20 @@ sealed interface CoachAction {
         override val lock get() = LockKey.TRAINING_PLAN
     }
 
-    data class AvoidExercise(val exerciseId: String, val exerciseName: String, val reason: String) : CoachAction {
+    /**
+     * Stop using an exercise until the owner allows it again. For pain, [similar] holds the rest of its movement
+     * family (e.g. every lunge), so the planner doesn't swap in an exercise that loads the joint the same way.
+     */
+    data class AvoidExercise(
+        val exerciseId: String,
+        val exerciseName: String,
+        val reason: String,
+        val similar: List<String> = emptyList(),
+        /** "lunges", "squats" …; set when [similar] is. */
+        val familyName: String? = null,
+    ) : CoachAction {
         override val lock get() = LockKey.TRAINING_PLAN
+        val allIds: List<String> get() = listOf(exerciseId) + similar
     }
 
     data class AllowExercise(val exerciseId: String, val exerciseName: String) : CoachAction {

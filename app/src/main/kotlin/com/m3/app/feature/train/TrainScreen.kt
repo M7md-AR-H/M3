@@ -134,7 +134,7 @@ fun SessionDetails(session: PlannedSession) {
             }
         }
         session.unfilled.forEach { slot ->
-            Text(text = PlanText.unfilled(slot), style = M3.typography.bodySmall, color = M3.colors.accent)
+            Text(text = PlanText.unfilled(slot, byAvoided = slot in session.unfilledByAvoided),style = M3.typography.bodySmall, color = M3.colors.accent)
         }
         SectionHeader(title = "Loads", modifier = Modifier.padding(top = M3.spacing.s))
         Text(
