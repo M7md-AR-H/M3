@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.app.feature.onboarding.displayName
+import com.m3.app.feature.workout.StartLaterNote
+import com.m3.app.feature.workout.StartWorkoutButton
 import com.m3.core.designsystem.component.DoubleRule
 import com.m3.core.designsystem.component.Kicker
 import com.m3.core.designsystem.component.M3Card
@@ -129,7 +131,14 @@ fun SessionCard(session: PlannedSession, isToday: Boolean, expanded: Boolean, on
             enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
             exit = fadeOut(Motion.short()) + shrinkVertically(Motion.short()),
         ) {
-            SessionDetails(session)
+            Column {
+                SessionDetails(session)
+                if (isToday) {
+                    StartWorkoutButton(session, Modifier.padding(top = M3.spacing.m))
+                } else {
+                    StartLaterNote(session)
+                }
+            }
         }
     }
 }

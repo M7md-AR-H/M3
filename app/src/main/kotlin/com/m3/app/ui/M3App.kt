@@ -16,6 +16,10 @@ import androidx.navigation.compose.rememberNavController
 import com.m3.app.feature.aimodel.AiModelScreen
 import com.m3.app.feature.coach.CoachScreen
 import com.m3.app.feature.fuel.FuelScreen
+import com.m3.app.feature.workout.LocalOpenWorkout
+import com.m3.app.feature.workout.WorkoutScreen
+import com.m3.app.ui.nav.WorkoutRoute
+import androidx.compose.runtime.CompositionLocalProvider
 import com.m3.app.feature.today.TodayScreen
 import com.m3.app.feature.train.TrainScreen
 import com.m3.app.feature.you.YouScreen
@@ -40,11 +44,12 @@ fun M3App(config: UiConfig) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
+    val inWorkout = destination?.hasRoute(WorkoutRoute::class) == true
 
     Scaffold(
         containerColor = M3.colors.ground,
         bottomBar = {
-            M3BottomBar(
+            if (!inWorkout) M3BottomBar(
                 tabs = config.tabs,
                 isSelected = { tab -> destination?.hasRoute(tab.route::class) == true },
                 onSelect = { tab ->
@@ -57,10 +62,14 @@ fun M3App(config: UiConfig) {
             )
         },
     ) { innerPadding ->
+        CompositionLocalProvider(
+            LocalOpenWorkout provides { navController.navigate(WorkoutRoute) { launchSingleTop = true } },
+        ) {
         NavHost(
             navController = navController,
             startDestination = TodayRoute,
-            modifier = Modifier.padding(innerPadding),
+            // The workout screen is full-screen and handles the system bars itself.
+            modifier = if (inWorkout) Modifier else Modifier.padding(innerPadding),
             enterTransition = { fadeIn(Motion.medium()) },
             exitTransition = { fadeOut(Motion.short()) },
             popEnterTransition = { fadeIn(Motion.medium()) },
@@ -80,6 +89,8 @@ fun M3App(config: UiConfig) {
             composable<ProfileEditRoute> { ProfileEditScreen(onBack = { navController.popBackStack() }) }
             composable<TrainingSetupRoute> { TrainingSetupScreen(onBack = { navController.popBackStack() }) }
             composable<CoachRoute> { CoachScreen() }
+            composable<WorkoutRoute> { WorkoutScreen(tokens = config.theme, onClose = { navController.popBackStack() }) }
+        }
         }
     }
 }

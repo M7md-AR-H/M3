@@ -58,3 +58,7 @@ data object ProfileEditRoute
 /** Not a tab: opened from You → Your setup. */
 @Serializable
 data object TrainingSetupRoute
+
+/** Not a tab: the live workout ("focus mode"). The bottom bar is hidden here. */
+@Serializable
+data object WorkoutRoute
