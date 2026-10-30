@@ -35,6 +35,10 @@ class BodyRepository(private val opener: DatabaseOpener) {
         opener.get().bodyDao().saveWeight(WeightEntryEntity(entry.date.toString(), entry.kg))
     }
 
+    suspend fun deleteWeight(date: LocalDate) = opener.get().bodyDao().deleteWeight(date.toString())
+
+    suspend fun deleteMeasurements(date: LocalDate) = opener.get().bodyDao().deleteMeasurements(date.toString())
+
     suspend fun saveMeasurement(entry: Measurement) {
         if (!BodyLimits.validCm(entry.cm)) throw InvalidDataException(listOf(entry.cm))
         opener.get().bodyDao().saveMeasurement(MeasurementEntity(entry.date.toString(), entry.part.name, entry.cm))

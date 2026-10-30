@@ -243,6 +243,29 @@ class CoachPromptTest {
 class RelevanceTest {
     private val context = ToolContext(LocalDate.of(2026, 10, 14), TrainingSetup.Empty, ExerciseCatalog.bundled())
     @Test
+    fun `a plain change to the usual week is proposed by the app`() {
+        val places = listOf("Gym", "Home")
+        val home = """{"name":"set_day","day":"FRIDAY","place":"Home"}"""
+        val notFree = """{"name":"set_day","day":"THURSDAY","place":"not_free"}"""
+        assertEquals(home, CoachTools.scheduleRequest("Make Friday a free day at Home", places))
+        assertEquals(home, CoachTools.scheduleRequest("I can train on Fridays at Home from now on", places))
+        assertEquals(notFree, CoachTools.scheduleRequest("I can't train on Thursdays any more", places))
+        assertEquals(notFree, CoachTools.scheduleRequest("I'm busy on Thursday, not free to train", places))
+    }
+
+    @Test
+    fun `questions, one-offs and unclear messages stay with the model`() {
+        val places = listOf("Gym", "Home")
+        assertNull(CoachTools.scheduleRequest("Why is Friday a free day?", places))
+        assertNull(CoachTools.scheduleRequest("I can train this Friday at Home", places))
+        assertNull(CoachTools.scheduleRequest("Tomorrow I'm free at Home on Friday", places))
+        assertNull(CoachTools.scheduleRequest("I can train on Friday", places))
+        assertNull(CoachTools.scheduleRequest("I can train on Friday or Saturday at Home", places))
+        assertNull(CoachTools.scheduleRequest("I can train on Friday at Gym or Home", places))
+        assertNull(CoachTools.scheduleRequest("My knee hurts on Friday at Home", places))
+    }
+
+    @Test
     fun `look changes need a message about the look, training changes always pass`() {
         val card = CoachAction.Ui(UiChange.SetCardOrder(listOf(CardType.HABITS)))
         val theme = CoachAction.Ui(UiChange.SetThemeMode(ThemeMode.DARK))

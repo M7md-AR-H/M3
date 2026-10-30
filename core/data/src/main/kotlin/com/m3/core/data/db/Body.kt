@@ -30,6 +30,12 @@ interface BodyDao {
     @Upsert
     suspend fun saveWeight(entry: WeightEntryEntity)
 
+    @Query("DELETE FROM weight_entry WHERE date = :date")
+    suspend fun deleteWeight(date: String)
+
+    @Query("DELETE FROM measurement_entry WHERE date = :date")
+    suspend fun deleteMeasurements(date: String)
+
     @Query("SELECT * FROM measurement_entry ORDER BY date")
     fun observeMeasurements(): Flow<List<MeasurementEntity>>
 

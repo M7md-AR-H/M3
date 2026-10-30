@@ -34,6 +34,7 @@ import com.m3.core.designsystem.component.LinkRow
 import com.m3.core.designsystem.component.M3Button
 import com.m3.core.designsystem.component.M3TextField
 import com.m3.core.designsystem.component.SectionHeader
+import com.m3.core.designsystem.component.TextAction
 import com.m3.core.designsystem.theme.M3
 import com.m3.core.model.BodyLimits
 import com.m3.core.model.TrendPoint
@@ -52,7 +53,7 @@ fun ProgressSection(onOpenMeasurements: () -> Unit, viewModel: ProgressViewModel
     val saveFailed by viewModel.saveFailed.collectAsStateWithLifecycle()
     Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.xl)) {
         WeightBlock(state, saveFailed, viewModel)
-        MeasurementsBlock(state, onOpenMeasurements)
+        MeasurementsBlock(state, onOpenMeasurements, viewModel::removeTodaysMeasurements)
     }
 }
 
@@ -91,6 +92,9 @@ private fun WeightBlock(state: ProgressState, saveFailed: Boolean, viewModel: Pr
             )
         }
         WeightEntryRow(saveFailed, viewModel)
+        if (state.weighedToday) {
+            TextAction(text = "Remove today's weigh-in", onClick = viewModel::removeTodaysWeight, color = M3.colors.muted)
+        }
     }
 }
 
@@ -160,7 +164,7 @@ private fun WeightEntryRow(saveFailed: Boolean, viewModel: ProgressViewModel) {
 }
 
 @Composable
-private fun MeasurementsBlock(state: ProgressState, onOpenMeasurements: () -> Unit) {
+private fun MeasurementsBlock(state: ProgressState, onOpenMeasurements: () -> Unit, onRemoveToday: () -> Unit) {
     Column {
         SectionHeader(title = "Measurements")
         state.parts.chunked(2).forEach { row ->
@@ -183,5 +187,8 @@ private fun MeasurementsBlock(state: ProgressState, onOpenMeasurements: () -> Un
             supportingText = "Waist, chest, arm, shoulders",
             onClick = onOpenMeasurements,
         )
+        if (state.measuredToday) {
+            TextAction(text = "Remove today's measurements", onClick = onRemoveToday, color = M3.colors.muted)
+        }
     }
 }
