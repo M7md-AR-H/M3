@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.m3.app.feature.progress.ProgressSection
 import com.m3.core.designsystem.component.DoubleRule
 import com.m3.core.designsystem.component.Kicker
 import com.m3.core.designsystem.component.LinkRow
@@ -33,6 +34,7 @@ fun YouScreen(
     onOpenProfile: () -> Unit,
     onOpenTrainingSetup: () -> Unit,
     onOpenAiModel: () -> Unit,
+    onOpenMeasurements: () -> Unit,
     viewModel: YouViewModel = hiltViewModel(),
 ) {
     val config by viewModel.config.collectAsStateWithLifecycle()
@@ -63,6 +65,7 @@ fun YouScreen(
                 Spacer(Modifier.size(M3.spacing.xs))
                 DoubleRule()
             }
+            ProgressSection(onOpenMeasurements = onOpenMeasurements)
             Column {
                 SectionHeader(title = "Your setup")
                 LinkRow(title = "Profile", supportingText = "Body, goal, experience, injuries", onClick = onOpenProfile)

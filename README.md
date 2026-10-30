@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-30):** Phase 1 code is complete and merged, with the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)). Phase 2 core (targets, safety floors, food log, Fuel tab) is built and checked on the emulator. Still to check on the phone: counting real steps, Clear + Undo, the Fuel tab. Next: Phase 3 core.
+**Status (2026-10-30):** Phase 1 code is complete and merged, with the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)). Phase 2 core (targets, safety floors, food log, Fuel tab) and Phase 3 core (weight trend, chart, measurements) are built, merged and checked on the emulator. Still to check on the phone: counting real steps, Clear + Undo, Fuel and Progress. Next: phone check, then check-in and habits, then meal photos.
 
 **Earlier (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone. Fixes from that check: PR #6. Phase 1c-3 (workout logging, focus mode, progressive overload): PR #7 on `feat/phase-1c-logging`, stacked on PR #6. Both re-checked on the phone (2026-10-21, Claude driving the phone over adb); one bug found and fixed (screen kept on behind the lock). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
 
@@ -140,6 +140,14 @@ TDEE/macros, meal photo → estimate + critique, barcode scanning, fridge mode, 
 ### Phase 3 — Progress (v0.3)
 Ghost-overlay progress photos, measurements, weight trend, weekly review that adjusts plans.
 
+**Core (branch `feat/phase-3-progress`)**
+- [x] `WeightTrend`: smoothed trend that copes with missed days, weekly rate over the last four weeks; unit tests
+- [x] DB v6 (auto-migration, new tables only): `weight_entry`, `measurement_entry`; emulator test from an encrypted v5 DB with data
+- [x] You tab: weight, chart with 4W/12W/6M, today's weigh-in, measurements and their screen
+- [x] Each weigh-in updates the Profile weight from the trend, so calorie targets follow it
+- [ ] Phone check
+- [ ] Progress photos with ghost overlay, side-by-side and timeline views, weekly review
+
 ### Phase 4 — Live form check (v0.4)
 Camera rep counting and form cues, voice cues.
 
@@ -249,6 +257,9 @@ M3/
 | 2026-10-30 | Calorie target: Mifflin-St Jeor × activity (1.2 / 1.375 / 1.55 / 1.725 by planned sessions), then −20% to lose fat, +10% to build muscle, +5% for strength. Protein 1.6–2.0 g/kg, capped at 35% of energy; fat 0.8 g/kg, capped at 30%; carbs the rest | Standard formulas; the caps keep macros sensible at very high body weights. All numbers are in Kotlin (ADR 0003) |
 | 2026-10-30 | Safety floors: 1,200 kcal (female) or 1,500 kcal (male), never below maintenance − 1% of body weight a week, and no deficit under 18 or with a BMI under 18.5. A floor never pushes the target above maintenance | CLAUDE.md requires floors in code. The age and BMI rules go further: a weight-loss target is wrong for both groups whatever the owner picks |
 | 2026-10-30 | Food log is manual first, with removal done at once plus Undo | Exact numbers, no model needed. Meal photos build on the same entries |
+| 2026-10-30 | Weight trend: an exponential average (10% a day), adjusted for missed days; the Profile weight takes the trend, rounded to 0.1 kg, after each weigh-in | A single day's weight is mostly water, so targets shouldn't move with it. This also covers the spec's "adjusted by weekly trend" in its simplest form |
+| 2026-10-30 | One weigh-in per day, a second replaces the first; no delete | Fixing a typo is just logging again. Keeps the log simple |
+| 2026-10-30 | Progress lives at the top of the You tab, as in the prototype; there's no separate tab | The prototype's fourth tab is exactly this page, and tabs are limited to five |
 | 2026-10-30 | Standing permission to merge: squash-merge once local checks pass and the Opus final check is done | Owner's OK ("any merges"). The repo has no CI, so local checks are the gate |
 | 2026-10-30 | Added the Linux `aapt2` jar to dependency verification (SHA-256 of the jar from Google Maven, whose published SHA-1 matched) | Only the Windows jar was listed, so Linux builds would fail. Verification stays on |
 
@@ -303,7 +314,8 @@ M3/
 | Progression doesn't use RPE beyond "10 = don't increase" | Most sets won't have RPE; the rule must work without it | RPE-based autoregulation once enough RPE is logged |
 | The theme cross-fade recomposes every colour reader for ~220 ms | Seven animated colour tokens; simplest correct approach | Animate one progress value and lerp, if it ever stutters on the phone |
 | Steps taken since the last app open are lost if the phone restarts first, and a day you don't open M³ gets an estimated share of the gap | Android gives background apps no step events, and the sensor's total resets at reboot | A foreground service with a permanent notification, if the owner ever wants exact days |
-| Calorie targets use the weight in your Profile and ignore steps; there's no weekly adjustment yet | The weight trend arrives in Phase 3, and the spec adjusts targets from that trend | Feed the trend into `Nutrition` |
+| Calorie targets ignore steps, and don't yet learn your real burn from how your weight responds to what you eat | Needs weeks of matched food and weight data | Compare logged intake with the trend in the weekly review |
+| Weight can only be logged for today, and past weigh-ins can't be removed | Smallest useful log | Past-day entry and an edit list |
 | A food can only be added for today, and an entry can't be edited, only removed and added again | Smallest useful log | Past-day logging and editing |
 | The step goal is fixed at 8,000, and the Coach doesn't see steps yet | Kept simple for 1c-4 | A goal setting; add steps to the Coach facts |
 | Customize still lists unbuilt Today cards, and their order has no visible effect yet | They're real config entries for cards that come later | Build the cards |

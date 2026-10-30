@@ -1,6 +1,7 @@
 package com.m3.core.model
 
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.LocalTime
 import java.util.Locale
 
@@ -15,6 +16,15 @@ object Units {
     fun kg(value: Double): String = "${number(value)} $KG"
 
     fun cm(value: Int): String = "$value $CM"
+
+    fun cm(value: Double): String = "${number(BigDecimal.valueOf(value).setScale(1, RoundingMode.HALF_UP).toDouble())} $CM"
+
+    /** "78.4": always one decimal. */
+    fun oneDecimal(value: Double): String = String.format(Locale.ROOT, "%.1f", value)
+
+    /** "+1.5", "−0.4": a change, with a real minus sign. */
+    fun signed(value: Double): String =
+        (if (value < 0) "−" else "+") + oneDecimal(kotlin.math.abs(value))
 
     /** "6,214": whole counts such as steps. */
     fun count(value: Int): String = String.format(Locale.ROOT, "%,d", value)
