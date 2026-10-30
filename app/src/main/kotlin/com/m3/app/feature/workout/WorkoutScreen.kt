@@ -11,7 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -434,7 +434,7 @@ private fun EffortChip(label: String, selected: Boolean, onClick: () -> Unit) {
             .size(Touch)
             .background(if (selected) M3.colors.ink else Color.Transparent, shape)
             .border(1.dp, M3.colors.ink, shape)
-            .clickable(role = Role.RadioButton, onClick = onClick)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .semantics { contentDescription = "Effort $label out of 10" },
         contentAlignment = Alignment.Center,
     ) {

@@ -8,7 +8,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.m3.core.data.db.DatabaseOpener
 import com.m3.core.data.db.M3Database
 import com.m3.core.model.BodyPart
+import com.m3.core.model.CheckIn
 import com.m3.core.model.FoodEntry
+import com.m3.core.model.Habit
 import com.m3.core.model.Measurement
 import com.m3.core.model.StepReading
 import com.m3.core.model.WeightEntry
@@ -77,6 +79,38 @@ class MigrationTest {
         val stored = overrides.observe().first()
         assertEquals(emptySet<Any>(), stored.dayEquipment[LocalDate.of(2026, 10, 19)])
         assertEquals("knee", stored.excluded["back_squat"])
+        opener.get().close()
+    }
+
+    /** v7 adds check-ins and habits and keeps weigh-ins; today's body entries can be removed. */
+    @Test
+    fun encryptedV6WithDataOpensAsV7AndLogsTheDay() = runTest {
+        helper.createDatabase(DatabaseOpener.DATABASE_NAME, 6).apply {
+            execSQL("INSERT INTO app_state (id, onboardingCompleted, schemaVersion) VALUES (1, 1, 6)")
+            execSQL("INSERT INTO weight_entry (date, kg) VALUES ('2026-10-30', 80.0)")
+            execSQL("INSERT INTO measurement_entry (date, part, cm) VALUES ('2026-10-30', 'WAIST', 82.5)")
+            close()
+        }
+
+        val opener = DatabaseOpener(context, { key.copyOf() })
+        val day = LocalDate.of(2026, 10, 30)
+        val body = BodyRepository(opener)
+        assertEquals(listOf(80.0), body.observeWeights().first().map { it.kg })
+
+        body.deleteWeight(day)
+        body.deleteMeasurements(day)
+        assertTrue(body.observeWeights().first().isEmpty())
+        assertTrue(body.observeMeasurements().first().isEmpty())
+
+        val daily = DailyRepository(opener)
+        daily.saveCheckIn(CheckIn(day, sleep = 4, energy = 3, soreness = 2))
+        daily.saveCheckIn(CheckIn(day, sleep = 2, energy = 3, soreness = 2))
+        assertEquals(2, daily.observeCheckIn(day).first()?.sleep)
+
+        daily.setHabit(day, Habit.WATER, true)
+        daily.setHabit(day, Habit.MOBILITY, true)
+        daily.setHabit(day, Habit.WATER, false)
+        assertEquals(setOf(Habit.MOBILITY), daily.observeHabits(day).first())
         opener.get().close()
     }
 
