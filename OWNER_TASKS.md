@@ -117,6 +117,13 @@ A cloud session runs Claude on a machine in the cloud, so it keeps working after
 
 ## Try it yourself
 
+### Snap meal (needs your phone: the emulator has no AI model)
+1. Open **FUEL** and tap **Snap meal**, then **Take a photo**. Photograph a plate and confirm.
+2. **Expect:** "Looking at your plate…" for up to a minute, then **Your plate**, with a name and numbers filled in, one line of critique, and a red note that it's an estimate.
+3. Change a number if it looks wrong, then **Save**. **Expect:** it's on Today's plates.
+4. Photograph something that isn't food. **Expect:** "I can't see food in that photo."
+5. **Broken if:** anything saves without Save, or a photo appears in your gallery from M³.
+
 ### Progress (Claude checked this on the emulator on 2026-10-30)
 1. Open **YOU**. **Expect:** Weight at the top. Enter today's weight and tap **Log**.
 2. Log again over the next days. **Expect:** a chart with a thin line for weigh-ins and a thicker smooth line for the trend. After a week, a weekly change appears next to the trend.

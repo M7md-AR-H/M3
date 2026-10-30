@@ -1,6 +1,6 @@
 # HANDOFF — 2026-10-30 (session 6, in progress)
 
-**Live state:** PRs #6 to #11 are merged; `fix/phone-check-batch` holds the phone-check fixes plus check-in and habits. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. Work through "Cloud work order" locally: items 1 to 4 are done, next is item 5 (meal photo).
+**Live state:** PRs #6 to #12 are merged. `feat/phase-2-meal-photo` is pushed, not merged: install it, have the owner photograph a plate, check the estimate, then merge. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. "Cloud work order" items 1 to 5 are done once that passes. Only the owner can tap the camera shutter.
 
 **Phone state:** DB v7 build installed 2026-10-30. Passed on the phone with the real model: Coach schedule proposal, Apply, Undo; workout steppers, Done, rest timer, Next, Prev, untick, End dialog; empty workout dropped; keep-screen-on off afterwards; Clear + Undo; Fuel add, validation, remove; Progress log, validation, remove; measurements. All test entries removed; profile weight still 75 kg; week as before. The Coach chat has new test messages. Use the wireless serial if USB drops. When both the phone and emulator are attached, always set `ANDROID_SERIAL=emulator-5554` for tests.
 

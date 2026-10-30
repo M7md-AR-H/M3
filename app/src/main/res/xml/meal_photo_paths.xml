@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the one folder the camera app may write a meal photo to. The file is deleted right after reading. -->
+<paths>
+    <files-path name="meal" path="meal/" />
+</paths>

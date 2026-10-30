@@ -51,6 +51,10 @@ val TabId.icon: ImageVector
 @Serializable
 data object MeasurementsRoute
 
+/** Not a tab: opened from Fuel → Snap meal. */
+@Serializable
+data object MealPhotoRoute
+
 /** Not a tab: opened from Fuel → Add food. */
 @Serializable
 data object FoodEntryRoute
