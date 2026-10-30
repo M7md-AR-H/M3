@@ -16,11 +16,13 @@ import androidx.room.RoomDatabase
         AppStateEntity::class,
         ChatMessageEntity::class,
         ExcludedExerciseEntity::class,
+        WorkoutSessionEntity::class,
+        WorkoutSetEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
-    // v2 only adds tables (chat, excluded exercises), so Room can migrate it by itself.
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    // v2 (chat, excluded exercises) and v3 (workouts) only add tables, so Room can migrate them by itself.
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 abstract class M3Database : RoomDatabase() {
     abstract fun uiConfigDao(): UiConfigDao
@@ -29,4 +31,5 @@ abstract class M3Database : RoomDatabase() {
     abstract fun appStateDao(): AppStateDao
     abstract fun chatDao(): ChatDao
     abstract fun planOverridesDao(): PlanOverridesDao
+    abstract fun workoutDao(): WorkoutDao
 }

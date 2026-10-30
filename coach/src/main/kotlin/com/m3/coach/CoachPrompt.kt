@@ -10,7 +10,11 @@ import com.m3.core.model.Profile
 import com.m3.core.model.TrainingSetup
 import com.m3.core.model.Units
 import com.m3.core.training.ExerciseUnit
+import com.m3.core.training.LoggedSet
 import com.m3.core.training.PlannedExercise
+import com.m3.core.training.Progression
+import com.m3.core.training.Target
+import com.m3.core.training.TargetKind
 import com.m3.core.training.WeekPlan
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -30,7 +34,21 @@ data class CoachFacts(
     val themeMode: ThemeMode,
     val cards: List<CardPlacement>,
     val locks: Set<LockKey>,
+    /**
+     * [progressKey] (day + variant) → last performance and next target, for this week's exercises. Per day, because the
+     * same variant can have a different prescription, and so a different target, on another day.
+     */
+    val progress: Map<String, ExerciseProgress> = emptyMap(),
+    /** Finished workouts in the 28 days up to today, and the date of the latest one. */
+    val workoutsLast28Days: Int = 0,
+    val lastWorkout: LocalDate? = null,
 )
+
+/** What the owner logged last time for one exercise variant, and what the app's progression picked next. */
+data class ExerciseProgress(val lastDate: LocalDate, val lastSets: List<LoggedSet>, val next: Target)
+
+/** The key of [CoachFacts.progress]: "MONDAY:back_squat@BARBELL+…". */
+fun progressKey(day: DayOfWeek, variantKey: String) = "${day.name}:$variantKey"
 
 enum class ChatRole { OWNER, COACH }
 
@@ -112,7 +130,9 @@ object CoachPrompt {
         }
         val free = DayOfWeek.entries.mapNotNull { day -> f.setup.locationFor(day)?.let { "${day.label} at ${it.name}" } }
         appendLine("Free to train: ${free.ifEmpty { listOf("no days set") }.joinToString(", ")}.")
-        appendLine("This week's plan (made by the app's planner):")
+        val lastWorkout = f.lastWorkout?.let { "; last on ${it.format(SHORT_DATE)}" } ?: ""
+        appendLine("Workouts logged in the last 4 weeks: ${f.workoutsLast28Days}$lastWorkout.")
+        appendLine("This week's plan (made by the app's planner; \"last\" is what the owner logged, \"next\" is the app's target):")
         DayOfWeek.entries.forEach { day ->
             val todayMark = if (day == f.today.dayOfWeek) " (today)" else ""
             val session = f.plan.sessionOn(day)
@@ -120,7 +140,9 @@ object CoachPrompt {
                 appendLine("- ${day.label}$todayMark: rest")
             } else {
                 val override = if (day in f.plan.overriddenDays) " [equipment set for this day only]" else ""
-                val exercises = session.exercises.joinToString("; ") { "${it.exercise.name} [${it.exercise.id}] ${amount(it)}" }
+                val exercises = session.exercises.joinToString("; ") {
+                    "${it.exercise.name} [${it.exercise.id}] ${amount(it)}" + progressNote(f.progress[progressKey(day, Progression.variantKey(it.exercise.id, it.equipment))], it)
+                }
                 val missing = if (session.unfilled.isEmpty()) "" else " (${session.unfilled.size} slot(s) not possible with this equipment)"
                 appendLine("- ${day.label}$todayMark: ${session.type.displayName} at ${session.locationName}$override: $exercises$missing")
             }
@@ -147,6 +169,34 @@ object CoachPrompt {
         )
     }
 
+    /** " (last 20 kg x 12,12,11; next 22.5 kg up)", or "" when never logged. Compact: it repeats per exercise. */
+    private fun progressNote(progress: ExerciseProgress?, planned: PlannedExercise): String {
+        if (progress == null || progress.lastSets.isEmpty()) return ""
+        val unit = planned.prescription.unit
+        val kg = progress.lastSets.mapNotNull { it.kg }.maxOrNull()
+        // Minutes are stored as seconds.
+        val amounts = progress.lastSets.joinToString(",") { set ->
+            when (unit) {
+                ExerciseUnit.REPS -> set.reps
+                ExerciseUnit.SECONDS -> set.seconds
+                ExerciseUnit.MINUTES -> set.seconds?.div(SECONDS_PER_MINUTE)
+            }?.toString() ?: "-"
+        }
+        val suffix = when (unit) {
+            ExerciseUnit.REPS -> ""
+            ExerciseUnit.SECONDS -> " s"
+            ExerciseUnit.MINUTES -> " min"
+        }
+        val last = (if (kg != null) "${Units.kg(kg)} x " else "") + amounts + suffix
+        val next = progress.next.kg?.let { "; next ${Units.kg(it)} ${NEXT_WORDS.getValue(progress.next.kind)}" } ?: ""
+        return " (last $last$next)"
+    }
+
+    private const val SECONDS_PER_MINUTE = 60
+
+    private val SHORT_DATE =DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+    private val NEXT_WORDS = mapOf(TargetKind.START to "first time", TargetKind.INCREASE to "up", TargetKind.HOLD to "same", TargetKind.DECREASE to "lighter")
+
     private fun amount(planned: PlannedExercise): String {
         val p = planned.prescription
         val range = if (p.min == p.max) "${p.min}" else "${p.min}-${p.max}"
@@ -172,7 +222,7 @@ object CoachPrompt {
         How to answer:
         - Be brief and practical: at most 120 words, plain sentences, no headings or tables.
         - Use metric units (kg, cm, km, kcal) and 24-hour time.
-        - Never make up sets, reps, weights or new workouts. The app's planner writes the plan; explain it with the facts below.
+        - Never make up sets, reps, weights or new workouts. The app's planner writes the plan; explain it with the facts below. For weights, use only the "next" values in the facts.
         - If you're unsure what the owner means or has, ask one short question instead of guessing.
         - You are not a doctor. For sharp pain, swelling or pain that lasts, tell the owner to see a professional. You may suggest avoiding an exercise.
     """.trimIndent()

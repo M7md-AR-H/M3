@@ -74,4 +74,8 @@ object DataModule {
     @Provides
     @Singleton
     fun providePlanOverridesRepository(opener: DatabaseOpener) = PlanOverridesRepository(opener)
+
+    @Provides
+    @Singleton
+    fun provideWorkoutRepository(opener: DatabaseOpener) = com.m3.core.data.WorkoutRepository(opener)
 }

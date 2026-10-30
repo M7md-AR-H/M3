@@ -158,3 +158,53 @@ interface PlanOverridesDao {
     @Query("DELETE FROM excluded_exercise WHERE exerciseId = :id")
     suspend fun deleteExcluded(id: String)
 }
+
+@Dao
+interface WorkoutDao {
+    @Insert
+    suspend fun insertSession(session: WorkoutSessionEntity): Long
+
+    @Query("SELECT * FROM workout_session WHERE endedAt IS NULL ORDER BY startedAt DESC LIMIT 1")
+    fun observeOpen(): Flow<WorkoutSessionEntity?>
+
+    @Query("SELECT * FROM workout_session WHERE endedAt IS NULL ORDER BY startedAt DESC LIMIT 1")
+    suspend fun open(): WorkoutSessionEntity?
+
+    @Query("SELECT * FROM workout_session WHERE id = :id")
+    suspend fun session(id: Long): WorkoutSessionEntity?
+
+    @Query("UPDATE workout_session SET endedAt = :endedAt WHERE id = :id")
+    suspend fun finish(id: Long, endedAt: Long)
+
+    @Query("DELETE FROM workout_session WHERE id = :id")
+    suspend fun deleteSession(id: Long)
+
+    @Query("SELECT * FROM workout_set WHERE sessionId = :sessionId ORDER BY completedAt")
+    fun observeSets(sessionId: Long): Flow<List<WorkoutSetEntity>>
+
+    @Query("SELECT COUNT(*) FROM workout_set WHERE sessionId = :sessionId")
+    suspend fun setCount(sessionId: Long): Int
+
+    @Query("SELECT MAX(completedAt) FROM workout_set WHERE sessionId = :sessionId")
+    suspend fun lastSetAt(sessionId: Long): Long?
+
+    @Upsert
+    suspend fun upsertSet(set: WorkoutSetEntity)
+
+    @Query("SELECT * FROM workout_set WHERE sessionId = :sessionId AND variantKey = :variantKey AND setNumber = :setNumber")
+    suspend fun set(sessionId: Long, variantKey: String, setNumber: Int): WorkoutSetEntity?
+
+    @Query("DELETE FROM workout_set WHERE sessionId = :sessionId AND variantKey = :variantKey AND setNumber = :setNumber")
+    suspend fun deleteSet(sessionId: Long, variantKey: String, setNumber: Int)
+
+    /** Sets of finished workouts only, newest workout first: what progression and the Coach read. */
+    @Query(
+        "SELECT s.* FROM workout_set s JOIN workout_session w ON w.id = s.sessionId " +
+            "WHERE w.endedAt IS NOT NULL AND w.id IN (SELECT id FROM workout_session WHERE endedAt IS NOT NULL ORDER BY startedAt DESC LIMIT :sessions) " +
+            "ORDER BY w.startedAt DESC, s.setNumber",
+    )
+    fun observeRecentFinishedSets(sessions: Int): Flow<List<WorkoutSetEntity>>
+
+    @Query("SELECT * FROM workout_session WHERE endedAt IS NOT NULL ORDER BY startedAt DESC LIMIT :limit")
+    fun observeRecentFinished(limit: Int): Flow<List<WorkoutSessionEntity>>
+}

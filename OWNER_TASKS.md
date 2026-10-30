@@ -144,7 +144,7 @@ The Coach runs on the phone. The first answer after opening M³ takes a little l
 8. Tap **Stop** while the Coach is answering. **Expect:** the answer disappears at once and your question is back in the box; asking again works. Also press Home while it answers and come back: the answer stopped, nothing was saved, other apps stay responsive.
 9. **Broken if:** anything changes without you tapping Apply, the app closes by itself, or the Coach invents sets/reps different from TRAIN.
 
-### Phase 1c-2 fixes — re-check after the next install
+### Phase 1c-2 fixes — re-check (Claude checked these on your phone on 2026-10-21; only no. 6, smoothness, is yours to judge)
 1. **Dark mode:** in **COACH**, type **Switch to dark mode**. **Expect:** a card **"Switch the theme to dark"** with **Apply**. Apply turns the app dark with a short fade; Undo turns it back. **Broken if:** no card, or the Coach says it's already done without a note from the app below it.
 2. **Locked:** in **YOU → Customize**, turn off **"Let agents change: Your plan"**. In COACH, type **On Saturday I have no equipment**. **Expect:** a card marked **"Locked by you"**, and nothing changes. Turn the lock back on.
 3. **Pain:** type **My knee hurts on lunges**. **Expect:** a card **"Stop using all lunges (knee pain) until you allow them again"**. Apply it. On **TRAIN**, no lunge, split squat or step-up appears; where one was, a red line says you're avoiding them. Undo brings them back.
@@ -152,3 +152,16 @@ The Coach runs on the phone. The first answer after opening M³ takes a little l
 5. **Keyboard:** type a message and tap **Send**, or the keyboard's send key. **Expect:** the keyboard closes.
 6. **Smoothness:** switch tabs, open and close a session on TRAIN, and watch an answer appear. **Expect:** short fades and smooth expanding, with no jumps. While an answer streams, scroll up: it shouldn't pull you back down.
 7. **TODAY:** the header no longer says "Phase 0"; the unfinished cards say what's coming. A session with only bodyweight exercises has no "pick a weight" note.
+
+### Phase 1c-3 — log a workout (Claude checked 1–6 and 9 on your phone on 2026-10-21; 7 and 8 need a real workout of yours)
+Do this on a day TRAIN shows a session (or change a day to free in YOU → Training setup to get one today).
+1. **Start:** on **TODAY** (or TRAIN → today's session) tap **Start workout**. **Expect:** a dark screen with "← End", "Exercise 1 of N · 0:0x" counting up, the exercise name, a line like "3 × 8–12 · rest 90 s" and "First time: pick a weight…". The screen stays on.
+2. **Log a set:** set the kg with − / + (dumbbells step through *your* listed weights; a barbell steps 2.5 kg) and the reps, then tap the square **Done** box. **Expect:** it fills in red, the row dims, and **Rest** counts down with a thin red bar. **Skip** hides it. Changing set 1's kg moves the later, untouched sets with it.
+3. **Effort (optional):** tap 7–10 under the sets. It applies to the set you ticked last.
+4. **Next / Prev:** **Next →** moves on; the footer shows what's next. **← Prev** goes back, with your ticks still there.
+5. **Close mid-workout:** press Home, wait, and come back (or swipe M³ away and reopen it). On TODAY the button now says **Resume workout**. **Expect:** the same sets are ticked, and you land on the first unfinished exercise.
+6. **Finish:** on the last exercise tap **Finish** (or **← End** → **End**). **Expect:** you're back where you started.
+7. **Progression:** next time this session comes round (or ask the Coach), the line shows a weight. If every set of an exercise was at the top of the range (e.g. 12 of 8–12), it's one step heavier: your next listed dumbbell, +2.5 kg on a barbell, +5 kg on a machine. If you were below the range twice in a row, it's one step lighter.
+8. **Coach:** ask **What weight should I use for <exercise> next time?** **Expect:** the same weight the workout screen shows, never a different number.
+9. **Lock:** during a workout, leave M³ for more than 5 minutes and come back. **Expect:** the lock screen. No "End workout?" box shows on top of it, and the phone can turn its screen off while locked.
+10. **Broken if:** a ticked set is lost after closing the app, a weight jumps more than one step, the Coach names a different weight, or the app closes by itself.

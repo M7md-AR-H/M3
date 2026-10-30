@@ -2,6 +2,8 @@ package com.m3.app.feature.today
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import com.m3.app.feature.workout.StartWorkoutButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +52,7 @@ fun TodayWorkoutCard(viewModel: TrainViewModel = hiltViewModel()) {
                             color = M3.colors.ink,
                         )
                     }
+                    StartWorkoutButton(session, Modifier.padding(top = M3.spacing.m))
                 }
             }
         }

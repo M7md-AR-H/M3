@@ -140,3 +140,46 @@ data class ExcludedExerciseEntity(
     val reason: String,
     val createdAt: Long,
 )
+
+/** One workout (Phase 1c-3). [endedAt] null = still in progress, so it can be resumed after the app closes. */
+@Entity(tableName = "workout_session", indices = [Index("date"), Index("endedAt")])
+data class WorkoutSessionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** ISO date the workout was planned for. */
+    val date: String,
+    /** SessionType name, e.g. FULL_BODY_A. */
+    val sessionType: String,
+    val locationId: String,
+    val locationName: String,
+    val startedAt: Long,
+    val endedAt: Long? = null,
+)
+
+/**
+ * One finished set. [variantKey] is the exercise plus the equipment used (ADR 0008), so home and gym
+ * progress separately. One row per (session, variant, set number): logging a set again replaces it.
+ */
+@Entity(
+    tableName = "workout_set",
+    foreignKeys = [
+        ForeignKey(
+            entity = WorkoutSessionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["sessionId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index(value = ["sessionId", "variantKey", "setNumber"], unique = true), Index("variantKey")],
+)
+data class WorkoutSetEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val sessionId: Long,
+    val exerciseId: String,
+    val variantKey: String,
+    val setNumber: Int,
+    val kg: Double? = null,
+    val reps: Int? = null,
+    val seconds: Int? = null,
+    val rpe: Double? = null,
+    val completedAt: Long,
+)
