@@ -117,6 +117,12 @@ A cloud session runs Claude on a machine in the cloud, so it keeps working after
 
 ## Try it yourself
 
+### Fuel (Claude checked this on the emulator on 2026-10-30)
+1. Open **FUEL**. **Expect:** a daily calorie target with protein, carbs and fat, and a short note on how it's set. Check it's believable for you.
+2. Tap **Add food**. Leave everything empty and tap **Save**. **Expect:** red hints. Enter a name and calories, then **Save**. **Expect:** back on Fuel, the entry listed, "kcal left" lower. TODAY's Fuel card shows the same numbers.
+3. Tap **×** on the entry. **Expect:** it disappears at once and **Undo** shows. Tap **Undo**: it's back.
+4. **Broken if:** the numbers on TODAY and FUEL differ, or the target stays the same after you change your goal in Profile.
+
 ### Step counter (only your phone can test this; the emulator has no step sensor)
 1. On **TODAY**, find **Steps** under the workout card and tap **Turn on step counting**. **Expect:** Android asks about physical activity. Tap **Allow**. The card shows 0 of 8,000.
 2. Walk about 50 steps with M³ open and wait a few seconds. **Expect:** the number goes up. The very first reading only sets a starting point, so earlier steps today don't count.

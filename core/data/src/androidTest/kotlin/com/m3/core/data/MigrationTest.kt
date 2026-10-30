@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.m3.core.data.db.DatabaseOpener
 import com.m3.core.data.db.M3Database
+import com.m3.core.model.FoodEntry
 import com.m3.core.model.StepReading
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -73,6 +74,34 @@ class MigrationTest {
         val stored = overrides.observe().first()
         assertEquals(emptySet<Any>(), stored.dayEquipment[LocalDate.of(2026, 10, 19)])
         assertEquals("knee", stored.excluded["back_squat"])
+        opener.get().close()
+    }
+
+    /** The phone has a v4 database since 2026-10-30; v5 adds the food log and keeps steps. */
+    @Test
+    fun encryptedV4WithDataOpensAsV5AndLogsFood() = runTest {
+        helper.createDatabase(DatabaseOpener.DATABASE_NAME, 4).apply {
+            execSQL("INSERT INTO app_state (id, onboardingCompleted, schemaVersion) VALUES (1, 1, 4)")
+            execSQL("INSERT INTO step_day (date, steps) VALUES ('2026-10-30', 4200)")
+            close()
+        }
+
+        val opener = DatabaseOpener(context, { key.copyOf() })
+        val day = LocalDate.of(2026, 10, 30)
+        assertEquals(4_200, StepRepository(opener).observeDay(day).first())
+
+        val food = FoodRepository(opener)
+        food.save(FoodEntry(date = day, atMillis = 2, name = " Chicken rice ", kcal = 780, proteinG = 52, carbsG = 80, fatG = 20))
+        food.save(FoodEntry(date = day, atMillis = 1, name = "Oats", kcal = 300, proteinG = 12, carbsG = 50, fatG = 6))
+        food.save(FoodEntry(date = day.plusDays(1), atMillis = 3, name = "Tomorrow", kcal = 1, proteinG = 0, carbsG = 0, fatG = 0))
+        val entries = food.observeDay(day).first()
+        assertEquals(listOf("Oats", "Chicken rice"), entries.map { it.name })
+
+        // Undo puts a removed entry back under its old id.
+        food.delete(entries[0].id)
+        assertEquals(1, food.observeDay(day).first().size)
+        food.save(entries[0])
+        assertEquals(entries, food.observeDay(day).first())
         opener.get().close()
     }
 

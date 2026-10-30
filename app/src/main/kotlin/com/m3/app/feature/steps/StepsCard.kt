@@ -3,13 +3,10 @@ package com.m3.app.feature.steps
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,12 +17,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.app.feature.train.rememberToday
 import com.m3.core.data.StepRepository
+import com.m3.core.designsystem.component.M3Meter
 import com.m3.core.designsystem.component.M3OutlineButton
 import com.m3.core.designsystem.component.SectionHeader
 import com.m3.core.designsystem.theme.M3
@@ -75,14 +72,7 @@ private fun StepCount(viewModel: StepsViewModel) {
             modifier = Modifier.padding(bottom = M3.spacing.xs),
         )
     }
-    Box(Modifier.fillMaxWidth().height(4.dp).background(M3.colors.rule)) {
-        Box(
-            Modifier
-                .fillMaxWidth((steps.toFloat() / StepLedger.DAILY_GOAL).coerceIn(0f, 1f))
-                .height(4.dp)
-                .background(M3.colors.accent),
-        )
-    }
+    M3Meter(fraction = steps.toFloat() / StepLedger.DAILY_GOAL, color = M3.colors.accent)
 }
 
 @Composable

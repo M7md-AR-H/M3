@@ -1,6 +1,8 @@
 # HANDOFF — 2026-10-30 (session 6, in progress)
 
-**Live state:** PRs #6 and #7 are merged. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. Current branch `feat/phase-1c-steps` is on top of PR #8. Next: phone check of the UI pass and step counter, merge both, then work through "Cloud work order" locally from item 2.
+**Live state:** PRs #6 to #9 are merged, and the Phase 2 core is merged or about to be (`feat/phase-2-nutrition`). The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. Work through "Cloud work order" locally: items 1 and 2 are done, next is item 3 (Progress).
+
+**Phone state:** build from 2026-10-30 18:10 (DB v4, step permission granted, no steps verified). Doesn't include Phase 2. The owner couldn't walk, so real step counting is unchecked. Clear + Undo was left to the owner: Claude can't safely hit the 4-second Undo on the real chat. Install the next batch once and do the phone check in one go. When both the phone and emulator are attached, always set `ANDROID_SERIAL=emulator-5554` for tests.
 
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 

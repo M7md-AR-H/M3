@@ -15,6 +15,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.m3.app.feature.aimodel.AiModelScreen
 import com.m3.app.feature.coach.CoachScreen
+import com.m3.app.feature.fuel.FoodEntryScreen
 import com.m3.app.feature.fuel.FuelScreen
 import com.m3.app.feature.workout.LocalOpenWorkout
 import com.m3.app.feature.workout.WorkoutScreen
@@ -26,6 +27,7 @@ import com.m3.app.feature.train.TrainScreen
 import com.m3.app.feature.you.YouScreen
 import com.m3.app.ui.nav.AiModelRoute
 import com.m3.app.ui.nav.CoachRoute
+import com.m3.app.ui.nav.FoodEntryRoute
 import com.m3.app.ui.nav.FuelRoute
 import com.m3.app.ui.nav.M3BottomBar
 import com.m3.app.ui.nav.ProfileEditRoute
@@ -43,6 +45,9 @@ import com.m3.core.designsystem.theme.Motion
 
 /** Opens the Coach tab; provided by the navigation host so cards don't need to know about it. */
 val LocalOpenCoach = compositionLocalOf<() -> Unit> { {} }
+
+/** Opens the Fuel tab, the same way. */
+val LocalOpenFuel = compositionLocalOf<() -> Unit> { {} }
 
 @Composable
 fun M3App(config: UiConfig) {
@@ -71,6 +76,7 @@ fun M3App(config: UiConfig) {
         CompositionLocalProvider(
             LocalOpenWorkout provides { navController.navigate(WorkoutRoute) { launchSingleTop = true } },
             LocalOpenCoach provides { openTab(TabId.COACH) },
+            LocalOpenFuel provides { openTab(TabId.FUEL) },
         ) {
         NavHost(
             navController = navController,
@@ -84,7 +90,8 @@ fun M3App(config: UiConfig) {
         ) {
             composable<TodayRoute> { TodayScreen(cards = config.todayCards) }
             composable<TrainRoute> { TrainScreen() }
-            composable<FuelRoute> { FuelScreen() }
+            composable<FuelRoute> { FuelScreen(onAddFood = { navController.navigate(FoodEntryRoute) }) }
+            composable<FoodEntryRoute> { FoodEntryScreen(onBack = { navController.popBackStack() }) }
             composable<YouRoute> {
                 YouScreen(
                     onOpenProfile = { navController.navigate(ProfileEditRoute) },
