@@ -5,10 +5,13 @@ import com.m3.core.designsystem.config.LockKey
 import com.m3.core.designsystem.config.ThemeMode
 import com.m3.core.designsystem.config.UiChange
 import com.m3.core.designsystem.config.UiConfig
+import com.m3.core.model.CheckIn
+import com.m3.core.model.DayTotals
 import com.m3.core.model.EquipmentItem
 import com.m3.core.model.EquipmentKind
 import com.m3.core.model.Experience
 import com.m3.core.model.Goal
+import com.m3.core.model.NutritionTargets
 import com.m3.core.model.Profile
 import com.m3.core.model.Sex
 import com.m3.core.model.TrainingLocation
@@ -192,6 +195,32 @@ class CoachPromptTest {
     )
 
     @Test
+    fun `the Coach sees how today is going`() {
+        val daily = DailyFacts(
+            targets = NutritionTargets(2_450, 170, 280, 75, 1_780, 2_448, false),
+            eaten = DayTotals(2_600, 112, 180, 48),
+            foods = listOf("Chicken rice"),
+            steps = 6_214,
+            trendKg = 78.44,
+            weeklyChangeKg = -0.44,
+            checkIn = CheckIn(LocalDate.of(2026, 10, 18), 4, 3, 2),
+        )
+        val system = CoachPrompt.system(facts().copy(daily = daily))
+        listOf("2600 of 2450 kcal", "150 over", "protein 112g, 58g left", "Chicken rice", "Steps today: 6214, goal 8000",
+            "Weight trend: 78.4 kg, -0.4 kg a week", "sleep 4, energy 3, soreness 2").forEach {
+            assertTrue("missing $it", it in system)
+        }
+    }
+
+    @Test
+    fun `an empty day says so instead of inventing`() {
+        val system = CoachPrompt.system(facts())
+        assertTrue("Weight trend: no weigh-ins." in system)
+        assertTrue("Check-in: not done." in system)
+        assertTrue("Food today" !in system)
+    }
+
+    @Test
     fun `system prompt carries the facts, tools and locks`() {
         val system = CoachPrompt.system(facts())
         listOf("Sunday 18 October 2026", "181 cm", "82.5 kg", "left knee", "[bench_press]", "Front squat [front_squat] (knee)",
@@ -213,7 +242,7 @@ class CoachPromptTest {
         )
         val system = CoachPrompt.system(f.copy(progress = mapOf(key to progress), workoutsLast28Days = 3, lastWorkout = LocalDate.of(2026, 10, 16)))
         assertTrue("(last 60 kg x 10,10,10; next 62.5 kg up)" in system)
-        assertTrue("Workouts logged in the last 4 weeks: 3; last on 16 Oct." in system)
+        assertTrue("Workouts in the last 4 weeks: 3; last on 16 Oct." in system)
     }
 
     @Test
@@ -228,7 +257,18 @@ class CoachPromptTest {
                 com.m3.core.training.Target(com.m3.core.training.TargetKind.DECREASE, 92.5, "x"),
             )
         }
-        val systemChars = CoachPrompt.system(facts().copy(progress = all, workoutsLast28Days = 20, lastWorkout = LocalDate.of(2026, 10, 16))).length
+        val fullDay = DailyFacts(
+            targets = NutritionTargets(2_450, 170, 280, 75, 1_780, 2_448, false),
+            eaten = DayTotals(1_640, 112, 180, 48),
+            foods = List(CoachPrompt.MAX_FOODS) { "a long meal name ".repeat(4) },
+            steps = 6_214,
+            trendKg = 78.4,
+            weeklyChangeKg = -0.4,
+            checkIn = CheckIn(LocalDate.of(2026, 10, 18), 4, 3, 2),
+        )
+        val systemChars = CoachPrompt.system(
+            facts().copy(progress = all, workoutsLast28Days = 20, lastWorkout = LocalDate.of(2026, 10, 16), daily = fullDay),
+        ).length
         // Leave room for the owner's message (2,000 max) and some history inside the app's own budget.
         assertTrue("system prompt too long: $systemChars chars", systemChars + 2_000 + 1_000 <= CoachPrompt.PROMPT_CHARS)
         val totalChars = systemChars + turn.length

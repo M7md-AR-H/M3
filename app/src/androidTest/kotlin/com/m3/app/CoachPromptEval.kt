@@ -9,6 +9,7 @@ import com.m3.ai.engine.LlmLoadConfig
 import com.m3.coach.CoachFacts
 import com.m3.coach.CoachPrompt
 import com.m3.coach.CoachTools
+import com.m3.coach.DailyFacts
 import com.m3.coach.ExerciseProgress
 import com.m3.coach.progressKey
 import com.m3.coach.ReplyParser
@@ -17,10 +18,13 @@ import com.m3.coach.ToolResult
 import com.m3.core.designsystem.config.LockKey
 import com.m3.core.designsystem.config.ThemeMode
 import com.m3.core.designsystem.config.UiConfig
+import com.m3.core.model.CheckIn
+import com.m3.core.model.DayTotals
 import com.m3.core.model.EquipmentItem
 import com.m3.core.model.EquipmentKind
 import com.m3.core.model.Experience
 import com.m3.core.model.Goal
+import com.m3.core.model.NutritionTargets
 import com.m3.core.model.Profile
 import com.m3.core.model.Sex
 import com.m3.core.model.TrainingLocation
@@ -72,6 +76,12 @@ class CoachPromptEval {
         Case("On Saturday I have no equipment, only body weight", "day_equipment", planLocked = true),
         // Phase 1c-3: weights must come from the app's progression, never the model.
         Case("What weight should I use for my first exercise today?", null, expectText = "{NEXT_KG}"),
+        Case("How many calories do I have left today?", null, expectText = "810"),
+        Case("How much protein have I eaten today?", null, expectText = "112"),
+        Case("How much more protein do I need today?", null, expectText = "58"),
+        Case("How many steps have I done today?", null, expectText = "6214"),
+        Case("Is my weight going down?", null, expectText = "0.4"),
+        Case("I slept badly and I'm sore. Should I train hard today?", null),
     )
 
     @Test
@@ -107,6 +117,15 @@ class CoachPromptEval {
             progress = progress,
             workoutsLast28Days = 4,
             lastWorkout = today.minusDays(3),
+            daily = DailyFacts(
+                targets = NutritionTargets(2_450, 170, 280, 75, 1_780, 2_448, false),
+                eaten = DayTotals(1_640, 112, 180, 48),
+                foods = listOf("Greek yogurt with oats", "Chicken rice bowl", "Whey shake"),
+                steps = 6_214,
+                trendKg = 78.4,
+                weeklyChangeKg = -0.4,
+                checkIn = CheckIn(today, sleep = 2, energy = 3, soreness = 4),
+            ),
             avoided = emptyMap(),
             dayEquipment = emptyMap(),
             themeMode = ThemeMode.LIGHT,
@@ -116,7 +135,7 @@ class CoachPromptEval {
         val system = CoachPrompt.system(facts)
         val lockedSystem = CoachPrompt.system(facts.copy(locks = setOf(LockKey.TRAINING_PLAN)))
         Log.i(TAG, "system prompt chars=${system.length}")
-        val cache = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, "llm-eval").apply { mkdirs() }
+        val cache = File(InstrumentationRegistry.getInstrumentation().targetContext.filesDir, "llm-eval").apply { mkdirs() }
         LiteRtLmEngine().use { engine ->
             val loadSeconds = engine.load(LlmLoadConfig(model, LlmBackend.CPU, speculativeDecoding = false, maxTokens = 4096, cacheDir = cache))
             Log.i(TAG, "loaded in ${"%.1f".format(loadSeconds)} s")
