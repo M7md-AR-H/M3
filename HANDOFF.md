@@ -1,10 +1,12 @@
 # HANDOFF — 2026-10-30 (session 6, in progress)
 
-**Live state:** PRs #6 to #10 are merged, and Phase 3 core is merged or about to be (`feat/phase-3-progress`). The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. Work through "Cloud work order" locally: items 1 to 3 are done, next is item 4 (check-in and habits), then 5 (meal photo).
+**Live state:** PRs #6 to #11 are merged; `fix/phone-check-batch` holds the phone-check fixes plus check-in and habits. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. Work through "Cloud work order" locally: items 1 to 4 are done, next is item 5 (meal photo).
 
-**Phone state:** build from 2026-10-30 18:10 (DB v4, step permission granted, no steps verified). Doesn't include Phases 2 and 3. The owner unplugged the phone and M³ may still be open on it; adb server stopped. Real step counting is unchecked. Clear + Undo was left to the owner: Claude can't safely hit the 4-second Undo on the real chat. Install the next batch once (the phone goes v4 to v6) and do the phone check in one go. When both the phone and emulator are attached, always set `ANDROID_SERIAL=emulator-5554` for tests.
+**Phone state:** DB v7 build installed 2026-10-30. Passed on the phone with the real model: Coach schedule proposal, Apply, Undo; workout steppers, Done, rest timer, Next, Prev, untick, End dialog; empty workout dropped; keep-screen-on off afterwards; Clear + Undo; Fuel add, validation, remove; Progress log, validation, remove; measurements. All test entries removed; profile weight still 75 kg; week as before. The Coach chat has new test messages. Use the wireless serial if USB drops. When both the phone and emulator are attached, always set `ANDROID_SERIAL=emulator-5554` for tests.
 
-**Emulator state:** test profile with test food, weights and measurements; dark theme; clock moved to early November (`cmd alarm set-time` works without root; automatic time puts it back). A test workout is still open.
+**Trap:** `key BACK` on You leaves the tab, and on a workout it opens the End dialog. The Clear Undo window is 4 s and a screen read takes 3 s over Wi-Fi: tap Undo at its known position (950, 1811) and read at the same time.
+
+**Emulator state:** test profile with one finished workout (3 kg rows, next target 5 kg), test food, weights and measurements; dark theme; clock moved (`cmd alarm set-time` works without root).
 
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 
