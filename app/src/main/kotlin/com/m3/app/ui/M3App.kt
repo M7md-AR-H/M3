@@ -32,6 +32,8 @@ import com.m3.app.ui.nav.FuelRoute
 import com.m3.app.ui.nav.M3BottomBar
 import com.m3.app.ui.nav.ProfileEditRoute
 import com.m3.app.ui.nav.TrainingSetupRoute
+import com.m3.app.feature.progress.MeasurementsScreen
+import com.m3.app.ui.nav.MeasurementsRoute
 import com.m3.app.feature.onboarding.ProfileEditScreen
 import com.m3.app.feature.onboarding.TrainingSetupScreen
 import com.m3.app.ui.nav.TodayRoute
@@ -97,9 +99,11 @@ fun M3App(config: UiConfig) {
                     onOpenProfile = { navController.navigate(ProfileEditRoute) },
                     onOpenTrainingSetup = { navController.navigate(TrainingSetupRoute) },
                     onOpenAiModel = { navController.navigate(AiModelRoute) },
+                    onOpenMeasurements = { navController.navigate(MeasurementsRoute) },
                 )
             }
             composable<AiModelRoute> { AiModelScreen(onBack = { navController.popBackStack() }) }
+            composable<MeasurementsRoute> { MeasurementsScreen(onBack = { navController.popBackStack() }) }
             composable<ProfileEditRoute> { ProfileEditScreen(onBack = { navController.popBackStack() }) }
             composable<TrainingSetupRoute> { TrainingSetupScreen(onBack = { navController.popBackStack() }) }
             composable<CoachRoute> { CoachScreen() }

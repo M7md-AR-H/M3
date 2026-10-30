@@ -117,6 +117,13 @@ A cloud session runs Claude on a machine in the cloud, so it keeps working after
 
 ## Try it yourself
 
+### Progress (Claude checked this on the emulator on 2026-10-30)
+1. Open **YOU**. **Expect:** Weight at the top. Enter today's weight and tap **Log**.
+2. Log again over the next days. **Expect:** a chart with a thin line for weigh-ins and a thicker smooth line for the trend. After a week, a weekly change appears next to the trend.
+3. Tap **Add measurements**, fill in any of the four, then **Save**. **Expect:** the values on YOU; measure again another day and the change shows.
+4. **FUEL:** after logging your weight, the calorie target follows the trend slowly, not each day's jump.
+5. **Broken if:** a typo such as 8 kg is accepted, or the chart looks wrong after several days.
+
 ### Fuel (Claude checked this on the emulator on 2026-10-30)
 1. Open **FUEL**. **Expect:** a daily calorie target with protein, carbs and fat, and a short note on how it's set. Check it's believable for you.
 2. Tap **Add food**. Leave everything empty and tap **Save**. **Expect:** red hints. Enter a name and calories, then **Save**. **Expect:** back on Fuel, the entry listed, "kcal left" lower. TODAY's Fuel card shows the same numbers.

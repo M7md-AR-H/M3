@@ -7,8 +7,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.m3.core.data.db.DatabaseOpener
 import com.m3.core.data.db.M3Database
+import com.m3.core.model.BodyPart
 import com.m3.core.model.FoodEntry
+import com.m3.core.model.Measurement
 import com.m3.core.model.StepReading
+import com.m3.core.model.WeightEntry
 import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
@@ -74,6 +77,34 @@ class MigrationTest {
         val stored = overrides.observe().first()
         assertEquals(emptySet<Any>(), stored.dayEquipment[LocalDate.of(2026, 10, 19)])
         assertEquals("knee", stored.excluded["back_squat"])
+        opener.get().close()
+    }
+
+    /** v6 adds weight and measurements and keeps the food log. */
+    @Test
+    fun encryptedV5WithDataOpensAsV6AndLogsBody() = runTest {
+        helper.createDatabase(DatabaseOpener.DATABASE_NAME, 5).apply {
+            execSQL("INSERT INTO app_state (id, onboardingCompleted, schemaVersion) VALUES (1, 1, 5)")
+            execSQL(
+                "INSERT INTO food_entry (date, atMillis, name, kcal, proteinG, carbsG, fatG) " +
+                    "VALUES ('2026-10-30', 1, 'Oats', 300, 12, 50, 6)",
+            )
+            close()
+        }
+
+        val opener = DatabaseOpener(context, { key.copyOf() })
+        val day = LocalDate.of(2026, 10, 30)
+        assertEquals("Oats", FoodRepository(opener).observeDay(day).first().single().name)
+
+        val body = BodyRepository(opener)
+        body.saveWeight(WeightEntry(day, 80.0))
+        // A second weigh-in on the same day replaces the first.
+        body.saveWeight(WeightEntry(day, 79.5))
+        body.saveWeight(WeightEntry(day.minusDays(1), 80.5))
+        assertEquals(listOf(80.5, 79.5), body.observeWeights().first().map { it.kg })
+
+        body.saveMeasurement(Measurement(day, BodyPart.WAIST, 82.5))
+        assertEquals(BodyPart.WAIST, body.observeMeasurements().first().single().part)
         opener.get().close()
     }
 
