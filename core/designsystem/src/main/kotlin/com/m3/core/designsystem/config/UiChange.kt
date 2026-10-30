@@ -151,4 +151,5 @@ val CardType.displayName: String
         CardType.COACH_NOTE -> "Coach note"
         CardType.HABITS -> "Habits"
         CardType.WEIGHT_TREND -> "Weight trend"
+        CardType.STEPS -> "Steps"
     }

@@ -1,4 +1,6 @@
-# HANDOFF — 2026-10-30 (end of session 6)
+# HANDOFF — 2026-10-30 (session 6, in progress)
+
+**Live state:** PRs #6 and #7 are merged. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. Current branch `feat/phase-1c-steps` is on top of PR #8. Next: phone check of the UI pass and step counter, merge both, then work through "Cloud work order" locally from item 2.
 
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 

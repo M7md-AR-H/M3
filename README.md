@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-30):** UI pass done (PR on `feat/ui-editorial-pass`, stacked on PR #7; [ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)). Cloud sessions can build the project (OWNER_TASKS #6). Next: phone check of the UI pass, then 1c-4 and Phase 2.
+**Status (2026-10-30):** PRs #6 and #7 merged. UI pass in PR #8 ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)) and the step counter (`feat/phase-1c-steps`, on top of #8) await the phone check. Next: that check, then Phase 2.
 
 **Earlier (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone. Fixes from that check: PR #6. Phase 1c-3 (workout logging, focus mode, progressive overload): PR #7 on `feat/phase-1c-logging`, stacked on PR #6. Both re-checked on the phone (2026-10-21, Claude driving the phone over adb); one bug found and fixed (screen kept on behind the lock). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
 
@@ -120,7 +120,10 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 - [ ] First cloud session confirms the build (not testable from this PC)
 
 **1c-4 — Steps + check**
-- [ ] Phone step counter (no wearable)
+- [x] `StepLedger`: counter readings to daily totals; restarts and gaps across midnight handled; unit tests
+- [x] DB v4 (auto-migration, new tables only): `step_day`, `step_reading`; emulator test from an encrypted v3 DB with data, all `:core:data` instrumented tests pass
+- [x] `StepTracker` reads the sensor while M³ is in front; Steps card on Today with the permission asked in context; saved layouts gain the card after the workout
+- [ ] Phone check of the sensor (the emulator has no step sensor)
 - [ ] Phase 1 "Try it yourself" list + phone check
 
 ### Phase 2 — Nutrition (v0.2)
@@ -233,6 +236,9 @@ M3/
 | 2026-10-30 | Masthead shows the ISO week, not "Issue 001" | A number that never changes reads as fake |
 | 2026-10-30 | Coach Clear hides the chat and deletes it 6 s later; sending a message deletes it at once | Guidelines prefer Undo to confirmation. If the app closes first, nothing is lost |
 | 2026-10-30 | Session length is an estimate in `PlanText`: 5 min warm-up, 45 s per rep set, plus rest, to the nearest 5 min | Display only; no decision depends on it |
+| 2026-10-30 | Steps are read only while M³ is open, with no background service or notification; the sensor's running total fills the gaps | Since Android 9, background apps get no events from on-change sensors, so WorkManager wouldn't help. A foreground service would mean a permanent notification on the owner's daily phone |
+| 2026-10-30 | The first reading only sets a starting point; a gap across midnight is shared out by time; a lower counter means a restart | Nothing shows when earlier steps happened. Sharing by time loses no steps, though each day's split is an estimate |
+| 2026-10-30 | Standing permission to merge: squash-merge once local checks pass and the Opus final check is done | Owner's OK ("any merges"). The repo has no CI, so local checks are the gate |
 | 2026-10-30 | Added the Linux `aapt2` jar to dependency verification (SHA-256 of the jar from Google Maven, whose published SHA-1 matched) | Only the Windows jar was listed, so Linux builds would fail. Verification stays on |
 
 ---
@@ -285,6 +291,8 @@ M3/
 | The rest timer only shows on screen: no sound, vibration or notification | Notifications need a new permission; the screen stays on during a workout | Add a vibration (no runtime permission) or notification if the owner wants it |
 | Progression doesn't use RPE beyond "10 = don't increase" | Most sets won't have RPE; the rule must work without it | RPE-based autoregulation once enough RPE is logged |
 | The theme cross-fade recomposes every colour reader for ~220 ms | Seven animated colour tokens; simplest correct approach | Animate one progress value and lerp, if it ever stutters on the phone |
+| Steps taken since the last app open are lost if the phone restarts first, and a day you don't open M³ gets an estimated share of the gap | Android gives background apps no step events, and the sensor's total resets at reboot | A foreground service with a permanent notification, if the owner ever wants exact days |
+| The step goal is fixed at 8,000, and the Coach doesn't see steps yet | Kept simple for 1c-4 | A goal setting; add steps to the Coach facts |
 | Customize still lists unbuilt Today cards, and their order has no visible effect yet | They're real config entries for cards that come later | Build the cards |
 | Skeletons are generic bars, not the exact shape of each page | One component covers every load; most loads end before it shows | Page-specific skeletons if a load is ever slow on the phone |
 | Cloud sessions can't run the phone check, the emulator eval or the Coach model | The VM has no phone, and the 3.66 GB model isn't in the repo | Run those on the PC; cloud does code, unit tests, lint and APK builds |

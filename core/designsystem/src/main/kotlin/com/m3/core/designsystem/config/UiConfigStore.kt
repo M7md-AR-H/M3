@@ -84,7 +84,7 @@ class UiConfigStore(
     @Synchronized
     fun restore(saved: UiConfigSnapshot) {
         val config = if (UiConfigValidator.validate(saved.config).isEmpty()) {
-            saved.config
+            saved.config.withNewDefaultCards()
         } else {
             UiConfig(locks = saved.config.locks)
         }

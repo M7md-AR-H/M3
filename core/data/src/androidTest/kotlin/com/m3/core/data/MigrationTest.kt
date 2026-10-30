@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.m3.core.data.db.DatabaseOpener
 import com.m3.core.data.db.M3Database
+import com.m3.core.model.StepReading
 import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
@@ -72,6 +73,31 @@ class MigrationTest {
         val stored = overrides.observe().first()
         assertEquals(emptySet<Any>(), stored.dayEquipment[LocalDate.of(2026, 10, 19)])
         assertEquals("knee", stored.excluded["back_squat"])
+        opener.get().close()
+    }
+
+    /** The phone has a v3 database since 2026-10-21; v4 adds the step tables and keeps workouts. */
+    @Test
+    fun encryptedV3WithDataOpensAsV4AndCountsSteps() = runTest {
+        helper.createDatabase(DatabaseOpener.DATABASE_NAME, 3).apply {
+            execSQL("INSERT INTO app_state (id, onboardingCompleted, schemaVersion) VALUES (1, 1, 3)")
+            execSQL(
+                "INSERT INTO workout_session (date, sessionType, locationId, locationName, startedAt, endedAt) " +
+                    "VALUES ('2026-10-19', 'FULL_BODY_A', 'g', 'Gym', 1, 2)",
+            )
+            close()
+        }
+
+        val opener = DatabaseOpener(context, { key.copyOf() })
+        val steps = StepRepository(opener, zone = { java.time.ZoneOffset.UTC })
+        val day = LocalDate.of(2026, 10, 30)
+        val morning = day.atTime(9, 0).toInstant(java.time.ZoneOffset.UTC).toEpochMilli()
+        steps.record(StepReading(40_000, morning))
+        assertEquals(0, steps.observeDay(day).first())
+        steps.record(StepReading(40_600, morning + 60_000))
+        steps.record(StepReading(40_750, morning + 120_000))
+        assertEquals(750, steps.observeDay(day).first())
+        assertEquals(1, WorkoutRepository(opener).observeRecent().first().size)
         opener.get().close()
     }
 

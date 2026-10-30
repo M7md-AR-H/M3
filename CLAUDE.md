@@ -36,7 +36,7 @@ Run from the repo root (Windows: `gradlew.bat`, Git Bash: `./gradlew`).
 - **Units:** metric only (kg, cm/m, km, kcal, 24-hour time), formatted in one place — never imperial (ADR 0008).
 - **Training is customizable too (ADR 0008):** locations with equipment inventories; the Coach adapts plans via validated tools; a Kotlin engine picks substitutes and loads.
 - **HANDOFF.md stays current:** rewrite it after every meaningful step, not only at session end (owner's request).
-- **Git:** never push to `main`; feature branch + PR + squash-merge; ask the owner before merging. Never add a "Generated with Claude Code" line anywhere.
+- **Git:** never push to `main`; feature branch + PR + squash-merge. Standing permission to merge (owner, 2026-10-30) once local tests and lint pass and the final check is done; there's no CI. Never add a "Generated with Claude Code" line anywhere.
 
 ## Module map
 See README → "Project structure". Keep feature code out of `:core:*`; keep network code inside `:research`.

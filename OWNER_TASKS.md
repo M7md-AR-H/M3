@@ -82,8 +82,8 @@ The license is already in place (`LICENSE`, PolyForm Noncommercial 1.0.0): anyon
 
 ---
 
-## 6. Continue the work in a Claude Code cloud session
-- [ ] Done
+## 6. Continue the work in a Claude Code cloud session (optional)
+- [ ] Not needed for now: you chose to continue locally on 2026-10-30. Kept in case you want it later.
 
 A cloud session runs Claude on a machine in the cloud, so it keeps working after you close your laptop. It uses your claude.ai plan's usage (no separate charge for the machine). It works from the GitHub repo, so it can't see this PC or your phone.
 
@@ -116,6 +116,12 @@ A cloud session runs Claude on a machine in the cloud, so it keeps working after
 ---
 
 ## Try it yourself
+
+### Step counter (only your phone can test this; the emulator has no step sensor)
+1. On **TODAY**, find **Steps** under the workout card and tap **Turn on step counting**. **Expect:** Android asks about physical activity. Tap **Allow**. The card shows 0 of 8,000.
+2. Walk about 50 steps with M³ open and wait a few seconds. **Expect:** the number goes up. The very first reading only sets a starting point, so earlier steps today don't count.
+3. Press Home, walk 50 more steps, and come back. **Expect:** the number catches up within a few seconds.
+4. **Broken if:** the number jumps by thousands, goes down, or the app closes. No notification should ever appear for steps.
 
 ### UI pass (Claude checked this on the emulator on 2026-10-30; how it feels on your phone is yours to judge)
 1. **TODAY:** a large headline such as "Full body C. *Chase the extra rep.*", one boxed workout card, then a dark Editor's note. **Talk to your coach →** opens COACH. **Broken if:** empty boxes appear, or the card shows the wrong day's session.
