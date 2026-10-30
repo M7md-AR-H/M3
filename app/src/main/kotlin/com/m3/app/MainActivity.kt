@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.app.feature.coach.CoachRuntime
 import com.m3.app.feature.onboarding.OnboardingScreen
+import com.m3.app.feature.steps.StepTracker
 import com.m3.app.ui.LoadingScreen
 import com.m3.app.ui.LocalAppLocked
 import com.m3.app.ui.LockScreen
@@ -42,6 +43,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var coachRuntime: CoachRuntime
+
+    @Inject
+    lateinit var stepTracker: StepTracker
 
     private lateinit var unlockPrompt: UnlockPrompt
 
@@ -92,6 +96,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         appLock.onForeground()
         coachRuntime.onForeground()
+        stepTracker.start()
     }
 
     override fun onResume() {
@@ -102,6 +107,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         appLock.onBackground()
+        stepTracker.stop()
         // Free the Coach's ~1 GB model while the owner uses other apps (ADR 0002). Not on rotation.
         if (!isChangingConfigurations) coachRuntime.unload()
     }

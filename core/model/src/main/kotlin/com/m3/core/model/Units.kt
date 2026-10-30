@@ -1,6 +1,7 @@
 package com.m3.core.model
 
 import java.math.BigDecimal
+import java.util.Locale
 
 /**
  * The one place where units are formatted and parsed (ADR 0008: metric only).
@@ -13,6 +14,9 @@ object Units {
     fun kg(value: Double): String = "${number(value)} $KG"
 
     fun cm(value: Int): String = "$value $CM"
+
+    /** "6,214": whole counts such as steps. */
+    fun count(value: Int): String = String.format(Locale.ROOT, "%,d", value)
 
     /** "12.5", "20": no trailing zeros, dot as the decimal separator. */
     fun number(value: Double): String =

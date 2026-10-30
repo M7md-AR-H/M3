@@ -11,12 +11,28 @@ data class UiConfig(
     val todayCards: List<CardPlacement> = listOf(
         CardPlacement(CardType.CHECK_IN),
         CardPlacement(CardType.TODAY_WORKOUT),
+        CardPlacement(CardType.STEPS),
         CardPlacement(CardType.FUEL_SUMMARY),
         CardPlacement(CardType.COACH_NOTE),
         CardPlacement(CardType.HABITS),
     ),
     val locks: Set<LockKey> = emptySet(),
-)
+) {
+    /**
+     * Adds default cards a saved config doesn't have yet, each after the card it follows by default. Cards can be
+     * hidden but not removed, so a missing one is always newer than the saved config.
+     */
+    fun withNewDefaultCards(): UiConfig {
+        val cards = todayCards.toMutableList()
+        UiConfig().todayCards.forEachIndexed { index, default ->
+            if (cards.none { it.type == default.type }) {
+                val previous = UiConfig().todayCards.getOrNull(index - 1)?.type
+                cards.add(cards.indexOfFirst { it.type == previous } + 1, default)
+            }
+        }
+        return copy(todayCards = cards)
+    }
+}
 
 @Serializable
 data class ThemeTokens(
@@ -106,7 +122,7 @@ enum class ThemeScheme { LIGHT, DARK }
 
 enum class ColorTokenName { GROUND, SURFACE, INK, MUTED, RULE, ACCENT, ON_ACCENT }
 
-enum class CardType { CHECK_IN, TODAY_WORKOUT, FUEL_SUMMARY, COACH_NOTE, HABITS, WEIGHT_TREND }
+enum class CardType { CHECK_IN, TODAY_WORKOUT, FUEL_SUMMARY, COACH_NOTE, HABITS, WEIGHT_TREND, STEPS }
 
 enum class TabId { TODAY, TRAIN, FUEL, YOU, COACH }
 

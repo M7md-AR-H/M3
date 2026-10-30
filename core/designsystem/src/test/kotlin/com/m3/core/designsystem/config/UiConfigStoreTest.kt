@@ -142,6 +142,26 @@ class UiConfigStoreRestoreTest {
     }
 
     @Test
+    fun restoreAddsNewCardsAfterTheCardTheyFollowAndKeepsTheOwnersChoices() {
+        val saved = UiConfig(
+            todayCards = listOf(
+                CardPlacement(CardType.COACH_NOTE),
+                CardPlacement(CardType.TODAY_WORKOUT, visible = false),
+                CardPlacement(CardType.CHECK_IN),
+                CardPlacement(CardType.FUEL_SUMMARY),
+                CardPlacement(CardType.HABITS),
+            ),
+        )
+        val store = UiConfigStore()
+        store.restore(UiConfigSnapshot(saved, emptyList()))
+        assertEquals(
+            listOf(CardType.COACH_NOTE, CardType.TODAY_WORKOUT, CardType.STEPS, CardType.CHECK_IN, CardType.FUEL_SUMMARY, CardType.HABITS),
+            store.config.value.todayCards.map { it.type },
+        )
+        assertFalse(store.config.value.todayCards.first { it.type == CardType.TODAY_WORKOUT }.visible)
+    }
+
+    @Test
     fun restoreCapsHistory() {
         val store = UiConfigStore()
         val many = (1..150).map { UiHistoryEntry(Actor.Owner, "change $it", UiConfig(), it.toLong()) }

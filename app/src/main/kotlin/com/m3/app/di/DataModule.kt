@@ -78,4 +78,8 @@ object DataModule {
     @Provides
     @Singleton
     fun provideWorkoutRepository(opener: DatabaseOpener) = com.m3.core.data.WorkoutRepository(opener)
+
+    @Provides
+    @Singleton
+    fun provideStepRepository(opener: DatabaseOpener) = com.m3.core.data.StepRepository(opener)
 }
