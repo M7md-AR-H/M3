@@ -31,6 +31,8 @@ data class ProgressState(
     val points: List<TrendPoint> = emptyList(),
     val weeklyChangeKg: Double? = null,
     val parts: List<PartSummary> = emptyList(),
+    val weighedToday: Boolean = false,
+    val measuredToday: Boolean = false,
 )
 
 @HiltViewModel
@@ -41,7 +43,14 @@ class ProgressViewModel @Inject constructor(
     val state: StateFlow<ProgressState> =
         combine(body.observeWeights(), body.observeMeasurements()) { weights, measurements ->
             val points = WeightTrend.points(weights)
-            ProgressState(points, WeightTrend.weeklyChangeKg(points), summarise(measurements))
+            val today = LocalDate.now()
+            ProgressState(
+                points = points,
+                weeklyChangeKg = WeightTrend.weeklyChangeKg(points),
+                parts = summarise(measurements),
+                weighedToday = points.lastOrNull()?.date == today,
+                measuredToday = measurements.any { it.date == today },
+            )
         }
             .catch { emit(ProgressState()) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), ProgressState())
@@ -52,7 +61,19 @@ class ProgressViewModel @Inject constructor(
     /** Today's weigh-in. The profile follows the trend, so calorie targets stay current without a day's noise. */
     fun logWeight(kg: Double, onSaved: () -> Unit = {}) = save(onSaved) {
         body.saveWeight(WeightEntry(LocalDate.now(), kg))
-        val trend = WeightTrend.points(body.observeWeights().first()).last().trendKg
+        followTrend()
+    }
+
+    /** For a wrong entry. The profile goes back to the trend without it, if any weigh-ins are left. */
+    fun removeTodaysWeight() = save({}) {
+        body.deleteWeight(LocalDate.now())
+        followTrend()
+    }
+
+    fun removeTodaysMeasurements() = save({}) { body.deleteMeasurements(LocalDate.now()) }
+
+    private suspend fun followTrend() {
+        val trend = WeightTrend.points(body.observeWeights().first()).lastOrNull()?.trendKg ?: return
         profiles.observe().first()?.let { profiles.save(it.copy(weightKg = (trend * 10).roundToInt() / 10.0)) }
     }
 

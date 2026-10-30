@@ -16,8 +16,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /** The fixed tool schemas the model may use. Field names match the prompt exactly. */
 internal object ToolSchemas {
@@ -202,6 +204,30 @@ object CoachTools {
     }
 
     /**
+     * The `set_day` call for a plain change to the usual week ("I can train on Fridays at Home", "I can't train on
+     * Thursdays any more"), or null. On the phone the model wrote "not_free" for the first and no tool line at all
+     * for the second, so the owner's own words decide. It still needs Apply, so a false positive costs one tap.
+     * Questions and one-offs ("this Friday", "today") stay with the model.
+     */
+    fun scheduleRequest(ownerMessage: String, places: List<String>): String? {
+        val text = ownerMessage.lowercase()
+        if ('?' in text || !SCHEDULE_WORDS.containsMatchIn(text) || ONE_OFF_WORDS.containsMatchIn(text)) return null
+        val day = DayOfWeek.entries
+            .filter { Regex("\\b${it.name.lowercase()}s?\\b").containsMatchIn(text) }
+            .singleOrNull() ?: return null
+        val place = if (UNAVAILABLE.containsMatchIn(text)) {
+            "not_free"
+        } else {
+            places.singleOrNull { Regex("\\b${Regex.escape(it.lowercase())}\\b").containsMatchIn(text) } ?: return null
+        }
+        return buildJsonObject {
+            put("name", "set_day")
+            put("day", day.name)
+            put("place", place)
+        }.toString()
+    }
+
+    /**
      * True when the reply says a change already happened or will happen by itself ("I have switched…",
      * "the planner will automatically…"). Only the owner's Apply changes anything, so the app adds a correction.
      */
@@ -279,6 +305,9 @@ object CoachTools {
     )
 
     private val THEME_WORDS = listOf("theme", "dark", "light", "night", "mode", "colour", "color")
+    private val SCHEDULE_WORDS = Regex("\\b(free|train|training|available|work out)\\b")
+    private val ONE_OFF_WORDS = Regex("\\b(today|tomorrow|tonight|this|next|only)\\b")
+    private val UNAVAILABLE = Regex("\\b(can'?t|cannot|can not|no longer|not free|not available|busy|any ?more)\\b")
     private val CARD_WORDS = listOf("card", "today screen", "home screen", "today tab")
     private val ONE_DAY_WORDS = listOf("today", "tonight", "tomorrow", "this week")
     private val CARD_VERBS = listOf("show", "hide", "move", "remove", "put")

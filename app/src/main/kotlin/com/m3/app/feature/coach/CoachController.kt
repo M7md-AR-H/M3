@@ -119,8 +119,11 @@ class CoachController @Inject constructor(
         }
         val parsed = ReplyParser.parse(raw)
         val fromModel = parsed.toolJson?.let { proposalFor(it, inputs, trimmed) }
-        // A plain theme request the model answered without a usable tool line (seen on the phone): Kotlin proposes it.
-        val proposal = fromModel.takeUnless { it == null || it.status == ProposalStatus.REJECTED }
+        // A plain change to the usual week: the owner's words beat the model, which got it wrong twice on the phone.
+        val proposal = CoachTools.scheduleRequest(trimmed, inputs.setup.locations.map { it.name })
+            ?.let { proposalFor(it, inputs, trimmed) }
+            // A plain theme request the model answered without a usable tool line (seen on the phone): Kotlin proposes it.
+            ?: fromModel.takeUnless { it == null || it.status == ProposalStatus.REJECTED }
             ?: CoachTools.themeRequest(trimmed)?.let { proposalFor(themeJson(it), inputs, trimmed) }
             ?: fromModel
         val text = parsed.text.ifBlank { proposal?.summary ?: "Sorry, I didn't get an answer. Please try again." }
