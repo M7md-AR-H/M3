@@ -7,6 +7,7 @@ import com.m3.core.designsystem.config.displayName
 import com.m3.core.model.EquipmentKind
 import com.m3.core.model.TrainingSetup
 import com.m3.core.training.ExerciseCatalog
+import com.m3.core.training.MovementPattern
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
@@ -44,6 +45,8 @@ data class ToolContext(
     val today: LocalDate,
     val setup: TrainingSetup,
     val catalog: ExerciseCatalog,
+    /** Avoided exercise id → reason, so allowing one again can lift the family it was avoided with. */
+    val excluded: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -104,13 +107,31 @@ object CoachTools {
         val exercise = findExercise(call.exercise, context) ?: return invalid("The Coach named an exercise I don't know.")
         // Model-written text is stored and shown again later; keep it to one plain line.
         val reason = call.reason.replace(Regex("\\s+"), " ").replace("<", "").replace(">", "").trim().take(MAX_REASON_CHARS)
+        // Pain: avoid the whole movement family, or the planner swaps in an exercise that loads the joint the
+        // same way (seen on the phone: knee pain on walking lunges → reverse lunge). Dislikes stay one exercise.
+        val family = FAMILY_NAMES[exercise.pattern]
+        if (family != null && isPain(reason)) {
+            val similar = context.catalog.exercises.filter { it.pattern == exercise.pattern && it.id != exercise.id }.map { it.id }
+            return ToolResult.Valid(CoachAction.AvoidExercise(exercise.id, exercise.name, reason, similar, family))
+        }
         return ToolResult.Valid(CoachAction.AvoidExercise(exercise.id, exercise.name, reason))
     }
 
     private fun allow(call: ToolSchemas.AllowExercise, context: ToolContext): ToolResult {
         val exercise = findExercise(call.exercise, context) ?: return invalid("The Coach named an exercise I don't know.")
+        // Undo a family avoided for pain as a whole: the same pattern, avoided with the same reason.
+        val reason = context.excluded[exercise.id]
+        val family = FAMILY_NAMES[exercise.pattern]
+        if (reason != null && family != null && isPain(reason)) {
+            val similar = context.catalog.exercises
+                .filter { it.pattern == exercise.pattern && it.id != exercise.id && context.excluded[it.id] == reason }
+                .map { it.id }
+            if (similar.isNotEmpty()) return ToolResult.Valid(CoachAction.AllowExercise(exercise.id, exercise.name, similar, family))
+        }
         return ToolResult.Valid(CoachAction.AllowExercise(exercise.id, exercise.name))
     }
+
+    private fun isPain(reason: String) = PAIN.containsMatchIn(reason)
 
     private fun setDay(call: ToolSchemas.SetDay, context: ToolContext): ToolResult {
         val day = DayOfWeek.entries.firstOrNull { it.name == normalize(call.day).uppercase() }
@@ -158,6 +179,45 @@ object CoachTools {
             else -> true
         }
     }
+
+    /**
+     * The theme the owner plainly asks for ("switch to dark mode", "light theme please", "turn off dark mode"),
+     * or null. Used when the model answers a theme request without a tool line (seen on the phone): the app then
+     * proposes the change itself. A proposal still needs the owner's Apply, so a false positive costs one tap.
+     */
+    fun themeRequest(ownerMessage: String): ThemeMode? {
+        val text = ownerMessage.lowercase()
+        // "I don't want dark mode", "how do I turn off dark mode?": not a plain request, leave it to the model.
+        if (Regex("\\b(don'?t|do not|never|hate|why|how|what)\\b").containsMatchIn(text)) return null
+        val dark = Regex("\\b(dark|night)\\s*(mode|theme)\\b|\\b(mode|theme)\\s+(to\\s+)?dark\\b|\\bmake\\s+(it|the app)\\s+dark\\b").containsMatchIn(text)
+        val light = Regex("\\blight\\s*(mode|theme)\\b|\\b(mode|theme)\\s+(to\\s+)?light\\b|\\bmake\\s+(it|the app)\\s+light\\b").containsMatchIn(text)
+        val system = Regex("\\b(system|phone'?s?|automatic|auto)\\s+(mode|theme|setting)\\b|\\bfollow\\s+(the\\s+|my\\s+)?(system|phone)\\b").containsMatchIn(text)
+        val off = Regex("\\b(turn|switch)\\s+off\\b|\\b(mode|theme)\\s+off\\b|\\bdisable\\b|\\bno\\s+more\\b|\\bstop\\s+using\\b").containsMatchIn(text)
+        return when {
+            system && !dark && !light -> ThemeMode.SYSTEM
+            dark && !light -> if (off) ThemeMode.LIGHT else ThemeMode.DARK
+            light && !dark -> if (off) ThemeMode.DARK else ThemeMode.LIGHT
+            else -> null
+        }
+    }
+
+    /**
+     * True when the reply says a change already happened or will happen by itself ("I have switched…",
+     * "the planner will automatically…"). Only the owner's Apply changes anything, so the app adds a correction.
+     */
+    fun claimsChange(reply: String): Boolean = CLAIM_PATTERNS.any { it.containsMatchIn(reply) }
+
+    private val CLAIM_PATTERNS = listOf(
+        Regex(
+            "\\bI(?:'ve|\\s+have)?\\s+(?:now\\s+|just\\s+|already\\s+)*" +
+                "(?:switched|set|changed|updated|applied|turned|enabled|disabled|adjusted|removed|added|swapped|replaced|excluded)\\b",
+            RegexOption.IGNORE_CASE,
+        ),
+        Regex("\\b(?:has|have)\\s+(?:now\\s+|already\\s+)*been\\s+(?:switched|set|changed|updated|applied|turned|enabled|adjusted|removed|added|swapped|replaced)\\b", RegexOption.IGNORE_CASE),
+        // "Your body will automatically recover" is advice; only the app or planner acting by itself is a claim.
+        Regex("\\b(?:app|planner|plan|coach|system)\\s+will\\s+automatically\\b", RegexOption.IGNORE_CASE),
+        Regex("\\b(?:mode|theme|plan|it)\\s+is\\s+now\\s+(?:on|off|set|enabled|disabled|active|dark|light)\\b", RegexOption.IGNORE_CASE),
+    )
 
     /** "today", "tomorrow", a weekday name or an ISO date, within the next 7 days (today + 6). */
     fun parseDate(text: String, today: LocalDate): LocalDate? {
@@ -222,6 +282,19 @@ object CoachTools {
     private val CARD_WORDS = listOf("card", "today screen", "home screen", "today tab")
     private val ONE_DAY_WORDS = listOf("today", "tonight", "tomorrow", "this week")
     private val CARD_VERBS = listOf("show", "hide", "move", "remove", "put")
+
+    /** Patterns whose exercises load the same joints alike; isolation, core, carries and conditioning are too mixed. */
+    private val FAMILY_NAMES = mapOf(
+        MovementPattern.SQUAT to "squats",
+        MovementPattern.HINGE to "hip hinges",
+        MovementPattern.LUNGE to "lunges",
+        MovementPattern.HORIZONTAL_PUSH to "presses",
+        MovementPattern.VERTICAL_PUSH to "overhead presses",
+        MovementPattern.HORIZONTAL_PULL to "rows",
+        MovementPattern.VERTICAL_PULL to "pull-ups and pulldowns",
+    )
+    /** Whole words only: "reached" or "teacher" must not count as pain. */
+    private val PAIN = Regex("\\b(pain\\w*|hurts?|hurting|injur\\w*|sore\\w*|aches?|aching|strain\\w*|sprain\\w*|twinge\\w*|sharp)\\b", RegexOption.IGNORE_CASE)
 
     private const val MAX_ITEMS = 60
     private const val MAX_DAYS_AHEAD = 6L

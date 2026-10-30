@@ -1,6 +1,8 @@
 package com.m3.core.designsystem.theme
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -41,9 +43,19 @@ fun M3Theme(tokens: ThemeTokens, content: @Composable () -> Unit) {
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-    val colors = remember(tokens.light, tokens.dark, dark) {
+    val targetColors = remember(tokens.light, tokens.dark, dark) {
         (if (dark) tokens.dark else tokens.light).toM3Colors()
     }
+    // Cross-fade between palettes (light/dark switch, agent colour changes) instead of snapping.
+    val colors = M3Colors(
+        ground = animateToken(targetColors.ground),
+        surface = animateToken(targetColors.surface),
+        ink = animateToken(targetColors.ink),
+        muted = animateToken(targetColors.muted),
+        rule = animateToken(targetColors.rule),
+        accent = animateToken(targetColors.accent),
+        onAccent = animateToken(targetColors.onAccent),
+    )
     val typography = remember(tokens.fontPairing, tokens.typeScale) {
         m3Typography(tokens.fontPairing, tokens.typeScale)
     }
@@ -65,6 +77,10 @@ fun M3Theme(tokens: ThemeTokens, content: @Composable () -> Unit) {
         }
     }
 }
+
+@Composable
+private fun animateToken(target: Color): Color =
+    animateColorAsState(target, animationSpec = Motion.medium(), label = "m3Color").value
 
 private fun materialColorScheme(colors: M3Colors, dark: Boolean): ColorScheme =
     if (dark) {

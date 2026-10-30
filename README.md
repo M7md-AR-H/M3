@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-18):** Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
+**Status (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone; fixes from that check on `fix/phase-1c-phone-feedback` (owner re-check pending). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
 
 - Product & tech spec: [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md)
 - UI prototype (design source of truth): https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ
@@ -67,7 +67,7 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 - [x] Train tab (week, reasons, session details), Today card (today's session or rest + next), onboarding summary shows the split
 - [x] Emulator check: split shown with reasons; unfillable slot explained; adding free days in Training setup re-plans (6 free → 4 sessions with rest)
 - [x] Sonnet review fixes: strength rep ranges only for heavy lifts (bodyweight/single-side stay moderate, beginners 8–12); swings never a main lift; high-intensity conditioning as 20–30 s rounds; slow negatives 3–5 reps; barbell work needs plates, bench/overhead press need a rack; adjustable bench counts as flat; ring dips split out as advanced; main slots prefer heavy lifts for strength and avoid too-easy picks; onboarding preview race fixed; "today" rolls over at midnight; collapsed cards say when something isn't possible
-- [ ] Phone install + owner's check (needs the USB cable)
+- [x] Phone install + owner's check (2026-10-21, together with 1c-2): week, session details, Today card and one-day Apply/Undo correct on the phone
 
 **1c-2 — Coach chat (branch `feat/phase-1c-coach`, [ADR 0010](docs/adr/0010-coach-chat-tools.md))**
 - [x] Model runtime: E4B loads on the first message (GPU + MTP, CPU fallback), one answer at a time, stopped and unloaded when the app goes to the background
@@ -77,7 +77,19 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 - [x] Planner overrides: one-day equipment (never moves days or ripples into other days), excluded exercises
 - [x] Prompt eval on the emulator (real model, test data): 5/8 → 8/10 → 8/10 → see decision log
 - [x] Sonnet review fixes: Apply/Not now/Undo serialised (no double apply); owner message saved together with the answer (failed or stopped answers give the text back); whole-prompt length budget, owner free text one line and capped; Undo only on the latest applied change and only marked undone if it worked; look-rule refusals shown as such, locked proposals can be applied after unlocking; no model load after the app went to the background; streaming scroll without jank; model text sanitised; case-insensitive tag hiding; card guard needs "card" or show/hide/move
-- [ ] Phone check: real chat on the GPU (needs the phone)
+- [x] Phone check (2026-10-21): runs on the GPU (status line + GPU program cache), cold first answer ~25–45 s incl. load, warm answer ~6 s; Apply/Undo, avoid exercise, question-only answer, Stop, Home (model freed, app ~164 MB) all work. Found: theme request gets no card and the Coach claims it is done; locked requests show no "Locked by you" card; knee-pain swap picks another lunge → fixes on `fix/phase-1c-phone-feedback`
+
+**1c-2 fixes from the phone check (branch `fix/phase-1c-phone-feedback`)**
+- [x] Theme request without a tool line: the app proposes it itself
+- [x] "It's done" claims get a correction note from the app
+- [x] Locked changes show "Locked by you" (prompt asks the model to still write the tool line)
+- [x] Pain avoids the whole movement family (one transaction, one Undo); Train says when a slot is empty because of avoided exercises
+- [x] "Nothing to change" card state (no Apply)
+- [x] Keyboard closes on send; Motion tokens; smoother tab, chat, card and theme transitions
+- [x] Today: current header and honest placeholder cards; Train: "Loads" note only when weights are used
+- [x] Prompt eval re-run (emulator CPU, real model, 12 cases incl. the locked and "suggest the dark theme" cases): 11/12; 3 replies claimed a change (now corrected by the app note); the miss: "tomorrow in a hotel" got `set_day` (dropped by the guard)
+- [x] Sonnet review and fixes: "use lunges again" lifts the whole family; theme fallback also after a rejected tool line and not on negations ("I don't want…", "how do I…"); pain words matched as whole words; narrower claim patterns plus a "locked" note; "nothing to change" compares whole sessions incl. equipment; plan previews off the main thread; no item animation on the streaming answer; Today greeting and date roll over
+- [ ] Owner re-check on the phone
 - Later: change a place's saved equipment via the Coach, labelled specialists
 
 **1c-3 — Logging and progression**
@@ -179,6 +191,13 @@ M3/
 | 2026-10-16 | Live workout screen uses an inverted dark "focus mode" | Readable at a glance mid-set |
 | 2026-10-16 | UI driven by a versioned `UiConfig` (theme tokens + card layout); agents customize it only via scoped, validated tools, with undo and owner locks | Owner wants a highly customizable app the Coach and specialists can reshape, safely ([ADR 0007](docs/adr/0007-customizable-ui-agent-editable.md)) |
 | 2026-10-16 | Owner's working rules copied to `docs/WORKING_RULES.md` | Versioned with the repo so every session loads them via CLAUDE.md |
+| 2026-10-21 | A plain theme request ("switch to dark mode") that the model answers without a tool line gets a proposal written by the app, validated like the model's | On the phone the model twice answered without a tool line and claimed the change was done. Still a proposal, so a false match costs one tap |
+| 2026-10-21 | Replies that claim a change happened ("I have switched…", "…will automatically…") get a note from the app, stored with the reply | Only Apply changes anything. Storing the note also shows it to the model in later turns, which stops it repeating its own false claim (seen on the phone) |
+| 2026-10-21 | Locks: the prompt now asks the model to still write the tool line for a locked change; code shows "Locked by you" | With "don't propose locked changes" the model stayed silent, so the owner got no feedback (phone check) |
+| 2026-10-21 | Avoiding an exercise for pain avoids its whole movement family (squats, hinges, lunges, presses, rows, pull-ups) in one transaction and one Undo. Dislikes, and isolation, core, carry and conditioning work, stay single-exercise | Knee pain on walking lunges swapped in reverse lunge and split squat. Those patterns load the same joints alike; the mixed patterns don't |
+| 2026-10-21 | `ProposalStatus.NO_CHANGE`: a valid proposal that changes nothing shows "Nothing to change" and no Apply | The phone showed Apply on "No change: Wednesday already fits". Stored by enum name, so no DB migration |
+| 2026-10-21 | Gemma 4 E4B stays for now but may be replaced: the owner is open to switching models if it proves unreliable. A switch needs on-phone benchmark + prompt eval evidence (ADR 0002) | Phone check and eval show tool lines left out, false "done" claims and unrelated tools. Code guards cover them today; if failures continue, a better model beats more workarounds |
+| 2026-10-21 | Motion tokens (`Motion`, 150/220/300 ms, FastOutSlowIn): fades between tabs, animated chat items and cards, theme colours cross-fade. Coach keyboard closes on send; its Enter key sends | Owner asked for smoother animations and for the keyboard to close. Short durations, scaled by the system animation setting |
 
 ---
 
@@ -222,6 +241,9 @@ M3/
 | No exercise instructions or pictures yet | The catalog has tags only | Add instructions (e.g. from free-exercise-db, Unlicense) with focus mode (1c-3) |
 | The same week repeats until something changes | No history yet to vary or progress the plan | Progression and Coach adjustments (1c-2/1c-3) |
 | Release (minified) builds compile but weren't run on a device in Phase 1b | The phone gets debug builds (same key as the installed app); R8 rules for Tink/SQLCipher come from their own packages | Run the release build on the emulator before the first release install |
+| The app can't make the model propose something it chose not to; only theme requests have a code fallback (eval: 11/12, and the model still claims changes in about 1 in 4 replies) | Equipment, pain and schedule need the model to read free text; a keyword guess would be unsafe | Better prompts measured by the eval, or a larger model |
+| The theme cross-fade recomposes every colour reader for ~220 ms | Seven animated colour tokens; simplest correct approach | Animate one progress value and lerp, if it ever stutters on the phone |
+| In the Coach box, Enter sends; there's no newline key | Chat style, and the owner wanted the keyboard gone after sending | A setting, if newlines are ever needed |
 
 ---
 

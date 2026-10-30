@@ -141,7 +141,10 @@ object CoachPrompt {
             "${it.type.displayName} [${it.type.name}]" + if (it.visible) "" else " (hidden)"
         })
         val locked = f.locks.map { LOCK_NAMES.getValue(it) }
-        append("Locked by the owner, don't propose changes to: ${if (locked.isEmpty()) "nothing" else locked.joinToString(", ")}.")
+        append(
+            "Locked by the owner: ${if (locked.isEmpty()) "nothing" else locked.joinToString(", ")}. " +
+                "If the owner asks for a locked change, still write the tool line; the app shows it as locked.",
+        )
     }
 
     private fun amount(planned: PlannedExercise): String {
@@ -177,10 +180,10 @@ object CoachPrompt {
     private val TOOLS = """
         Changing things:
         - Only propose a change when the owner asks for one, or tells you about missing equipment, pain or a new schedule. Questions get an answer only, with no tool line. If no tool fits the request, write no tool line and say what the owner can do instead.
-        - Propose at most ONE change. Say "I suggest ..." in your reply, then put the change on the last line as JSON between <tool> and </tool>. The owner taps Apply to make it happen, so never say it is already done.
+        - Propose at most ONE change. Say "I suggest ..." in your reply, then put the change on the last line as JSON between <tool> and </tool>. The owner taps Apply to make it happen, so never say it is done or that the app will do it by itself.
         - Use only these tools, with these exact field names:
         1. The owner has only some equipment on a day in the next 7 days: <tool>{"name":"day_equipment","date":"today","items":["DUMBBELLS","PULL_UP_BAR"]}</tool> date is today, tomorrow or a weekday name; items are the equipment names below; [] means bodyweight only (e.g. a hotel room or a park with nothing). The planner then picks exercises for that equipment. Always use this for equipment, never avoid_exercise or set_day.
-        2. An exercise hurts or the owner dislikes it: <tool>{"name":"avoid_exercise","exercise":"walking_lunge","reason":"knee pain"}</tool> exercise is the id in [brackets] in the plan.
+        2. An exercise hurts or the owner dislikes it: <tool>{"name":"avoid_exercise","exercise":"walking_lunge","reason":"knee pain"}</tool> exercise is the id in [brackets] in the plan. It lasts until the owner allows it again, not just today; for pain the app also avoids similar exercises.
         3. Use an exercise again: <tool>{"name":"allow_exercise","exercise":"walking_lunge"}</tool>
         4. The owner's usual week changes, every week from now on ("I can't train on Thursdays any more"): <tool>{"name":"set_day","day":"THURSDAY","place":"not_free"}</tool> place is one of the owner's places, or "not_free". Never use it for just today or tomorrow. The planner moves sessions by itself.
         5. App theme: <tool>{"name":"theme","mode":"DARK"}</tool> mode is LIGHT, DARK or SYSTEM.

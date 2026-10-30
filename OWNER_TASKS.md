@@ -143,3 +143,12 @@ The Coach runs on the phone. The first answer after opening M³ takes a little l
 7. In **YOU → Customize**, turn off **"Let agents change: Your plan"**, then ask the Coach for an equipment change again. **Expect:** the card says **"Locked by you"** and nothing changes. Turn it back on.
 8. Tap **Stop** while the Coach is answering. **Expect:** the answer disappears at once and your question is back in the box; asking again works. Also press Home while it answers and come back: the answer stopped, nothing was saved, other apps stay responsive.
 9. **Broken if:** anything changes without you tapping Apply, the app closes by itself, or the Coach invents sets/reps different from TRAIN.
+
+### Phase 1c-2 fixes — re-check after the next install
+1. **Dark mode:** in **COACH**, type **Switch to dark mode**. **Expect:** a card **"Switch the theme to dark"** with **Apply**. Apply turns the app dark with a short fade; Undo turns it back. **Broken if:** no card, or the Coach says it's already done without a note from the app below it.
+2. **Locked:** in **YOU → Customize**, turn off **"Let agents change: Your plan"**. In COACH, type **On Saturday I have no equipment**. **Expect:** a card marked **"Locked by you"**, and nothing changes. Turn the lock back on.
+3. **Pain:** type **My knee hurts on lunges**. **Expect:** a card **"Stop using all lunges (knee pain) until you allow them again"**. Apply it. On **TRAIN**, no lunge, split squat or step-up appears; where one was, a red line says you're avoiding them. Undo brings them back.
+4. **Nothing to change:** ask for something that's already true (e.g. **Switch to light mode** while it's light). **Expect:** "Nothing to change" and no Apply button.
+5. **Keyboard:** type a message and tap **Send**, or the keyboard's send key. **Expect:** the keyboard closes.
+6. **Smoothness:** switch tabs, open and close a session on TRAIN, and watch an answer appear. **Expect:** short fades and smooth expanding, with no jumps. While an answer streams, scroll up: it shouldn't pull you back down.
+7. **TODAY:** the header no longer says "Phase 0"; the unfinished cards say what's coming. A session with only bodyweight exercises has no "pick a weight" note.

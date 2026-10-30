@@ -66,10 +66,14 @@ class PlanGenerator(private val catalog: ExerciseCatalog) {
         val inSession = mutableSetOf<String>()
         val exercises = mutableListOf<PlannedExercise>()
         val unfilled = mutableListOf<Slot>()
+        val byAvoided = mutableSetOf<Slot>()
         for (slot in slots) {
             val pick = pick(slot, inventory, goal, experience, usedThisWeek, inSession + overrides.excludedExercises)
             if (pick == null) {
                 unfilled += slot
+                if (overrides.excludedExercises.isNotEmpty() && pick(slot, inventory, goal, experience, usedThisWeek, inSession) != null) {
+                    byAvoided += slot
+                }
                 continue
             }
             val (exercise, equipment) = pick
@@ -77,7 +81,7 @@ class PlanGenerator(private val catalog: ExerciseCatalog) {
             usedThisWeek += exercise.id
             exercises += PlannedExercise(exercise, equipment, slot.role, prescribe(slot, exercise, equipment, goal, experience))
         }
-        return PlannedSession(day, location.id, location.name, type, exercises, unfilled)
+        return PlannedSession(day, location.id, location.name, type, exercises, unfilled, byAvoided)
     }
 
     private fun pick(

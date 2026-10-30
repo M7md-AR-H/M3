@@ -1,6 +1,9 @@
 package com.m3.app.feature.coach
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -23,6 +26,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,6 +45,7 @@ import com.m3.core.designsystem.component.M3Card
 import com.m3.core.designsystem.component.M3OutlineButton
 import com.m3.core.designsystem.component.M3TextField
 import com.m3.core.designsystem.theme.M3
+import com.m3.core.designsystem.theme.Motion
 
 private val Suggestions = listOf(
     "Today I only have dumbbells",
@@ -70,9 +77,22 @@ fun CoachScreen(viewModel: CoachViewModel = hiltViewModel()) {
     LaunchedEffect(messages.size, pending != null) {
         if (itemCount > 0) list.animateScrollToItem(itemCount - 1)
     }
-    // While the answer streams, keep its end in view without restarting an animation for every word.
+    // While the answer streams, keep its end in view with a short smooth scroll, but only while the
+    // answer is on screen and the user isn't dragging, so reading earlier messages is never interrupted.
     LaunchedEffect((streaming?.length ?: -1) / SCROLL_STEP_CHARS) {
-        if (streaming != null && itemCount > 0) list.scrollToItem(itemCount - 1, Int.MAX_VALUE / 2)
+        if (streaming == null || itemCount == 0 || list.isScrollInProgress) return@LaunchedEffect
+        val info = list.layoutInfo
+        val last = info.visibleItemsInfo.lastOrNull() ?: return@LaunchedEffect
+        if (last.index != itemCount - 1) return@LaunchedEffect
+        val overflow = last.offset + last.size - (info.viewportEndOffset - info.afterContentPadding)
+        if (overflow > 0) list.animateScrollBy(overflow.toFloat(), Motion.short())
+    }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    val submit = { text: String ->
+        viewModel.send(text)
+        keyboard?.hide()
+        focus.clearFocus()
     }
     val latestApplied = messages.lastOrNull { it.proposal?.status == ProposalStatus.APPLIED }?.id
 
@@ -111,7 +131,7 @@ fun CoachScreen(viewModel: CoachViewModel = hiltViewModel()) {
                             Suggestions.forEach { suggestion ->
                                 M3OutlineButton(
                                     text = suggestion,
-                                    onClick = { viewModel.send(suggestion) },
+                                    onClick = { submit(suggestion) },
                                     enabled = modelState != ModelState.NoModel,
                                 )
                             }
@@ -120,15 +140,19 @@ fun CoachScreen(viewModel: CoachViewModel = hiltViewModel()) {
                 }
             }
             items(messages, key = { it.id }) { message ->
-                MessageBlock(
-                    message = message,
-                    enabled = !busy,
-                    onApply = { viewModel.apply(message.id) },
-                    onDismiss = { viewModel.dismiss(message.id) },
-                    onUndo = { viewModel.undo(message.id) },
-                    canUndo = message.id == latestApplied,
-                )
+                Column(Modifier.animateItem()) {
+                    MessageBlock(
+                        message = message,
+                        enabled = !busy,
+                        onApply = { viewModel.apply(message.id) },
+                        onDismiss = { viewModel.dismiss(message.id) },
+                        onUndo = { viewModel.undo(message.id) },
+                        canUndo = message.id == latestApplied,
+                    )
+                }
             }
+            // No item animation here: these two are swapped for the stored messages when the turn ends, and a
+            // fade-out would briefly show the answer twice.
             pending?.let { text -> item(key = "pending") { OwnerBubble(text) } }
             streaming?.let { text ->
                 item(key = "streaming") {
@@ -149,6 +173,15 @@ fun CoachScreen(viewModel: CoachViewModel = hiltViewModel()) {
                     label = "Message the Coach",
                     singleLine = false,
                     modifier = Modifier.weight(1f),
+                    imeAction = ImeAction.Send,
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (input.isNotBlank() && modelState != ModelState.NoModel && !busy) {
+                                submit(input)
+                                input = ""
+                            }
+                        },
+                    ),
                 )
                 if (busy) {
                     M3OutlineButton(text = "Stop", onClick = viewModel::stop)
@@ -156,7 +189,7 @@ fun CoachScreen(viewModel: CoachViewModel = hiltViewModel()) {
                     M3Button(
                         text = "Send",
                         onClick = {
-                            viewModel.send(input)
+                            submit(input)
                             input = ""
                         },
                         enabled = input.isNotBlank() && modelState != ModelState.NoModel,
@@ -218,7 +251,7 @@ private fun ProposalCard(
     onUndo: () -> Unit,
     canUndo: Boolean,
 ) {
-    M3Card {
+    M3Card(Modifier.animateContentSize(Motion.medium())) {
         Kicker(
             text = when (proposal.status) {
                 ProposalStatus.PENDING -> "Suggested change"
@@ -227,6 +260,7 @@ private fun ProposalCard(
                 ProposalStatus.UNDONE -> "Undone"
                 ProposalStatus.REJECTED -> "Couldn't use this suggestion"
                 ProposalStatus.BLOCKED -> "Locked by you"
+                ProposalStatus.NO_CHANGE -> "Nothing to change"
             },
             color = if (proposal.status == ProposalStatus.PENDING) M3.colors.accent else M3.colors.muted,
         )
