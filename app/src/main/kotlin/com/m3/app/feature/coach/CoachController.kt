@@ -9,6 +9,7 @@ import com.m3.coach.CoachAction
 import com.m3.coach.CoachFacts
 import com.m3.coach.CoachPrompt
 import com.m3.coach.CoachTools
+import com.m3.coach.DailyAnswers
 import com.m3.coach.DailyFacts
 import com.m3.coach.ExerciseProgress
 import com.m3.coach.progressKey
@@ -115,7 +116,13 @@ class CoachController @Inject constructor(
         if (trimmed.isEmpty()) return
         val history = chat.observe(HISTORY_MESSAGES).first().map { ChatTurn(it.role, it.text) }
         val inputs = currentInputs()
-        val system = CoachPrompt.system(facts(inputs, workouts.observeRecent().first(), dailyFacts(inputs)))
+        val today = dailyFacts(inputs)
+        // Plain number questions never reach the model: it got them wrong in the eval even when told the answer.
+        DailyAnswers.answer(trimmed, today)?.let { answer ->
+            chat.addTurn(trimmed, answer, null)
+            return
+        }
+        val system = CoachPrompt.system(facts(inputs, workouts.observeRecent().first(), today))
         val raw = runtime.use { engine ->
             val streamed = StringBuilder()
             engine.generate(

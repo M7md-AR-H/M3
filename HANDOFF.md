@@ -1,6 +1,10 @@
 # HANDOFF — 2026-10-30 (session 6, in progress)
 
-**Live state:** PRs #6 to #12 are merged. `feat/phase-2-meal-photo` is pushed, not merged: install it, have the owner photograph a plate, check the estimate, then merge. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. "Cloud work order" items 1 to 5 are done once that passes. Only the owner can tap the camera shutter.
+**Live state:** PRs #6 to #12 are merged. `feat/phase-2-meal-photo` is pushed, not merged: install it, have the owner photograph a plate, check the estimate, then merge. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. "Cloud work order" items 1 to 5 are done once that passes. Only the owner can tap the camera shutter. `feat/coach-daily-facts` is stacked on it and pushed: merge the two in order after the phone check, which should also ask the Coach "how much protein do I need?" and an advice question.
+
+**Next without the phone:** weekly review from the logs (Kotlin numbers), deload weeks, grocery list. **Needs the phone or owner:** meal photo check, fridge photo, progress photos, barcode (also needs an allowlist decision for `:research`), model comparison.
+
+**Eval trap:** the CPU weight cache needs about 3 GB free or the run aborts, and without a cache the low-memory killer stops it. Start the emulator with `-wipe-data` (test data only; no PIN afterwards), run `./gradlew --stop` first, and always read every answer, not just the score.
 
 **Phone state:** DB v7 build installed 2026-10-30. Passed on the phone with the real model: Coach schedule proposal, Apply, Undo; workout steppers, Done, rest timer, Next, Prev, untick, End dialog; empty workout dropped; keep-screen-on off afterwards; Clear + Undo; Fuel add, validation, remove; Progress log, validation, remove; measurements. All test entries removed; profile weight still 75 kg; week as before. The Coach chat has new test messages. Use the wireless serial if USB drops. When both the phone and emulator are attached, always set `ANDROID_SERIAL=emulator-5554` for tests.
 

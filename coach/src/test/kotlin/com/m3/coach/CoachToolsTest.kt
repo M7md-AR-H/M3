@@ -306,6 +306,15 @@ class RelevanceTest {
     }
 
     @Test
+    fun `avoiding an exercise needs the owner to have named it`() {
+        val bench = CoachAction.AvoidExercise("bench_press", "Bench press", "soreness")
+        val lunge = CoachAction.AvoidExercise("walking_lunge", "Walking lunge", "knee pain")
+        assertTrue(!CoachTools.relevantTo(bench, "I slept badly and I'm sore. Should I train hard today?"))
+        assertTrue(CoachTools.relevantTo(bench, "Bench press hurts my shoulder"))
+        assertTrue(CoachTools.relevantTo(lunge, "My knee hurts on lunges"))
+    }
+
+    @Test
     fun `look changes need a message about the look, training changes always pass`() {
         val card = CoachAction.Ui(UiChange.SetCardOrder(listOf(CardType.HABITS)))
         val theme = CoachAction.Ui(UiChange.SetThemeMode(ThemeMode.DARK))
