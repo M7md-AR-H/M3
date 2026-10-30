@@ -27,6 +27,14 @@ fun DoubleRule(modifier: Modifier = Modifier) {
     }
 }
 
+/** A thin progress bar. [fraction] is clamped to 0..1, so going over a target shows as full. */
+@Composable
+fun M3Meter(fraction: Float, color: Color, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().height(4.dp).background(M3.colors.rule)) {
+        Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).height(4.dp).background(color))
+    }
+}
+
 /** The thin line between rows. */
 @Composable
 fun HairRule(modifier: Modifier = Modifier, color: Color = M3.colors.rule) {

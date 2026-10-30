@@ -47,6 +47,10 @@ val TabId.icon: ImageVector
         TabId.COACH -> M3Icons.Coach
     }
 
+/** Not a tab: opened from Fuel → Add food. */
+@Serializable
+data object FoodEntryRoute
+
 /** Not a tab: opened from You → On-device AI. */
 @Serializable
 data object AiModelRoute

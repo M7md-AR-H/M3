@@ -1,6 +1,7 @@
 package com.m3.core.model
 
 import java.math.BigDecimal
+import java.time.LocalTime
 import java.util.Locale
 
 /**
@@ -17,6 +18,13 @@ object Units {
 
     /** "6,214": whole counts such as steps. */
     fun count(value: Int): String = String.format(Locale.ROOT, "%,d", value)
+
+    fun kcal(value: Int): String = "${count(value)} kcal"
+
+    fun grams(value: Int): String = "$value g"
+
+    /** 24-hour time, "08:05". */
+    fun clock(time: LocalTime): String = String.format(Locale.ROOT, "%02d:%02d", time.hour, time.minute)
 
     /** "12.5", "20": no trailing zeros, dot as the decimal separator. */
     fun number(value: Double): String =
