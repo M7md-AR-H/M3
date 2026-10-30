@@ -8,23 +8,35 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @HiltViewModel
 class CoachViewModel @Inject constructor(
     private val controller: CoachController,
     private val runtime: CoachRuntime,
-    chat: ChatRepository,
+    private val chat: ChatRepository,
 ) : ViewModel() {
-    val messages: StateFlow<List<StoredChatMessage>> = chat.observe()
-        .catch { emit(emptyList()) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), emptyList())
+    /** True while the chat looks cleared but can still be restored with Undo. */
+    private val _clearPending = MutableStateFlow(false)
+    val clearPending: StateFlow<Boolean> = _clearPending.asStateFlow()
+
+    private var clearJob: Job? = null
+
+    val messages: StateFlow<List<StoredChatMessage>> =
+        combine(chat.observe().catch { emit(emptyList()) }, _clearPending) { saved, clearing ->
+            if (clearing) emptyList() else saved
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), emptyList())
 
     val modelState: StateFlow<ModelState> = runtime.state
 
@@ -63,6 +75,11 @@ class CoachViewModel @Inject constructor(
             val turn = Any()
             currentTurn = turn
             try {
+                // A new message ends the Undo window, so the Coach doesn't read a chat the owner just cleared.
+                if (_clearPending.value) {
+                    clearJob?.cancel()
+                    commitClear()
+                }
                 controller.send(text) { visible -> _streaming.value = visible }
                 answered = true
             } catch (e: CancellationException) {
@@ -108,7 +125,32 @@ class CoachViewModel @Inject constructor(
 
     fun undo(messageId: Long) = launchAction { controller.undo(messageId) }
 
-    fun clear() = launchAction { controller.clear(); null }
+    /** Hides the chat at once and deletes it after the Undo window. Nothing is lost if the app closes meanwhile. */
+    fun clear() {
+        if (_clearPending.value) return
+        _clearPending.value = true
+        clearJob = viewModelScope.launch {
+            delay(CLEAR_UNDO_MILLIS)
+            commitClear()
+        }
+    }
+
+    fun undoClear() {
+        clearJob?.cancel()
+        _clearPending.value = false
+    }
+
+    private suspend fun commitClear() = withContext(NonCancellable) {
+        try {
+            controller.clear()
+            // Wait for the empty list, so the old chat doesn't flash back when the flag drops.
+            chat.observe().first { it.isEmpty() }
+        } catch (_: Exception) {
+            _error.value = "That didn't work. Please try again."
+        } finally {
+            _clearPending.value = false
+        }
+    }
 
     fun clearError() {
         _error.value = null
@@ -128,5 +170,8 @@ class CoachViewModel @Inject constructor(
 
     private companion object {
         const val STOP_TIMEOUT_MILLIS = 5_000L
+
+        /** Longer than the Undo toast stays on screen. */
+        const val CLEAR_UNDO_MILLIS = 6_000L
     }
 }

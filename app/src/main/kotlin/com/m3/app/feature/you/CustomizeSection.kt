@@ -2,7 +2,7 @@ package com.m3.app.feature.you
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
@@ -11,8 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.m3.core.designsystem.component.Kicker
-import com.m3.core.designsystem.component.M3Button
 import com.m3.core.designsystem.component.M3OutlineButton
+import com.m3.core.designsystem.component.M3SquareButton
 import com.m3.core.designsystem.config.CardType
 import com.m3.core.designsystem.config.ColorTokenName
 import com.m3.core.designsystem.config.FontPairing
@@ -48,29 +48,32 @@ fun CustomizeSection(
     modifier: Modifier = Modifier,
 ) {
     val theme = config.theme
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(M3.spacing.m)) {
-        Kicker("Theme")
-        SegmentedChoice(
-            options = ThemeMode.entries,
-            selected = theme.mode,
-            label = { it.name.titleCase() },
-            onSelect = { onChange(UiChange.SetThemeMode(it)) },
-        )
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(M3.spacing.xl)) {
+        Group("Theme") {
+            SegmentedChoice(
+                options = ThemeMode.entries,
+                selected = theme.mode,
+                label = { it.name.titleCase() },
+                onSelect = { onChange(UiChange.SetThemeMode(it)) },
+            )
+        }
 
-        Kicker("Accent")
-        SwatchRow(
-            swatches = AccentSwatches,
-            selectedHex = theme.light.accent,
-            onSelect = { onChange(UiChange.SetColorToken(ThemeScheme.LIGHT, ColorTokenName.ACCENT, it)) },
-        )
+        Group("Accent") {
+            SwatchRow(
+                swatches = AccentSwatches,
+                selectedHex = theme.light.accent,
+                onSelect = { onChange(UiChange.SetColorToken(ThemeScheme.LIGHT, ColorTokenName.ACCENT, it)) },
+            )
+        }
 
-        Kicker("Fonts")
-        SegmentedChoice(
-            options = FontPairing.entries,
-            selected = theme.fontPairing,
-            label = { it.name.titleCase() },
-            onSelect = { onChange(UiChange.SetFontPairing(it)) },
-        )
+        Group("Fonts") {
+            SegmentedChoice(
+                options = FontPairing.entries,
+                selected = theme.fontPairing,
+                label = { it.name.titleCase() },
+                onSelect = { onChange(UiChange.SetFontPairing(it)) },
+            )
+        }
 
         CommitSlider(
             label = "Text size",
@@ -92,16 +95,16 @@ fun CustomizeSection(
             onCommit = { onChange(UiChange.SetCornerRadius(it.roundToInt())) },
         )
 
-        Kicker("Today cards")
-        CardRows(config = config, onChange = onChange)
+        Group("Today cards") { CardRows(config = config, onChange = onChange) }
 
-        Kicker("Agents")
-        LockLabels.forEach { (key, name) ->
-            LabeledSwitch(
-                label = "Let agents change: $name",
-                checked = key !in config.locks,
-                onCheckedChange = { onAgentsMayChange(key, it) },
-            )
+        Group("Agents may change") {
+            LockLabels.forEach { (key, name) ->
+                LabeledSwitch(
+                    label = name,
+                    checked = key !in config.locks,
+                    onCheckedChange = { onAgentsMayChange(key, it) },
+                )
+            }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(M3.spacing.s)) {
@@ -109,17 +112,25 @@ fun CustomizeSection(
             M3OutlineButton(text = "Reset to default", onClick = { onChange(UiChange.ResetToDefault) })
         }
 
-        Kicker("Developer")
-        M3Button(text = "Simulate a Coach change", onClick = onSimulateCoachChange)
+        Group("Developer") {
+            M3OutlineButton(text = "Simulate a Coach change", onClick = onSimulateCoachChange)
+        }
+    }
+}
+
+@Composable
+private fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.s)) {
+        Kicker(title)
+        content()
     }
 }
 
 @Composable
 private fun CardRows(config: UiConfig, onChange: (UiChange) -> Unit) {
     val order = config.todayCards.map { it.type }
-    val buttonPadding = PaddingValues(horizontal = 12.dp)
     config.todayCards.forEachIndexed { index, placement ->
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(M3.spacing.s)) {
             Text(
                 text = placement.type.displayName,
                 style = M3.typography.body,
@@ -130,19 +141,26 @@ private fun CardRows(config: UiConfig, onChange: (UiChange) -> Unit) {
                 checked = placement.visible,
                 onCheckedChange = { onChange(UiChange.SetCardVisible(placement.type, it)) },
             )
-            M3OutlineButton(
-                text = "Up",
-                onClick = { onChange(UiChange.SetCardOrder(order.swapped(index, index - 1))) },
+            MoveButton(
+                symbol = "↑",
+                description = "Move ${placement.type.displayName} up",
                 enabled = index > 0,
-                contentPadding = buttonPadding,
+                onClick = { onChange(UiChange.SetCardOrder(order.swapped(index, index - 1))) },
             )
-            M3OutlineButton(
-                text = "Down",
-                onClick = { onChange(UiChange.SetCardOrder(order.swapped(index, index + 1))) },
+            MoveButton(
+                symbol = "↓",
+                description = "Move ${placement.type.displayName} down",
                 enabled = index < order.lastIndex,
-                contentPadding = buttonPadding,
+                onClick = { onChange(UiChange.SetCardOrder(order.swapped(index, index + 1))) },
             )
         }
+    }
+}
+
+@Composable
+private fun MoveButton(symbol: String, description: String, enabled: Boolean, onClick: () -> Unit) {
+    M3SquareButton(description = description, onClick = onClick, enabled = enabled, size = 44.dp) {
+        Text(text = symbol, style = M3.typography.body, color = if (enabled) M3.colors.ink else M3.colors.rule)
     }
 }
 

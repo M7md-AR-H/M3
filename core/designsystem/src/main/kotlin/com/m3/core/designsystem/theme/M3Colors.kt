@@ -14,10 +14,12 @@ data class M3Colors(
     val rule: Color,
     val accent: Color,
     val onAccent: Color,
+    /** The accent on an ink-filled panel: the other palette's, since ink is that palette's ground. */
+    val accentOnInk: Color,
 )
 
 /** Resolves "#RRGGBB" tokens. A config that passed validation always parses; invalid values become Unspecified. */
-fun ColorTokens.toM3Colors(): M3Colors = M3Colors(
+fun ColorTokens.toM3Colors(opposite: ColorTokens): M3Colors = M3Colors(
     ground = ground.toComposeColor(),
     surface = surface.toComposeColor(),
     ink = ink.toComposeColor(),
@@ -25,6 +27,7 @@ fun ColorTokens.toM3Colors(): M3Colors = M3Colors(
     rule = rule.toComposeColor(),
     accent = accent.toComposeColor(),
     onAccent = onAccent.toComposeColor(),
+    accentOnInk = opposite.accent.toComposeColor(),
 )
 
 /** Parses a "#RRGGBB" string; Unspecified if invalid. */

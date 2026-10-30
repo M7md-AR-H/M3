@@ -1,11 +1,14 @@
 package com.m3.app.feature.onboarding
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -16,14 +19,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.m3.core.designsystem.component.DoubleRule
+import com.m3.core.designsystem.component.HairRule
 import com.m3.core.designsystem.component.Kicker
 import com.m3.core.designsystem.component.M3Button
-import com.m3.core.designsystem.component.M3Card
 import com.m3.core.designsystem.component.M3OutlineButton
 import com.m3.core.designsystem.component.Masthead
+import com.m3.core.designsystem.component.SectionHeader
+import com.m3.core.designsystem.component.Skeleton
 import com.m3.core.designsystem.theme.M3
 import com.m3.core.model.Units
 import com.m3.app.feature.train.PlanText
@@ -49,20 +54,22 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = hiltViewModel()) {
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(scroll)
-                .padding(M3.spacing.l),
-            verticalArrangement = Arrangement.spacedBy(M3.spacing.m),
+                .padding(horizontal = M3.spacing.gutter, vertical = M3.spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(M3.spacing.l),
         ) {
             if (step == OnboardingStep.Welcome) {
                 Masthead(issueLine = "Setup")
+                Text(text = title(step, state), style = M3.typography.display, color = M3.colors.ink)
             } else {
                 Kicker(text = "Step $stepNumber of ${state.steps.size}")
+                Text(text = title(step, state), style = M3.typography.headline, color = M3.colors.ink)
+                StepProgress(done = stepNumber, total = state.steps.size)
             }
-            Text(text = title(step, state), style = M3.typography.display, color = M3.colors.ink)
-            if (step != OnboardingStep.Welcome) DoubleRule()
             intro(step)?.let { Text(text = it, style = M3.typography.body, color = M3.colors.muted) }
             StepContent(step, state, viewModel)
         }
-        Column(Modifier.padding(horizontal = M3.spacing.l, vertical = M3.spacing.m)) {
+        HairRule()
+        Column(Modifier.padding(horizontal = M3.spacing.gutter, vertical = M3.spacing.m)) {
             val error = if (state.showErrors) viewModel.stepError(state) else null
             (error ?: state.saveError)?.let { ErrorText(it) }
             Row(
@@ -93,6 +100,14 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = hiltViewModel()) {
                 }
             }
         }
+    }
+}
+
+/** A thin ink line that fills up as the steps go by. */
+@Composable
+private fun StepProgress(done: Int, total: Int) {
+    Box(Modifier.fillMaxWidth().height(2.dp).background(M3.colors.rule)) {
+        Box(Modifier.fillMaxWidth(done.toFloat() / total).height(2.dp).background(M3.colors.ink))
     }
 }
 
@@ -127,8 +142,8 @@ private fun StepContent(step: OnboardingStep, state: OnboardingState, viewModel:
 @Composable
 private fun Summary(state: OnboardingState) {
     val profile = state.profile
-    M3Card {
-        Kicker(text = "You")
+    Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
+        SectionHeader(title = "You")
         Text(
             text = listOfNotNull(
                 Units.parseWhole(profile.heightCm)?.let(Units::cm),
@@ -145,11 +160,11 @@ private fun Summary(state: OnboardingState) {
             color = M3.colors.ink,
         )
     }
-    M3Card {
-        Kicker(text = "Your coach's week")
+    Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
+        SectionHeader(title = "Your coach's week")
         val plan = state.preview
         if (plan == null) {
-            Text(text = "Planning…", style = M3.typography.body, color = M3.colors.muted)
+            Skeleton()
         } else {
             Text(
                 text = PlanText.summary(plan, profile.goal, profile.experience),

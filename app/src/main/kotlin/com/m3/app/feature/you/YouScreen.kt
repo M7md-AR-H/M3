@@ -3,12 +3,12 @@ package com.m3.app.feature.you
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -22,7 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.core.designsystem.component.DoubleRule
-import com.m3.core.designsystem.component.M3OutlineButton
+import com.m3.core.designsystem.component.Kicker
+import com.m3.core.designsystem.component.LinkRow
+import com.m3.core.designsystem.component.M3Snackbar
 import com.m3.core.designsystem.component.SectionHeader
 import com.m3.core.designsystem.theme.M3
 
@@ -52,14 +54,21 @@ fun YouScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(M3.spacing.l),
-            verticalArrangement = Arrangement.spacedBy(M3.spacing.m),
+                .padding(horizontal = M3.spacing.gutter, vertical = M3.spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(M3.spacing.xl),
         ) {
-            Text(text = "You", style = M3.typography.display, color = M3.colors.ink)
-            DoubleRule()
-            SectionHeader(title = "Your setup")
-            M3OutlineButton(text = "Profile", onClick = onOpenProfile, modifier = Modifier.fillMaxWidth())
-            M3OutlineButton(text = "Training setup", onClick = onOpenTrainingSetup, modifier = Modifier.fillMaxWidth())
+            Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
+                Kicker(text = "Yours alone", color = M3.colors.accent)
+                Text(text = "You", style = M3.typography.display, color = M3.colors.ink)
+                Spacer(Modifier.size(M3.spacing.xs))
+                DoubleRule()
+            }
+            Column {
+                SectionHeader(title = "Your setup")
+                LinkRow(title = "Profile", supportingText = "Body, goal, experience, injuries", onClick = onOpenProfile)
+                LinkRow(title = "Training setup", supportingText = "Places, equipment, free days", onClick = onOpenTrainingSetup)
+                LinkRow(title = "AI model & benchmark", supportingText = "The Coach's on-device model", onClick = onOpenAiModel)
+            }
             SectionHeader(title = "Customize")
             CustomizeSection(
                 config = config,
@@ -69,24 +78,10 @@ fun YouScreen(
                 onUndo = viewModel::undo,
                 onSimulateCoachChange = viewModel::simulateCoachChange,
             )
-            SectionHeader(title = "On-device AI")
-            M3OutlineButton(
-                text = "AI model & benchmark",
-                onClick = onOpenAiModel,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter),
-        ) { data ->
-            Snackbar(
-                snackbarData = data,
-                shape = M3.shapes.shape,
-                containerColor = M3.colors.ink,
-                contentColor = M3.colors.ground,
-                actionContentColor = M3.colors.ground,
-            )
-        }
+        ) { data -> M3Snackbar(data) }
     }
 }

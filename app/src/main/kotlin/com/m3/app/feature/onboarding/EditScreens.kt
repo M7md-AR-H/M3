@@ -3,11 +3,12 @@ package com.m3.app.feature.onboarding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -17,10 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.core.designsystem.component.DoubleRule
-import com.m3.core.designsystem.component.Kicker
+import com.m3.core.designsystem.component.HairRule
 import com.m3.core.designsystem.component.M3Button
-import com.m3.core.designsystem.component.M3OutlineButton
 import com.m3.core.designsystem.component.SectionHeader
+import com.m3.core.designsystem.component.Skeleton
+import com.m3.core.designsystem.component.TextAction
 import com.m3.core.designsystem.theme.M3
 import java.time.Year
 
@@ -56,10 +58,10 @@ fun TrainingSetupScreen(onBack: () -> Unit, viewModel: TrainingSetupViewModel = 
         SectionHeader(title = "Locations")
         LocationsSection(draft, viewModel::togglePreset, viewModel::addLocation, viewModel::removeLocation)
         draft.locations.forEach { location ->
-            SectionHeader(title = "Equipment at ${location.name}", modifier = Modifier.padding(top = M3.spacing.l))
+            SectionHeader(title = "Equipment at ${location.name}", modifier = Modifier.padding(top = M3.spacing.m))
             EquipmentSection(location, viewModel::updateLocation)
         }
-        SectionHeader(title = "When you can train", modifier = Modifier.padding(top = M3.spacing.l))
+        SectionHeader(title = "When you can train", modifier = Modifier.padding(top = M3.spacing.m))
         AvailabilitySection(draft, viewModel::setDay)
     }
 }
@@ -77,20 +79,24 @@ private fun <T> EditScaffold(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(M3.spacing.l),
-            verticalArrangement = Arrangement.spacedBy(M3.spacing.m),
+                .padding(horizontal = M3.spacing.gutter, vertical = M3.spacing.m),
+            verticalArrangement = Arrangement.spacedBy(M3.spacing.l),
         ) {
-            Kicker(text = "You")
-            Text(text = title, style = M3.typography.display, color = M3.colors.ink)
-            DoubleRule()
+            Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
+                TextAction(text = "← You", onClick = onBack)
+                Text(text = title, style = M3.typography.display, color = M3.colors.ink)
+                Spacer(Modifier.size(M3.spacing.xs))
+                DoubleRule()
+            }
             val draft = state.draft
             if (draft == null) {
-                if (state.message == null) Text(text = "Loading…", style = M3.typography.body, color = M3.colors.muted)
+                if (state.message == null) Skeleton()
             } else {
                 content(draft)
             }
         }
-        Column(Modifier.padding(horizontal = M3.spacing.l, vertical = M3.spacing.m)) {
+        HairRule()
+        Column(Modifier.padding(horizontal = M3.spacing.gutter, vertical = M3.spacing.m)) {
             state.message?.let { message ->
                 if (state.saved) {
                     Text(text = message, style = M3.typography.bodySmall, color = M3.colors.ink)
@@ -98,18 +104,12 @@ private fun <T> EditScaffold(
                     ErrorText(message)
                 }
             }
-            Row(
+            M3Button(
+                text = if (state.saving) "Saving…" else "Save",
+                onClick = onSave,
+                enabled = state.draft != null && !state.saving,
                 modifier = Modifier.fillMaxWidth().padding(top = M3.spacing.s),
-                horizontalArrangement = Arrangement.spacedBy(M3.spacing.s),
-            ) {
-                M3OutlineButton(text = "Back", onClick = onBack, modifier = Modifier.weight(1f))
-                M3Button(
-                    text = if (state.saving) "Saving…" else "Save",
-                    onClick = onSave,
-                    enabled = state.draft != null && !state.saving,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            )
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.m3.app.feature.you
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -7,16 +8,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,9 +33,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.m3.core.designsystem.theme.M3
+import com.m3.core.designsystem.theme.Motion
 import com.m3.core.designsystem.theme.toComposeColor
 
 private val MinTouch = 48.dp
+private val SwitchTravel = 20.dp
 
 @Composable
 fun <T> SegmentedChoice(
@@ -114,26 +117,39 @@ fun LabeledSwitch(
     }
 }
 
+/** Follows the theme's corner radius, so it's square by default. A null [onCheckedChange] leaves the tap to the row. */
 @Composable
 fun M3Switch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?) {
-    Switch(
-        checked = checked,
-        onCheckedChange = onCheckedChange,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = M3.colors.onAccent,
-            checkedTrackColor = M3.colors.accent,
-            checkedBorderColor = M3.colors.accent,
-            uncheckedThumbColor = M3.colors.muted,
-            uncheckedTrackColor = M3.colors.ground,
-            uncheckedBorderColor = M3.colors.muted,
-        ),
-    )
+    val shape = M3.shapes.shape
+    val thumbOffset by animateDpAsState(if (checked) SwitchTravel else 0.dp, Motion.short(), label = "switchThumb")
+    val toggle = if (onCheckedChange != null) {
+        Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+    } else {
+        Modifier
+    }
+    Box(Modifier.heightIn(min = 44.dp).then(toggle), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .size(width = 44.dp, height = 24.dp)
+                .background(if (checked) M3.colors.accent else Color.Transparent, shape)
+                .border(1.dp, if (checked) M3.colors.accent else M3.colors.muted, shape)
+                .padding(3.dp),
+        ) {
+            Box(
+                Modifier
+                    .offset(x = thumbOffset)
+                    .size(18.dp)
+                    .background(if (checked) M3.colors.onAccent else M3.colors.muted, shape),
+            )
+        }
+    }
 }
 
 /**
  * A slider that commits once, when the drag ends, so one gesture is one undo step.
  * [steps] is the number of stops between the ends (as in [Slider]).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommitSlider(
     label: String,
@@ -157,11 +173,12 @@ fun CommitSlider(
             valueRange = valueRange,
             steps = steps,
             modifier = Modifier.heightIn(min = MinTouch),
-            colors = SliderDefaults.colors(
-                thumbColor = M3.colors.accent,
-                activeTrackColor = M3.colors.ink,
-                inactiveTrackColor = M3.colors.rule,
-            ),
+            thumb = { Box(Modifier.size(20.dp).background(M3.colors.accent, M3.shapes.shape)) },
+            track = { state ->
+                Box(Modifier.fillMaxWidth().height(2.dp).background(M3.colors.rule)) {
+                    Box(Modifier.fillMaxWidth(state.coercedValueAsFraction).height(2.dp).background(M3.colors.ink))
+                }
+            },
         )
     }
 }

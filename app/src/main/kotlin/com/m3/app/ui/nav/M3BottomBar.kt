@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import com.m3.core.designsystem.config.TabId
 import com.m3.core.designsystem.theme.M3
 
@@ -32,7 +33,7 @@ fun M3BottomBar(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth().background(M3.colors.ground).navigationBarsPadding()) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(M3.colors.rule))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(M3.colors.ink))
         Row(Modifier.fillMaxWidth()) {
             tabs.forEach { tab ->
                 TabItem(tab = tab, selected = isSelected(tab), onClick = { onSelect(tab) })
@@ -62,10 +63,11 @@ private fun RowScope.TabItem(tab: TabId, selected: Boolean, onClick: () -> Unit)
                 .background(if (selected) M3.colors.ink else Color.Transparent),
         )
         Spacer(Modifier.height(M3.spacing.s))
-        Icon(imageVector = tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+        Icon(imageVector = tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
         Text(
             text = tab.label,
-            style = M3.typography.kicker,
+            // Tighter than a kicker: five labels share one row, down to 360 dp wide.
+            style = M3.typography.kicker.copy(letterSpacing = 0.08.em),
             color = tint,
             modifier = Modifier.padding(top = M3.spacing.xs, bottom = M3.spacing.s),
         )
