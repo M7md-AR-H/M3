@@ -44,7 +44,7 @@ fun M3Theme(tokens: ThemeTokens, content: @Composable () -> Unit) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
     val targetColors = remember(tokens.light, tokens.dark, dark) {
-        (if (dark) tokens.dark else tokens.light).toM3Colors()
+        if (dark) tokens.dark.toM3Colors(opposite = tokens.light) else tokens.light.toM3Colors(opposite = tokens.dark)
     }
     // Cross-fade between palettes (light/dark switch, agent colour changes) instead of snapping.
     val colors = M3Colors(
@@ -55,6 +55,7 @@ fun M3Theme(tokens: ThemeTokens, content: @Composable () -> Unit) {
         rule = animateToken(targetColors.rule),
         accent = animateToken(targetColors.accent),
         onAccent = animateToken(targetColors.onAccent),
+        accentOnInk = animateToken(targetColors.accentOnInk),
     )
     val typography = remember(tokens.fontPairing, tokens.typeScale) {
         m3Typography(tokens.fontPairing, tokens.typeScale)

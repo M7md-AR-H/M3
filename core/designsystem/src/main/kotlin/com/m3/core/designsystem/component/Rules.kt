@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.m3.core.designsystem.theme.M3
 
@@ -24,6 +25,12 @@ fun DoubleRule(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(3.dp))
         Box(Modifier.fillMaxWidth().height(1.dp).background(ink))
     }
+}
+
+/** The thin line between rows. */
+@Composable
+fun HairRule(modifier: Modifier = Modifier, color: Color = M3.colors.rule) {
+    Box(modifier.fillMaxWidth().height(1.dp).background(color))
 }
 
 @Composable
@@ -42,6 +49,6 @@ fun SectionHeader(
             trailing?.invoke()
         }
         Spacer(Modifier.height(M3.spacing.xs))
-        Box(Modifier.fillMaxWidth().height(1.dp).background(M3.colors.ink))
+        HairRule(color = M3.colors.ink)
     }
 }

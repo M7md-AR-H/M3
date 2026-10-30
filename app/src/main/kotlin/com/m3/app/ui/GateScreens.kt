@@ -72,8 +72,8 @@ private fun GateLayout(
         modifier = modifier
             .fillMaxSize()
             .safeDrawingPadding()
-            .padding(M3.spacing.l),
-        verticalArrangement = Arrangement.spacedBy(M3.spacing.m),
+            .padding(horizontal = M3.spacing.gutter, vertical = M3.spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(M3.spacing.l),
     ) {
         Masthead(issueLine = "Private")
         Kicker(text = kicker, color = M3.colors.accent)

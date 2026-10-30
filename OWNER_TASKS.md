@@ -82,7 +82,48 @@ The license is already in place (`LICENSE`, PolyForm Noncommercial 1.0.0): anyon
 
 ---
 
+## 6. Continue the work in a Claude Code cloud session
+- [ ] Done
+
+A cloud session runs Claude on a machine in the cloud, so it keeps working after you close your laptop. It uses your claude.ai plan's usage (no separate charge for the machine). It works from the GitHub repo, so it can't see this PC or your phone.
+
+**A. Connect GitHub (once)**
+1. Open https://claude.ai/code and sign in with the account that has your plan.
+2. Click the prompt to connect GitHub and approve it.
+3. M3 is private, so also open https://github.com/apps/claude/installations/new, choose **M7md-AR-H**, select **Only select repositories**, pick **M3**, and click **Install**.
+
+**B. Set up the environment (once)**
+1. At https://claude.ai/code, open the environment selector under the message box and edit **Default** (or add a new one named `M3 Android`).
+2. **Network access:** choose **Custom**, keep the option that includes the default list ticked, and add this one domain: `dl.google.com`
+3. **Environment variables:** add these two lines:
+   ```
+   ANDROID_HOME=/root/android-sdk
+   BASH_MAX_TIMEOUT_MS=1200000
+   ```
+4. **Setup script:** open `scripts/cloud-setup.sh` on GitHub (branch `feat/ui-editorial-pass`), copy all of it and paste it into the box.
+5. Save.
+
+**C. Start the session**
+1. In the box at https://claude.ai/code, pick the repo **M3** and set the branch to `feat/ui-editorial-pass`.
+2. Set the mode to **Auto** if it's offered, otherwise **Accept edits**.
+3. Paste the prompt from HANDOFF.md → "Cloud session prompt" and send.
+4. You can close the tab. Check it at claude.ai/code or in the Claude app's **Code** tab.
+
+**How to check it worked:** within about 15 minutes Claude reports that `./gradlew test lint :app:assembleDebug` passed. If it says a download was blocked, check step B2. If the session won't start, the setup script failed: remove it, start a session, and ask Claude to run it by hand.
+
+**Bring the work home:** on this PC, in the M3 folder, run `git fetch` and `git switch <the session's branch>`, then tell local Claude "install on the phone and run the check". Anything that needs the phone, the emulator or the Coach model happens here.
+
+---
+
 ## Try it yourself
+
+### UI pass (Claude checked this on the emulator on 2026-10-30; how it feels on your phone is yours to judge)
+1. **TODAY:** a large headline such as "Full body C. *Chase the extra rep.*", one boxed workout card, then a dark Editor's note. **Talk to your coach →** opens COACH. **Broken if:** empty boxes appear, or the card shows the wrong day's session.
+2. **TRAIN:** seven day squares at the top with today dark and a dot on session days. Tap another day: the page below changes to it. A rest day shows a short note and your next session.
+3. **COACH:** your messages are dark blocks, the Coach's answers are in the serif font. Tap **Clear**: the chat disappears and **Chat cleared · Undo** shows. **Undo** brings it back. Tap Clear again and wait 6 seconds: it's gone for good.
+4. **Workout:** each set has its kg and reps controls and the Done box on one row; numbers don't jump as the clock runs.
+5. **YOU:** rows with arrows at the top; Customize has square switches and a thin slider. In **YOU → Customize**, "Agents may change" replaces the old "Let agents change" labels.
+6. **Dark mode:** in Customize tap **Dark**, then check TODAY: the note panel turns light, with a red label.
 
 ### Phase 0 — app shell (Claude verified this on the emulator on 2026-10-17; run it on your phone once the app is first installed in Phase 1)
 1. Find **M³** in your app drawer and open it. **Expect:** an off-white screen with a big "M³" masthead and five tabs at the bottom: TODAY, TRAIN, FUEL, YOU, COACH (COACH in red). **Broken if:** it crashes, or text is unreadable.
@@ -96,7 +137,7 @@ The license is already in place (`LICENSE`, PolyForm Noncommercial 1.0.0): anyon
    - Hide a Today card with its switch, and move one with Up/Down. Go to TODAY. **Expect:** the change shows there.
    - Tap **Undo**. **Expect:** your last change is reversed. Tap **Reset to default**. **Expect:** everything returns to the original look.
 5. Still in Customize, tap **Simulate a Coach change**. **Expect:** a message "Coach moved Fuel to the top" with **Undo**; the Fuel card is now first on TODAY. Tap Undo. **Expect:** it moves back.
-6. Turn off **"Let agents change: Today layout"**, then tap **Simulate a Coach change** again. **Expect:** "Coach can't change Today — you locked it", and nothing moves.
+6. Turn off **Agents may change → Today layout**, then tap **Simulate a Coach change** again. **Expect:** "Coach can't change Today — you locked it", and nothing moves.
 7. Close the app fully and reopen it. **Expect (since Phase 1b):** your customizations are still there.
 
 ### Phase 1a — on-device AI model (installed on your phone 2026-10-18)
@@ -140,13 +181,13 @@ The Coach runs on the phone. The first answer after opening M³ takes a little l
 4. Type **My knee hurts on lunges**. **Expect:** advice (and a suggestion to see a professional for sharp or lasting pain) plus a card "Stop using <a lunge exercise>". Apply it. **Expect:** that exercise disappears from TRAIN.
 5. Ask **Why is Wednesday a rest day?** (any rest day). **Expect:** an explanation and **no** suggestion card.
 6. Type **Switch to dark mode**. **Expect:** a card; Apply turns the app dark; Undo turns it back.
-7. In **YOU → Customize**, turn off **"Let agents change: Your plan"**, then ask the Coach for an equipment change again. **Expect:** the card says **"Locked by you"** and nothing changes. Turn it back on.
+7. In **YOU → Customize**, turn off **Agents may change → Your plan**, then ask the Coach for an equipment change again. **Expect:** the card says **"Locked by you"** and nothing changes. Turn it back on.
 8. Tap **Stop** while the Coach is answering. **Expect:** the answer disappears at once and your question is back in the box; asking again works. Also press Home while it answers and come back: the answer stopped, nothing was saved, other apps stay responsive.
 9. **Broken if:** anything changes without you tapping Apply, the app closes by itself, or the Coach invents sets/reps different from TRAIN.
 
 ### Phase 1c-2 fixes — re-check (Claude checked these on your phone on 2026-10-21; only no. 6, smoothness, is yours to judge)
 1. **Dark mode:** in **COACH**, type **Switch to dark mode**. **Expect:** a card **"Switch the theme to dark"** with **Apply**. Apply turns the app dark with a short fade; Undo turns it back. **Broken if:** no card, or the Coach says it's already done without a note from the app below it.
-2. **Locked:** in **YOU → Customize**, turn off **"Let agents change: Your plan"**. In COACH, type **On Saturday I have no equipment**. **Expect:** a card marked **"Locked by you"**, and nothing changes. Turn the lock back on.
+2. **Locked:** in **YOU → Customize**, turn off **Agents may change → Your plan**. In COACH, type **On Saturday I have no equipment**. **Expect:** a card marked **"Locked by you"**, and nothing changes. Turn the lock back on.
 3. **Pain:** type **My knee hurts on lunges**. **Expect:** a card **"Stop using all lunges (knee pain) until you allow them again"**. Apply it. On **TRAIN**, no lunge, split squat or step-up appears; where one was, a red line says you're avoiding them. Undo brings them back.
 4. **Nothing to change:** ask for something that's already true (e.g. **Switch to light mode** while it's light). **Expect:** "Nothing to change" and no Apply button.
 5. **Keyboard:** type a message and tap **Send**, or the keyboard's send key. **Expect:** the keyboard closes.

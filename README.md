@@ -2,7 +2,9 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone. Fixes from that check: PR #6. Phase 1c-3 (workout logging, focus mode, progressive overload): PR #7 on `feat/phase-1c-logging`, stacked on PR #6. Both re-checked on the phone (2026-10-21, Claude driving the phone over adb); one bug found and fixed (screen kept on behind the lock). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
+**Status (2026-10-30):** UI pass done (PR on `feat/ui-editorial-pass`, stacked on PR #7; [ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)). Cloud sessions can build the project (OWNER_TASKS #6). Next: phone check of the UI pass, then 1c-4 and Phase 2.
+
+**Earlier (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone. Fixes from that check: PR #6. Phase 1c-3 (workout logging, focus mode, progressive overload): PR #7 on `feat/phase-1c-logging`, stacked on PR #6. Both re-checked on the phone (2026-10-21, Claude driving the phone over adb); one bug found and fixed (screen kept on behind the lock). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
 
 - Product & tech spec: [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md)
 - UI prototype (design source of truth): https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ
@@ -101,6 +103,21 @@ Onboarding, encrypted storage + biometric lock, on-device Coach chat (Gemma 4), 
 - [x] Instrumented: v2 → v3 migration with data (6+4+2 DB tests pass); prompt eval 12/13 (13 cases incl. "the reply quotes the app's next weight": it said 42.5 kg, the app's target). The miss: "make my plan harder" got a `set_day` proposal (needs Apply; the same case passed in the previous run)
 - [x] Sonnet review and fixes: writes serialised and re-read inside the lock; `logSet` in one transaction keeping the first completion time; "later sets follow" only for rows not set directly; untick keeps values; Finish can't run twice and shows a failure; no End dialog, keep-screen-on or timers while locked (`LocalAppLocked`) or in the background; text fields keep typing; working load = the load of most sets; abandoned workouts close at their last set; Coach targets per day + variant; minutes shown as minutes
 - [x] Phone check (2026-10-21, Claude tapping over adb; test sets unticked and the empty workout dropped, so no data left): start, steppers (the owner's dumbbell list), Done, rest timer, Skip, effort, Next/Prev, later sets follow set 1's kg but not a row set by hand, resume after a force-stop (ticks kept, lands on the first unfinished exercise), lock after 5 min with no End dialog, Finish. Coach with no history names no weight. Found: **the screen stayed on behind the lock** → fixed (window flag; checked on the emulator). Not checked: progression and the Coach's weight with real history (would need a saved workout)
+
+**UI pass (branch `feat/ui-editorial-pass`, [ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md))**
+- [x] Tokens: Bodoni optical sizes, tabular figures, balanced headlines, spacing scale with `gutter`, `accentOnInk`
+- [x] Components: `Skeleton`, `LinkRow`, `TextAction`, `M3SquareButton`, `InkPanel`, `HairRule`, `M3Snackbar`, tick glyph
+- [x] Today: story headline from the plan, one boxed workout card, ink note, unbuilt cards named once
+- [x] Train: Mon–Sun strip, selected day with a numbered list, rest-day panel, duration estimate
+- [x] Coach: ink bubbles, serif answers, try-asking rows, square send, Clear with Undo
+- [x] Workout: one control row per set, tabular numbers, compact footer, rest bar
+- [x] You, Fuel, onboarding, edit and AI model screens; square switch and thin slider
+- [x] Checked on the emulator with real screenshots (temporary local `FLAG_SECURE` removal, not committed): all five tabs, workout, Customize, dark mode. Unit tests and lint pass
+- [ ] Phone check (owner's eye: OWNER_TASKS "UI pass")
+
+**Cloud build support**
+- [x] Linux `aapt2` checksum in dependency verification; `scripts/cloud-setup.sh`; click-by-click guide in OWNER_TASKS #6
+- [ ] First cloud session confirms the build (not testable from this PC)
 
 **1c-4 — Steps + check**
 - [ ] Phone step counter (no wearable)
@@ -210,6 +227,13 @@ M3/
 | 2026-10-21 | The workout screen keeps the screen on with the window flag (`FLAG_KEEP_SCREEN_ON`), not `View.keepScreenOn` | On the phone and the emulator, turning the view flag off at the moment the app comes back locked never reached the window (all views off, window still on), so the screen stayed on behind the lock. The window flag is re-sent reliably |
 | 2026-10-21 | Claude can drive the phone over adb (taps and typing in `com.m3.app` only) for phone checks; the owner only unlocks M³ | The owner turned on Xiaomi's "USB debugging (Security settings)" themselves. Claude still changes no settings, taps only while M³ is in front, and leaves no test data behind |
 | 2026-10-21 | Motion tokens (`Motion`, 150/220/300 ms, FastOutSlowIn): fades between tabs, animated chat items and cards, theme colours cross-fade. Coach keyboard closes on send; its Enter key sends | Owner asked for smoother animations and for the keyboard to close. Short durations, scaled by the system animation setting |
+| 2026-10-30 | Keep the editorial look; apply the owner's design guidelines except their glass and gradient styles | The guidelines say the project's design system wins on conflicts; CLAUDE.md fixes square corners, palette and fonts ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)) |
+| 2026-10-30 | Bodoni Moda uses one font family per text size, each with its own `opsz` | Compose doesn't set the optical-size axis, so headlines lacked the prototype's fine strokes |
+| 2026-10-30 | Unbuilt Today cards are named once in "Coming to M³" instead of drawn as empty boxes; their switches and order stay in Customize | Four empty boxes on the main page; removing them from the config would lose the owner's choices |
+| 2026-10-30 | Masthead shows the ISO week, not "Issue 001" | A number that never changes reads as fake |
+| 2026-10-30 | Coach Clear hides the chat and deletes it 6 s later; sending a message deletes it at once | Guidelines prefer Undo to confirmation. If the app closes first, nothing is lost |
+| 2026-10-30 | Session length is an estimate in `PlanText`: 5 min warm-up, 45 s per rep set, plus rest, to the nearest 5 min | Display only; no decision depends on it |
+| 2026-10-30 | Added the Linux `aapt2` jar to dependency verification (SHA-256 of the jar from Google Maven, whose published SHA-1 matched) | Only the Windows jar was listed, so Linux builds would fail. Verification stays on |
 
 ---
 
@@ -223,7 +247,6 @@ M3/
 | Card options (`SetCardOption`) aren't validated | No card reads options yet | Per-card option schemas when real cards are built |
 | Accent-vs-background contrast isn't checked (only text pairs are) | Accent is used for fills and small marks, not body text | Add accent/ground check if accent is ever used for text |
 | Screenshots and screen recording of the app are impossible (black) | `FLAG_SECURE` protects body photos and health data | An owner setting to allow screenshots, if ever wanted |
-| Dark mode, colours and fonts were only checked structurally on the emulator, not visually | `FLAG_SECURE` blocks screenshots in automated checks | The owner's visual check on the phone in Phase 1 |
 | Dark mode may flash light for a moment at app start | Window background is the light ground colour before Compose draws | Day/night window background resources (`values-night`) |
 | No wearable data (heart rate, sleep tracking) | Owner has no watch/band | Health Connect integration if a wearable is added |
 | The model benchmark has no timeout, and Stop can't interrupt a model load in progress | LiteRT-LM's load is one blocking native call | A watchdog/timeout around load, if hangs are seen on the phone |
@@ -262,6 +285,9 @@ M3/
 | The rest timer only shows on screen: no sound, vibration or notification | Notifications need a new permission; the screen stays on during a workout | Add a vibration (no runtime permission) or notification if the owner wants it |
 | Progression doesn't use RPE beyond "10 = don't increase" | Most sets won't have RPE; the rule must work without it | RPE-based autoregulation once enough RPE is logged |
 | The theme cross-fade recomposes every colour reader for ~220 ms | Seven animated colour tokens; simplest correct approach | Animate one progress value and lerp, if it ever stutters on the phone |
+| Customize still lists unbuilt Today cards, and their order has no visible effect yet | They're real config entries for cards that come later | Build the cards |
+| Skeletons are generic bars, not the exact shape of each page | One component covers every load; most loads end before it shows | Page-specific skeletons if a load is ever slow on the phone |
+| Cloud sessions can't run the phone check, the emulator eval or the Coach model | The VM has no phone, and the 3.66 GB model isn't in the repo | Run those on the PC; cloud does code, unit tests, lint and APK builds |
 | In the Coach box, Enter sends; there's no newline key | Chat style, and the owner wanted the keyboard gone after sending | A setting, if newlines are ever needed |
 
 ---

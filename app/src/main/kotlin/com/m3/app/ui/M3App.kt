@@ -20,6 +20,7 @@ import com.m3.app.feature.workout.LocalOpenWorkout
 import com.m3.app.feature.workout.WorkoutScreen
 import com.m3.app.ui.nav.WorkoutRoute
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import com.m3.app.feature.today.TodayScreen
 import com.m3.app.feature.train.TrainScreen
 import com.m3.app.feature.you.YouScreen
@@ -35,9 +36,13 @@ import com.m3.app.ui.nav.TodayRoute
 import com.m3.app.ui.nav.TrainRoute
 import com.m3.app.ui.nav.YouRoute
 import com.m3.app.ui.nav.route
+import com.m3.core.designsystem.config.TabId
 import com.m3.core.designsystem.config.UiConfig
 import com.m3.core.designsystem.theme.M3
 import com.m3.core.designsystem.theme.Motion
+
+/** Opens the Coach tab; provided by the navigation host so cards don't need to know about it. */
+val LocalOpenCoach = compositionLocalOf<() -> Unit> { {} }
 
 @Composable
 fun M3App(config: UiConfig) {
@@ -45,6 +50,13 @@ fun M3App(config: UiConfig) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val inWorkout = destination?.hasRoute(WorkoutRoute::class) == true
+    val openTab = { tab: TabId ->
+        navController.navigate(tab.route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     Scaffold(
         containerColor = M3.colors.ground,
@@ -52,18 +64,13 @@ fun M3App(config: UiConfig) {
             if (!inWorkout) M3BottomBar(
                 tabs = config.tabs,
                 isSelected = { tab -> destination?.hasRoute(tab.route::class) == true },
-                onSelect = { tab ->
-                    navController.navigate(tab.route) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
+                onSelect = openTab,
             )
         },
     ) { innerPadding ->
         CompositionLocalProvider(
             LocalOpenWorkout provides { navController.navigate(WorkoutRoute) { launchSingleTop = true } },
+            LocalOpenCoach provides { openTab(TabId.COACH) },
         ) {
         NavHost(
             navController = navController,

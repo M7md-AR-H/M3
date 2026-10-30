@@ -6,7 +6,7 @@ Private, on-device AI coach (fitness → nutrition → progress → grooming →
 1. This file
 2. `docs/WORKING_RULES.md` — the owner's process rules (model tiers, `.md` ownership, session protocol, git, attribution). Follow them; where they conflict with this file, this file wins.
 3. `HANDOFF.md`, then `README.md` (status, roadmap, decision log, known limitations)
-4. `docs/PRODUCT_SPEC.md` (full product/tech spec) and `docs/adr/` as needed
+4. `docs/PRODUCT_SPEC.md` (full product/tech spec) and `docs/adr/` as needed; ADR 0011 for how the owner's design guidelines apply
 5. UI source of truth: the design prototype at https://claude.ai/artifact/RATouP8aDxkhKRNxgivVSJ
 
 ## Commands

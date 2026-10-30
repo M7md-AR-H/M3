@@ -30,12 +30,15 @@ import com.m3.core.designsystem.theme.M3
 
 private val MinTouch = 48.dp
 
-/** Square, ink-outlined text field. [suffix] is for units, e.g. "kg"; [error] shows below in the accent color. */
+/**
+ * Square, ink-outlined text field. [suffix] is for units, e.g. "kg"; [error] shows below in the accent color.
+ * With a null [label], give [modifier] a content description so screen readers can name the field.
+ */
 @Composable
 fun M3TextField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
+    label: String?,
     modifier: Modifier = Modifier,
     suffix: String? = null,
     placeholder: String? = null,
@@ -51,7 +54,7 @@ fun M3TextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(text = label, style = M3.typography.bodySmall) },
+            label = label?.let { { Text(text = it, style = M3.typography.bodySmall) } },
             placeholder = placeholder?.let { { Text(text = it, style = M3.typography.body, color = M3.colors.muted) } },
             suffix = suffix?.let { { Text(text = it, style = M3.typography.body, color = M3.colors.muted) } },
             isError = error != null,
@@ -111,11 +114,13 @@ fun M3CheckRow(
         val shape = M3.shapes.shape
         Box(
             modifier = Modifier
-                .size(22.dp)
-                .border(1.5.dp, M3.colors.ink, shape)
-                .padding(4.dp)
-                .background(if (checked) M3.colors.accent else Color.Transparent, shape),
-        )
+                .size(24.dp)
+                .background(if (checked) M3.colors.accent else Color.Transparent, shape)
+                .border(1.5.dp, if (checked) M3.colors.accent else M3.colors.ink, shape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) CheckGlyph(color = M3.colors.onAccent)
+        }
         Column(Modifier.weight(1f)) {
             Text(text = label, style = M3.typography.body, color = M3.colors.ink)
             if (supportingText != null) {

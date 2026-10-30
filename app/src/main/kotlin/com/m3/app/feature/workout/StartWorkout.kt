@@ -1,7 +1,6 @@
 package com.m3.app.feature.workout
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
@@ -71,7 +70,7 @@ fun StartWorkoutButton(session: PlannedSession, modifier: Modifier = Modifier, v
     val resuming = openWorkout != null && openWorkout.date == today && openWorkout.sessionType == session.type.name
     val openScreen = LocalOpenWorkout.current
     M3Button(
-        text = if (resuming) "Resume workout" else "Start workout",
+        text = if (resuming) "Resume workout →" else "Start workout →",
         onClick = { viewModel.start(session, today, openScreen) },
         modifier = modifier.fillMaxWidth(),
     )
@@ -84,6 +83,6 @@ fun StartLaterNote(session: PlannedSession, modifier: Modifier = Modifier) {
         text = "You can start this on ${session.day.displayName}.",
         style = M3.typography.bodySmall,
         color = M3.colors.muted,
-        modifier = modifier.padding(top = M3.spacing.s),
+        modifier = modifier,
     )
 }

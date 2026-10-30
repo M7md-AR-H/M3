@@ -25,11 +25,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.ai.bench.BenchmarkReport
 import com.m3.ai.model.ModelStatus
 import com.m3.core.designsystem.component.DoubleRule
+import com.m3.core.designsystem.component.HairRule
 import com.m3.core.designsystem.component.Kicker
 import com.m3.core.designsystem.component.M3Button
 import com.m3.core.designsystem.component.M3Card
 import com.m3.core.designsystem.component.M3OutlineButton
 import com.m3.core.designsystem.component.SectionHeader
+import com.m3.core.designsystem.component.TextAction
 import com.m3.core.designsystem.theme.M3
 import java.util.Locale
 import kotlinx.coroutines.launch
@@ -54,12 +56,14 @@ fun AiModelScreen(onBack: () -> Unit, viewModel: AiModelViewModel = hiltViewMode
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(M3.spacing.l),
-        verticalArrangement = Arrangement.spacedBy(M3.spacing.m),
+            .padding(horizontal = M3.spacing.gutter, vertical = M3.spacing.m),
+        verticalArrangement = Arrangement.spacedBy(M3.spacing.l),
     ) {
-        Kicker(text = "On-device AI")
-        Text(text = "AI model", style = M3.typography.display, color = M3.colors.ink)
-        DoubleRule()
+        Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
+            TextAction(text = "← You", onClick = onBack)
+            Text(text = "AI model", style = M3.typography.display, color = M3.colors.ink)
+            DoubleRule()
+        }
         Text(
             text = "The Coach runs entirely on this phone. Pick the model file you downloaded; " +
                 "M³ copies it into private storage and checks it's the official file.",
@@ -80,7 +84,7 @@ fun AiModelScreen(onBack: () -> Unit, viewModel: AiModelViewModel = hiltViewMode
 
         SectionHeader(title = "Models")
         state.rows.forEach { row ->
-            M3Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
                 Text(text = row.spec.displayName, style = M3.typography.title, color = M3.colors.ink)
                 Text(
                     text = "${row.spec.fileName} · ${"%.2f".format(Locale.ROOT, row.spec.sizeBytes / 1e9)} GB",
@@ -99,6 +103,7 @@ fun AiModelScreen(onBack: () -> Unit, viewModel: AiModelViewModel = hiltViewMode
                         M3OutlineButton(text = "Remove", onClick = { viewModel.delete(row.spec) }, enabled = !state.busy)
                     }
                 }
+                HairRule()
             }
         }
         M3Button(
@@ -122,12 +127,13 @@ fun AiModelScreen(onBack: () -> Unit, viewModel: AiModelViewModel = hiltViewMode
             modifier = Modifier.fillMaxWidth(),
         )
         state.results.forEach { result ->
-            M3Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(M3.spacing.xs)) {
                 Text(text = result.case.label, style = M3.typography.title, color = M3.colors.ink)
                 Text(text = BenchmarkReport.headline(result), style = M3.typography.body, color = M3.colors.ink)
                 if (result.error == null) {
                     Text(text = BenchmarkReport.checks(result), style = M3.typography.bodySmall, color = M3.colors.muted)
                 }
+                HairRule()
             }
         }
         if (state.results.isNotEmpty() && !state.busy) {
@@ -141,7 +147,6 @@ fun AiModelScreen(onBack: () -> Unit, viewModel: AiModelViewModel = hiltViewMode
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        M3OutlineButton(text = "Back", onClick = onBack, modifier = Modifier.fillMaxWidth())
     }
 }
 

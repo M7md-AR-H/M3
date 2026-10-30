@@ -18,6 +18,8 @@ object M3Icons {
     )
     val You = strokeIcon("You", "M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0", "M4 21c1-4 4-6 8-6s7 2 8 6")
     val Coach = strokeIcon("Coach", "M4 5h16v11H10l-6 4z")
+    val Send = strokeIcon("Send", "M5 12h14M13 6l6 6l-6 6")
+    val Stop = strokeIcon("Stop", "M7 7h10v10H7z")
 }
 
 private fun strokeIcon(name: String, vararg pathData: String): ImageVector =

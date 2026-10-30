@@ -1,11 +1,28 @@
-# HANDOFF — 2026-10-21 (end of session 5)
+# HANDOFF — 2026-10-30 (end of session 6)
 
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 
+## Cloud session prompt
+Paste this into a new cloud session (OWNER_TASKS #6), on branch `feat/ui-editorial-pass` or newer:
+
+> Read CLAUDE.md, docs/WORKING_RULES.md, HANDOFF.md and the README roadmap. You're in a cloud VM: there's no phone, no emulator and no AI model. First run `./gradlew test lint :app:assembleDebug` and fix any setup problem; dependency verification must stay on. Then work through "Cloud work order" in HANDOFF.md, one feature branch and PR per phase, each stacked on the last. Write unit tests for everything deterministic. Don't merge. List anything that needs the phone or model under "Needs the phone" in HANDOFF.md. Update README and HANDOFF after every phase. Never add a "Generated with" line.
+
+## Cloud work order
+Goal: a complete app for daily use in one day. Stop after each item if time or usage runs short; the order is by value.
+1. **1c-4:** step counter (`TYPE_STEP_COUNTER`, `ACTIVITY_RECOGNITION` asked in context, daily totals in the encrypted DB, on Today). Planned deload weeks if simple.
+2. **Phase 2 core:** TDEE and macro targets (Mifflin-St Jeor) in Kotlin, calorie floor and max weekly loss enforced in code, a manual food log, the Fuel tab and Today's Fuel card from the prototype (`project/Fuel.dc.html`). Copy the prototype's layout.
+3. **Phase 3 core:** weight and measurements with a moving-average trend, the Progress design from the prototype.
+4. **Daily loop:** morning check-in and habits cards.
+5. **Meal photo estimate:** Gemma vision via the existing engine, shown as an estimate. Code only in the cloud; it needs a phone check.
+6. **Only if everything above is done:** progress photos (Tink streaming AEAD, ghost overlay). Barcode and `:research` need network code and an owner decision on the allowlist; form check, grooming and style are out of scope for this push.
+
+## Needs the phone
+- Everything in "Next steps" below, plus any new permission, sensor, camera or model behaviour built in the cloud.
+
 ## ▶ Next steps, in order
 1. Do the normal session start: CLAUDE.md, docs/WORKING_RULES.md, this file, README roadmap + decision log, `git status`, `git log -5`. Give a time estimate first.
-2. **Install the keep-screen-on fix on the phone** (commit on `feat/phase-1c-logging`, PR #7) when the owner next connects it, and re-check: start a workout, Home, wait 5½ min, come back → `dumpsys window windows` shows no `KEEP_SCREEN_ON` on M³'s window while it's locked, and it's back after unlocking. Claude drives the phone (see Traps → "Driving the phone").
-3. **Merge, after asking the owner:** first #6 into `main`, then retarget #7 to `main` and merge it. Both are squash merges. The phone check of both is done (session 5, below).
+2. **Install the UI pass and the keep-screen-on fix on the phone** (`feat/ui-editorial-pass` contains both) when the owner next connects it, run OWNER_TASKS "UI pass", and re-check: start a workout, Home, wait 5½ min, come back → `dumpsys window windows` shows no `KEEP_SCREEN_ON` on M³'s window while it's locked, and it's back after unlocking. Claude drives the phone (see Traps → "Driving the phone").
+3. **Merge, after asking the owner:** first #6 into `main`, then retarget #7 to `main` and merge it, then the UI pass the same way. All are squash merges. The phone check of #6 and #7 is done (session 5, below).
    - Ask the owner whether to tap **Clear** in COACH: the chat holds only test messages from the two phone checks.
 4. **Decide on the model, using evidence.** The owner is open to replacing Gemma 4 E4B (see memory and the decision log). Evidence so far:
    - The tool line is left out (phone).
@@ -18,6 +35,13 @@
    - Benchmark them, and run `CoachPromptEval` on each.
    - Propose a switch.
 5. **Phase 1c-4:** the phone step counter, then the Phase 1 "Try it yourself" list and phone check. Give an estimate first. The owner hasn't decided on the idle model unload (free the model after ~5 min with no Coach message).
+
+## Session 6 (2026-10-30): what was done
+- **UI pass on `feat/ui-editorial-pass`** (stacked on #7, see README and ADR 0011). The owner's design guidelines were applied to the editorial system; glass and gradient styles were not used, because the guidelines themselves say the project's system wins.
+- **Checks:** unit tests, lint and debug build pass. Real screenshots reviewed on the emulator: all five tabs, workout, Customize, dark mode. Not reviewed visually: onboarding, Profile and Training setup edit screens, the rest-day Train view, the Coach with real messages, and Clear + Undo (the emulator has no model).
+- **Screenshots on the emulator:** temporarily comment out the `FLAG_SECURE` line in `MainActivity`, rebuild, `adb exec-out screencap -p`, then restore it. Never commit that. This is the way to review UI from now on.
+- **Cloud support:** Linux `aapt2` checksum, `scripts/cloud-setup.sh`, OWNER_TASKS #6. Not yet tried in a real cloud session.
+- **Emulator:** has a test workout left open (no sets logged) and the theme set to dark. Test data only. It was stopped; adb server stopped. The phone wasn't touched this session.
 
 ## Session 5 (2026-10-21): what was done
 - **Phone check of 1c-1 and 1c-2** (README ticked). The owner tapped; Claude read the screen.
@@ -83,6 +107,7 @@
   - `main` holds Phases 0–1c-2.
   - PR #6 (`fix/phase-1c-phone-feedback`) is open.
   - PR #7 (`feat/phase-1c-logging`, base `fix/phase-1c-phone-feedback`) is open.
+  - `feat/ui-editorial-pass` (base `feat/phase-1c-logging`) has its own open PR.
   - Nothing is merged without the owner's OK.
 - **Phone:**
   - It has the #6 + #7 build from 2026-10-21 20:06, **without** the keep-screen-on fix.
@@ -122,6 +147,9 @@
 - Idle unload of the model in the foreground (5 min): wanted?
 
 ## Traps found
+- **Cloud VM:** no `dl.google.com` on the default allowlist (Maven artifacts redirect there too), so the environment needs Custom network access. A new Android dependency with a per-platform artifact needs its Linux checksum in `gradle/verification-metadata.xml`. Foreground commands time out at 2 minutes by default: run Gradle in the background.
+- **Bash tool on this PC:** a long heredoc containing apostrophes fails as a whole and writes nothing. Use the Write tool for source files. adb paths need `MSYS_NO_PATHCONV=1`.
+- **Emulator after boot:** the app can't launch until the PIN is entered ("No activity found"). `keyevent 224`, swipe up, `input text 1234`, Enter; check for `RUNNING_UNLOCKED`.
 - **Tooling on this PC:**
   - `export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"` before every Gradle call.
   - adb is at `$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe` and isn't on PATH.
