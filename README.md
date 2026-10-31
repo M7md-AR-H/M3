@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-30):** Phase 1 code is complete and merged, with the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)). Phase 2 core, Phase 3 core, and the morning check-in and habits are built. On the phone (real model, real data, test entries removed): Coach schedule change with Apply and Undo, full workout flow, Clear + Undo, Fuel, Progress. Progression with real history is checked on the emulator. Next: meal photos.
+**Status (2026-10-31):** Phase 1 code, the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)), Phase 2 core with meal photos, Phase 3 core, check-in and habits, and the Coach's view of the day are merged. Checked on the phone with the real model and real data; progression with real history on the emulator. The Coach answers plain number questions in Kotlin. Next: weekly review.
 
 **Earlier (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone. Fixes from that check: PR #6. Phase 1c-3 (workout logging, focus mode, progressive overload): PR #7 on `feat/phase-1c-logging`, stacked on PR #6. Both re-checked on the phone (2026-10-21, Claude driving the phone over adb); one bug found and fixed (screen kept on behind the lock). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
 
@@ -135,7 +135,10 @@ TDEE/macros, meal photo → estimate + critique, barcode scanning, fridge mode, 
 - [x] DB v5 (auto-migration, new table only): `food_entry`; repository validates every entry; emulator test from an encrypted v4 DB with data
 - [x] Fuel tab and Today's Fuel card from the prototype; Add food form; Remove with Undo
 - [ ] Phone check
-- [ ] Meal photo estimate, barcode, fridge mode, grocery list, Coach seeing the food log
+- [x] Meal photo: camera or gallery, read by the on-device model, parsed and range-checked, opened in the form to check before saving; no photo kept; emulator check up to the model
+- [x] Meal photo with the real model on the phone (2026-10-31): camera and gallery give estimates in about 30 s, a non-food photo is refused, no file stays behind
+- [x] The Coach sees the food log, steps, weight trend and check-in; number questions answered instantly on the phone
+- [ ] Barcode, fridge mode, grocery list
 
 ### Phase 3 — Progress (v0.3)
 Ghost-overlay progress photos, measurements, weight trend, weekly review that adjusts plans.
@@ -263,6 +266,12 @@ M3/
 | 2026-10-30 | A plain change to the usual week ("I can train on Fridays at Home") is proposed by the app, and the owner's words beat the model's tool line. Questions and one-offs stay with the model | On the phone the model wrote `not_free` for the first wording and no tool line for the second. Still needs Apply, so a false match costs one tap |
 | 2026-10-30 | Today's weigh-in and measurements can be removed | A wrong entry otherwise stayed for good, and it let the phone check leave no test data |
 | 2026-10-30 | The morning check-in gives advice in Kotlin and doesn't change the plan | Rule: sleep or energy at 2 or below, or soreness at 4 or above, says take it easier. Changing volume needs its own undoable tool |
+| 2026-10-30 | Meal photos use the system camera through one private FileProvider folder, or the system photo picker; no CAMERA permission. The image is cut to 768 px, sent only to the on-device model, and deleted | The app needs no new permission, and a meal photo has no use after the estimate |
+| 2026-10-30 | A photo estimate never saves by itself: it opens in the Add food form. Replies are parsed and range-checked, and calories more than 25% from the macro sum are replaced by the sum | LLM output is untrusted (ADR 0003), and photo estimates are often 20–40% off |
+| 2026-10-30 | Plain questions about today's protein, calories, steps and weight trend are answered by `DailyAnswers` in Kotlin, without the model; advice stays with the model | Eval on real E4B: told "58g left" it said 53g, and it made up last week's weight. Reliable numbers can't come from a prompt |
+| 2026-10-30 | The model sees today's logs, with each remaining amount worked out for it, and keeps them for advice | It needs the context to advise, and it can't be trusted to subtract ("158g of protein remaining") |
+| 2026-10-30 | Avoiding an exercise needs the owner's message to name it | Eval: "I slept badly and I'm sore" got a proposal to avoid bench press for good |
+| 2026-10-30 | Eval read answer by answer, not by score: 17/17 hid three wrong numbers. Latest run 15/19 on 19 cases: theme with no tool line (the app's fallback covers it, the eval doesn't run that), invented `adjust_weight` tool with made-up increases (rejected, but the words remain), wrong protein (now Kotlin), bench press for soreness (now guarded) | Evidence for the model decision. Scores vary run to run; expected-number checks only look for one correct number |
 | 2026-10-30 | Standing permission to merge: squash-merge once local checks pass and the Opus final check is done | Owner's OK ("any merges"). The repo has no CI, so local checks are the gate |
 | 2026-10-30 | Added the Linux `aapt2` jar to dependency verification (SHA-256 of the jar from Google Maven, whose published SHA-1 matched) | Only the Windows jar was listed, so Linux builds would fail. Verification stays on |
 
@@ -319,6 +328,10 @@ M3/
 | Steps taken since the last app open are lost if the phone restarts first, and a day you don't open M³ gets an estimated share of the gap | Android gives background apps no step events, and the sensor's total resets at reboot | A foreground service with a permanent notification, if the owner ever wants exact days |
 | Calorie targets ignore steps, and don't yet learn your real burn from how your weight responds to what you eat | Needs weeks of matched food and weight data | Compare logged intake with the trend in the weekly review |
 | Weight can only be logged for today, and only today's entries can be removed | Smallest useful log | Past-day entry and an edit list |
+| The Coach can still state wrong numbers in advice ("add 2.5 kg") or invent a past value | 4B model; only plain number questions and validated tools are protected. The prompt tells it to use only the facts, and it doesn't always | A stronger model (needs an on-phone benchmark), or a check of numbers in replies against the facts |
+| The Coach sees only the last 3 foods by name; the totals cover the whole day | Prompt budget | A larger context window |
+| The photo critique shows once and isn't saved with the entry | No DB change for a first version | A note column on `food_entry` |
+| The system camera holds the photo in M³'s private folder as a plain file until it's read, for a few seconds | Only the camera app can write it; encryption starts after that | — (it's deleted right after reading) |
 | The morning check-in can be changed but not cleared, and the Coach doesn't read it | Advice only for now | Add it to the Coach facts and a volume tool |
 | Removing a weigh-in has no Undo | The number is quick to type again | An Undo toast, if it's ever missed |
 | The model still wrongly says "I have updated" with a schedule card | 4B model; the app's note corrects it on screen | A better model or prompt (model decision) |

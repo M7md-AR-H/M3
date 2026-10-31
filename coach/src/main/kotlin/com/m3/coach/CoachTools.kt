@@ -178,6 +178,10 @@ object CoachTools {
             }
             // Free days are the owner's usual week; a message about one day is a day_equipment matter (seen in evals).
             is CoachAction.SetAvailability -> ONE_DAY_WORDS.none { Regex("\\b$it\\b").containsMatchIn(text) }
+            // Soreness or a bad night isn't a reason to drop an exercise for good (seen in the eval: bench press for
+            // "I slept badly and I'm sore"), so the owner has to have named it.
+            is CoachAction.AvoidExercise -> action.exerciseName.lowercase().split(" ", "-")
+                .any { word -> word.length >= MIN_NAME_WORD && word.removeSuffix("s") in text }
             else -> true
         }
     }
@@ -305,6 +309,7 @@ object CoachTools {
     )
 
     private val THEME_WORDS = listOf("theme", "dark", "light", "night", "mode", "colour", "color")
+    private const val MIN_NAME_WORD = 4
     private val SCHEDULE_WORDS = Regex("\\b(free|train|training|available|work out)\\b")
     private val ONE_OFF_WORDS = Regex("\\b(today|tomorrow|tonight|this|next|only)\\b")
     private val UNAVAILABLE = Regex("\\b(can'?t|cannot|can not|no longer|not free|not available|busy|any ?more)\\b")

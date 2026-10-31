@@ -1,6 +1,12 @@
 # HANDOFF — 2026-10-30 (session 6, in progress)
 
-**Live state:** PRs #6 to #11 are merged; `fix/phone-check-batch` holds the phone-check fixes plus check-in and habits. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. Work through "Cloud work order" locally: items 1 to 4 are done, next is item 5 (meal photo).
+**Live state (2026-10-31):** everything through meal photos and the Coach's daily facts is merged; "Cloud work order" items 1 to 5 are done. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. Only the owner can tap the camera shutter.
+
+**Phone check 2026-10-31 passed:** Coach number questions (instant, right numbers), an advice answer (40 s cold, used real numbers), meal photo by camera and gallery (about 30 s), non-food refused, no photo file left. The test meal and test chat are removed. Workout screen on the phone on a day the plan really has a session: done on 2026-10-30 through the Coach; dark mode on the phone can't be proven by Claude (the owner should look).
+
+**Next:** weekly review from the logs (Kotlin numbers), deload weeks, grocery list. **Needs the phone or owner:** fridge photo, progress photos, barcode (also needs an allowlist decision for `:research`), model comparison.
+
+**Eval trap:** the CPU weight cache needs about 3 GB free or the run aborts, and without a cache the low-memory killer stops it. Start the emulator with `-wipe-data` (test data only; no PIN afterwards), run `./gradlew --stop` first, and always read every answer, not just the score.
 
 **Phone state:** DB v7 build installed 2026-10-30. Passed on the phone with the real model: Coach schedule proposal, Apply, Undo; workout steppers, Done, rest timer, Next, Prev, untick, End dialog; empty workout dropped; keep-screen-on off afterwards; Clear + Undo; Fuel add, validation, remove; Progress log, validation, remove; measurements. All test entries removed; profile weight still 75 kg; week as before. The Coach chat has new test messages. Use the wireless serial if USB drops. When both the phone and emulator are attached, always set `ANDROID_SERIAL=emulator-5554` for tests.
 

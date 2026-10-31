@@ -9,15 +9,21 @@ import com.m3.coach.CoachAction
 import com.m3.coach.CoachFacts
 import com.m3.coach.CoachPrompt
 import com.m3.coach.CoachTools
+import com.m3.coach.DailyAnswers
+import com.m3.coach.DailyFacts
 import com.m3.coach.ExerciseProgress
 import com.m3.coach.progressKey
 import com.m3.coach.ReplyParser
 import com.m3.coach.ToolContext
 import com.m3.coach.ToolResult
+import com.m3.core.data.BodyRepository
 import com.m3.core.data.ChatAuthor
 import com.m3.core.data.ChatRepository
+import com.m3.core.data.DailyRepository
+import com.m3.core.data.FoodRepository
 import com.m3.core.data.PlanOverridesRepository
 import com.m3.core.data.ProposalStatus
+import com.m3.core.data.StepRepository
 import com.m3.core.data.StoredChatMessage
 import com.m3.core.data.StoredProposal
 import com.m3.core.data.TrainingSetupRepository
@@ -32,6 +38,8 @@ import com.m3.core.designsystem.config.UiConfig
 import com.m3.core.designsystem.config.UiConfigStore
 import com.m3.core.designsystem.config.displayName
 import com.m3.core.model.EquipmentKind
+import com.m3.core.model.Nutrition
+import com.m3.core.model.WeightTrend
 import com.m3.core.training.PlanDiff
 import com.m3.core.training.WeekPlan
 import java.time.DayOfWeek
@@ -88,6 +96,10 @@ class CoachController @Inject constructor(
     private val overrides: PlanOverridesRepository,
     private val uiStore: UiConfigStore,
     private val workouts: WorkoutRepository,
+    private val food: FoodRepository,
+    private val steps: StepRepository,
+    private val body: BodyRepository,
+    private val daily: DailyRepository,
 ) {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -104,7 +116,13 @@ class CoachController @Inject constructor(
         if (trimmed.isEmpty()) return
         val history = chat.observe(HISTORY_MESSAGES).first().map { ChatTurn(it.role, it.text) }
         val inputs = currentInputs()
-        val system = CoachPrompt.system(facts(inputs, workouts.observeRecent().first()))
+        val today = dailyFacts(inputs)
+        // Plain number questions never reach the model: it got them wrong in the eval even when told the answer.
+        DailyAnswers.answer(trimmed, today)?.let { answer ->
+            chat.addTurn(trimmed, answer, null)
+            return
+        }
+        val system = CoachPrompt.system(facts(inputs, workouts.observeRecent().first(), today))
         val raw = runtime.use { engine ->
             val streamed = StringBuilder()
             engine.generate(
@@ -232,9 +250,25 @@ class CoachController @Inject constructor(
 
     private fun toolContext(inputs: PlanInputs) = ToolContext(LocalDate.now(), inputs.setup, plans.catalog, inputs.stored.excluded)
 
-    private fun facts(inputs: PlanInputs, recent: List<WorkoutWithSets>): CoachFacts {
-        val config = uiStore.config.value
+    /** Today's logs for the prompt. Every number is worked out here; the model only explains them. */
+    private suspend fun dailyFacts(inputs: PlanInputs): DailyFacts {
         val today = LocalDate.now()
+        val entries = food.observeDay(today).first()
+        val points = WeightTrend.points(body.observeWeights().first())
+        return DailyFacts(
+            targets = inputs.profile?.let { Nutrition.targets(it, today.year, inputs.plan.sessions.size) },
+            eaten = Nutrition.totals(entries),
+            foods = entries.takeLast(CoachPrompt.MAX_FOODS).map { it.name },
+            steps = steps.observeDay(today).first().takeIf { it > 0 },
+            trendKg = points.lastOrNull()?.trendKg,
+            weeklyChangeKg = WeightTrend.weeklyChangeKg(points),
+            checkIn = daily.observeCheckIn(today).first(),
+        )
+    }
+
+    private fun facts(inputs: PlanInputs, recent: List<WorkoutWithSets>, today: DailyFacts): CoachFacts {
+        val config = uiStore.config.value
+        val date = LocalDate.now()
         // Every number here comes from Progression; the model only explains them.
         val progress = inputs.plan.sessions.flatMap { session ->
             WorkoutTargets.forSession(session, inputs.setup, recent).filter { it.last.isNotEmpty() }.map { t ->
@@ -244,9 +278,10 @@ class CoachController @Inject constructor(
         }.toMap()
         return CoachFacts(
             progress = progress,
-            workoutsLast28Days = recent.count { !it.workout.date.isBefore(today.minusDays(27)) },
+            workoutsLast28Days = recent.count { !it.workout.date.isBefore(date.minusDays(27)) },
             lastWorkout = recent.firstOrNull()?.workout?.date,
-            today = LocalDate.now(),
+            daily = today,
+            today = date,
             profile = inputs.profile,
             setup = inputs.setup,
             plan = inputs.plan,
