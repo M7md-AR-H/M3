@@ -4,7 +4,7 @@
 
 **Phone check 2026-10-31 passed:** Coach number questions (instant, right numbers), an advice answer (40 s cold, used real numbers), meal photo by camera and gallery (about 30 s), non-food refused, no photo file left. The test meal and test chat are removed. Workout screen on the phone on a day the plan really has a session: done on 2026-10-30 through the Coach; dark mode on the phone can't be proven by Claude (the owner should look).
 
-**Next:** weekly review from the logs (Kotlin numbers), deload weeks, grocery list. **Needs the phone or owner:** fridge photo, progress photos, barcode (also needs an allowlist decision for `:research`), model comparison.
+**Next:** deload weeks, grocery list. The weekly review card is built, and shows from the first Monday after a logged week: look at it on the next phone install. Owner confirmed dark mode works on the phone. **Needs the phone or owner:** fridge photo, progress photos, barcode (also needs an allowlist decision for `:research`), model comparison.
 
 **Eval trap:** the CPU weight cache needs about 3 GB free or the run aborts, and without a cache the low-memory killer stops it. Start the emulator with `-wipe-data` (test data only; no PIN afterwards), run `./gradlew --stop` first, and always read every answer, not just the score.
 

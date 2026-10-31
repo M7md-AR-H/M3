@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.app.feature.onboarding.ErrorText
+import com.m3.app.feature.train.rememberToday
 import com.m3.core.designsystem.component.HairRule
 import com.m3.core.designsystem.component.Kicker
 import com.m3.core.designsystem.component.LinkRow
@@ -52,6 +53,7 @@ fun ProgressSection(onOpenMeasurements: () -> Unit, viewModel: ProgressViewModel
     val state by viewModel.state.collectAsStateWithLifecycle()
     val saveFailed by viewModel.saveFailed.collectAsStateWithLifecycle()
     Column(verticalArrangement = Arrangement.spacedBy(M3.spacing.xl)) {
+        WeekReviewCard(today = rememberToday().value)
         WeightBlock(state, saveFailed, viewModel)
         MeasurementsBlock(state, onOpenMeasurements, viewModel::removeTodaysMeasurements)
     }

@@ -75,3 +75,16 @@ Debug build with LiteRT-LM 0.18.0, a 4,096-token context, the fixed prompt set, 
 - Uninstalling the app deletes the model, which then has to be copied again.
 - We depend on a 0.x library whose API may change between versions; the `LlmEngine` wrapper limits the impact.
 - Stop can't interrupt a native model load mid-call; it takes effect when the load returns.
+
+## Model options reviewed (2026-10-31)
+Why: evals show E4B misquotes numbers and invents tools. Figures are from the model cards on Hugging Face, not measured on the Poco F5. The Galaxy S26 and desktop numbers will be better than this phone's. M³ runs LiteRT-LM 0.18.0.
+
+| Model | File | Vision | Licence | On Android | Verdict |
+|---|---|---|---|---|---|
+| Qwen3-4B, `mixed_int4` | 2.17 GiB | No | Apache-2.0 | Android GPU listed. 19.5 tok/s on a Galaxy S26. A Pixel 8a (8 GB) fell to 243 MB free and the run was stopped | **Try first**, for chat, with E4B kept for photos. Needs LiteRT-LM **0.19.0**: GPU engines 0.18.0 and 0.18.1 crash on this file (LiteRT-LM#3986). Thinking is on by default, so it needs testing for answer time |
+| LFM3-Omni-2B | 3.23 GB | Yes, plus audio | LFM Open License v1.0: not licensed for commercial use by organisations with $10M or more in revenue | Measured on Galaxy S26 and Pixel 8a GPU. 27 tok/s; 1.05 GB process + 3.08 GB GPU | **Try second**: the only single-file replacement. The licence is more restrictive than Apache. Needs 0.18.1. Set a sampler, or answers are greedy |
+| WeVisOne-VL-2B, int8 | 2.9 GB | Yes (detection, OCR, counting) | Apache-2.0 | Galaxy S26 GPU, 2.7 GB peak | Not a coach: 2,048-token context, long text unreliable. Could read nutrition labels later |
+| Gemma 4 12B | 6.9 GB | Yes | Apache-2.0 | **Not listed for Android.** 7.3–7.9 GB of GPU memory on desktops | **Don't use**: likely to be killed on a 12 GB phone |
+| Qwen3.8-27B | 15.4 GB | No | Not checked | Desktop-class | Doesn't fit |
+
+No card measures tool-calling accuracy, so only our own eval can say which is stronger. Order of work: raise LiteRT-LM to 0.19.0 (the crash above is in the runtime, so test E4B again first), run `CoachPromptEval` on each candidate on the emulator, then the on-phone benchmark. Keep E4B until a candidate beats it on both.

@@ -25,6 +25,9 @@ class FoodRepository(private val opener: DatabaseOpener) {
         opener.get().foodDao().save(entry.toEntity())
     }
 
+    suspend fun between(from: LocalDate, to: LocalDate): List<FoodEntry> =
+        opener.get().foodDao().between(from.toString(), to.toString()).map { it.toModel() }
+
     suspend fun delete(id: Long) = opener.get().foodDao().delete(id)
 
     private fun FoodEntryEntity.toModel() =

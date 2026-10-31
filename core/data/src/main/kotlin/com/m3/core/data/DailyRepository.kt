@@ -22,6 +22,10 @@ class DailyRepository(private val opener: DatabaseOpener) {
         }
     }
 
+    suspend fun checkInsBetween(from: LocalDate, to: LocalDate): List<CheckIn> =
+        opener.get().dailyDao().checkInsBetween(from.toString(), to.toString())
+            .map { CheckIn(LocalDate.parse(it.date), it.sleep, it.energy, it.soreness) }
+
     suspend fun saveCheckIn(checkIn: CheckIn) {
         if (!DailyCheck.valid(checkIn)) throw InvalidDataException(listOf(checkIn))
         opener.get().dailyDao().saveCheckIn(
