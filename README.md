@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-31):** Phase 1 code, the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)), Phase 2 core with meal photos, Phase 3 core, check-in and habits, and the Coach's view of the day are merged. Checked on the phone with the real model and real data; progression with real history on the emulator. The Coach answers plain number questions in Kotlin. Next: weekly review.
+**Status (2026-10-31):** Phase 1 code, the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)), Phase 2 core with meal photos, Phase 3 core, check-in and habits, and the Coach's view of the day are merged. Checked on the phone with the real model and real data; progression with real history on the emulator. The Coach answers plain number questions in Kotlin. The weekly review is built (not yet seen on the phone). Model options: [ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md). Next: deload weeks, grocery list.
 
 **Earlier (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone. Fixes from that check: PR #6. Phase 1c-3 (workout logging, focus mode, progressive overload): PR #7 on `feat/phase-1c-logging`, stacked on PR #6. Both re-checked on the phone (2026-10-21, Claude driving the phone over adb); one bug found and fixed (screen kept on behind the lock). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
 
@@ -149,7 +149,9 @@ Ghost-overlay progress photos, measurements, weight trend, weekly review that ad
 - [x] You tab: weight, chart with 4W/12W/6M, today's weigh-in, measurements and their screen
 - [x] Each weigh-in updates the Profile weight from the trend, so calorie targets follow it
 - [ ] Phone check
-- [ ] Progress photos with ghost overlay, side-by-side and timeline views, weekly review
+- [x] Weekly review card on You: last finished week from the logs, one piece of advice, all in Kotlin; unit tests; range queries tested on the emulator
+- [ ] Weekly review on the phone with real data, and plan or calorie changes from it
+- [ ] Progress photos with ghost overlay, side-by-side and timeline views
 
 ### Phase 4 — Live form check (v0.4)
 Camera rep counting and form cues, voice cues.
@@ -272,6 +274,8 @@ M3/
 | 2026-10-30 | The model sees today's logs, with each remaining amount worked out for it, and keeps them for advice | It needs the context to advise, and it can't be trusted to subtract ("158g of protein remaining") |
 | 2026-10-30 | Avoiding an exercise needs the owner's message to name it | Eval: "I slept badly and I'm sore" got a proposal to avoid bench press for good |
 | 2026-10-30 | Eval read answer by answer, not by score: 17/17 hid three wrong numbers. Latest run 15/19 on 19 cases: theme with no tool line (the app's fallback covers it, the eval doesn't run that), invented `adjust_weight` tool with made-up increases (rejected, but the words remain), wrong protein (now Kotlin), bench press for soreness (now guarded) | Evidence for the model decision. Scores vary run to run; expected-number checks only look for one correct number |
+| 2026-10-31 | The weekly review is plain Kotlin from the logs, with one piece of advice per week, urgent rules first: eating far too little (points to a doctor or dietitian), losing over 1% a week, then sessions, protein, sleep, a flat trend. It advises and doesn't change anything yet | The model can't be trusted with these numbers, and the spec requires a change of tone for very low intake. A real plan or calorie change needs an undoable tool |
+| 2026-10-31 | Next model to try: Qwen3-4B (int4) for chat with E4B kept for photos, then LFM3-Omni-2B as an all-in-one. Not Gemma 4 12B: its file is 6.9 GB, it needs about 7.3–7.9 GB of GPU memory, and no Android GPU support is listed | From the model cards ([ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md)); none is proven on this phone. A switch still needs the on-phone benchmark and the eval |
 | 2026-10-30 | Standing permission to merge: squash-merge once local checks pass and the Opus final check is done | Owner's OK ("any merges"). The repo has no CI, so local checks are the gate |
 | 2026-10-30 | Added the Linux `aapt2` jar to dependency verification (SHA-256 of the jar from Google Maven, whose published SHA-1 matched) | Only the Windows jar was listed, so Linux builds would fail. Verification stays on |
 

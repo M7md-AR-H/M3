@@ -23,6 +23,9 @@ class StepRepository(
         db.stepDao().observeDay(date.toString()).map { it ?: 0 }
     }
 
+    suspend fun between(from: LocalDate, to: LocalDate): Map<LocalDate, Int> =
+        opener.get().stepDao().days(from.toString(), to.toString()).associate { LocalDate.parse(it.date) to it.steps }
+
     /** Adds what's new since the last reading; one transaction, so a step can't be counted twice. */
     suspend fun record(reading: StepReading) {
         val db = opener.get()

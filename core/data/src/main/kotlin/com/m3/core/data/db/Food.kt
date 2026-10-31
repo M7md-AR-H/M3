@@ -23,6 +23,9 @@ data class FoodEntryEntity(
 
 @Dao
 interface FoodDao {
+    @Query("SELECT * FROM food_entry WHERE date BETWEEN :from AND :to ORDER BY atMillis, id")
+    suspend fun between(from: String, to: String): List<FoodEntryEntity>
+
     @Query("SELECT * FROM food_entry WHERE date = :date ORDER BY atMillis, id")
     fun observeDay(date: String): Flow<List<FoodEntryEntity>>
 

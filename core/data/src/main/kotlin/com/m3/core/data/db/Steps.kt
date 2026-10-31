@@ -28,6 +28,9 @@ data class StepReadingEntity(
 
 @Dao
 interface StepDao {
+    @Query("SELECT * FROM step_day WHERE date BETWEEN :from AND :to")
+    suspend fun days(from: String, to: String): List<StepDayEntity>
+
     @Query("SELECT steps FROM step_day WHERE date = :date")
     fun observeDay(date: String): Flow<Int?>
 

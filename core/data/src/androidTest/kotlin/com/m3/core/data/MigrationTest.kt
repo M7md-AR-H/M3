@@ -111,6 +111,18 @@ class MigrationTest {
         daily.setHabit(day, Habit.MOBILITY, true)
         daily.setHabit(day, Habit.WATER, false)
         assertEquals(setOf(Habit.MOBILITY), daily.observeHabits(day).first())
+
+        // The weekly review reads date ranges, both ends included.
+        val monday = day.minusDays(4)
+        val sunday = day.plusDays(2)
+        val food = FoodRepository(opener)
+        food.save(FoodEntry(date = monday, atMillis = 1, name = "In", kcal = 100, proteinG = 1, carbsG = 1, fatG = 1))
+        food.save(FoodEntry(date = sunday, atMillis = 2, name = "In too", kcal = 100, proteinG = 1, carbsG = 1, fatG = 1))
+        food.save(FoodEntry(date = sunday.plusDays(1), atMillis = 3, name = "Out", kcal = 100, proteinG = 1, carbsG = 1, fatG = 1))
+        assertEquals(listOf("In", "In too"), food.between(monday, sunday).map { it.name })
+        assertEquals(listOf(2), daily.checkInsBetween(monday, sunday).map { it.sleep })
+        assertTrue(daily.checkInsBetween(sunday, sunday).isEmpty())
+        assertTrue(StepRepository(opener).between(monday, sunday).isEmpty())
         opener.get().close()
     }
 

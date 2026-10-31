@@ -25,6 +25,9 @@ data class HabitDoneEntity(
 
 @Dao
 interface DailyDao {
+    @Query("SELECT * FROM check_in WHERE date BETWEEN :from AND :to")
+    suspend fun checkInsBetween(from: String, to: String): List<CheckInEntity>
+
     @Query("SELECT * FROM check_in WHERE date = :date")
     fun observeCheckIn(date: String): Flow<CheckInEntity?>
 
