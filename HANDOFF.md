@@ -1,8 +1,10 @@
 # HANDOFF — 2026-10-30 (session 6, in progress)
 
-**Live state:** PRs #6 to #12 are merged. `feat/phase-2-meal-photo` is pushed, not merged: install it, have the owner photograph a plate, check the estimate, then merge. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. "Cloud work order" items 1 to 5 are done once that passes. Only the owner can tap the camera shutter. `feat/coach-daily-facts` is stacked on it and pushed: merge the two in order after the phone check, which should also ask the Coach "how much protein do I need?" and an advice question.
+**Live state (2026-10-31):** everything through meal photos and the Coach's daily facts is merged; "Cloud work order" items 1 to 5 are done. The owner chose to continue locally, not in the cloud (the cloud sections stay for later), and gave standing permission to merge. Only the owner can tap the camera shutter.
 
-**Next without the phone:** weekly review from the logs (Kotlin numbers), deload weeks, grocery list. **Needs the phone or owner:** meal photo check, fridge photo, progress photos, barcode (also needs an allowlist decision for `:research`), model comparison.
+**Phone check 2026-10-31 passed:** Coach number questions (instant, right numbers), an advice answer (40 s cold, used real numbers), meal photo by camera and gallery (about 30 s), non-food refused, no photo file left. The test meal and test chat are removed. Workout screen on the phone on a day the plan really has a session: done on 2026-10-30 through the Coach; dark mode on the phone can't be proven by Claude (the owner should look).
+
+**Next:** weekly review from the logs (Kotlin numbers), deload weeks, grocery list. **Needs the phone or owner:** fridge photo, progress photos, barcode (also needs an allowlist decision for `:research`), model comparison.
 
 **Eval trap:** the CPU weight cache needs about 3 GB free or the run aborts, and without a cache the low-memory killer stops it. Start the emulator with `-wipe-data` (test data only; no PIN afterwards), run `./gradlew --stop` first, and always read every answer, not just the score.
 

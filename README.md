@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-30):** Phase 1 code is complete and merged, with the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)). Phase 2 core, Phase 3 core, and the morning check-in and habits are built. On the phone (real model, real data, test entries removed): Coach schedule change with Apply and Undo, full workout flow, Clear + Undo, Fuel, Progress. Progression with real history is checked on the emulator. Meal photos (`feat/phase-2-meal-photo`) are built and await a real photo on the phone with the real model. On top of them, `feat/coach-daily-facts` gives the Coach today's food, steps, weight trend and check-in, and answers plain number questions in Kotlin.
+**Status (2026-10-31):** Phase 1 code, the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)), Phase 2 core with meal photos, Phase 3 core, check-in and habits, and the Coach's view of the day are merged. Checked on the phone with the real model and real data; progression with real history on the emulator. The Coach answers plain number questions in Kotlin. Next: weekly review.
 
 **Earlier (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone. Fixes from that check: PR #6. Phase 1c-3 (workout logging, focus mode, progressive overload): PR #7 on `feat/phase-1c-logging`, stacked on PR #6. Both re-checked on the phone (2026-10-21, Claude driving the phone over adb); one bug found and fixed (screen kept on behind the lock). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
 
@@ -136,8 +136,9 @@ TDEE/macros, meal photo → estimate + critique, barcode scanning, fridge mode, 
 - [x] Fuel tab and Today's Fuel card from the prototype; Add food form; Remove with Undo
 - [ ] Phone check
 - [x] Meal photo: camera or gallery, read by the on-device model, parsed and range-checked, opened in the form to check before saving; no photo kept; emulator check up to the model
-- [ ] Meal photo with the real model on the phone
-- [ ] Barcode, fridge mode, grocery list, Coach seeing the food log
+- [x] Meal photo with the real model on the phone (2026-10-31): camera and gallery give estimates in about 30 s, a non-food photo is refused, no file stays behind
+- [x] The Coach sees the food log, steps, weight trend and check-in; number questions answered instantly on the phone
+- [ ] Barcode, fridge mode, grocery list
 
 ### Phase 3 — Progress (v0.3)
 Ghost-overlay progress photos, measurements, weight trend, weekly review that adjusts plans.
