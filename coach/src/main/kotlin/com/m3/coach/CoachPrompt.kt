@@ -154,8 +154,12 @@ object CoachPrompt {
         val lastWorkout = f.lastWorkout?.let { "; last on ${it.format(SHORT_DATE)}" } ?: ""
         appendLine("Workouts in the last 4 weeks: ${f.workoutsLast28Days}$lastWorkout.")
         appendDaily(f.daily)
-        if (f.deloadThisWeek) appendLine("This week is a deload week: fewer sets, lighter loads.")
-        appendLine("This week's plan (\"last\" = logged, \"next\" = the app's target):")
+        // Inside the plan's header, not a line of its own: the worst-case prompt has no room to spare.
+        if (f.deloadThisWeek) {
+            appendLine("This week's deload plan (\"last\" = logged, \"next\" = target):")
+        } else {
+            appendLine("This week's plan (\"last\" = logged, \"next\" = the app's target):")
+        }
         DayOfWeek.entries.forEach { day ->
             val todayMark = if (day == f.today.dayOfWeek) " (today)" else ""
             val session = f.plan.sessionOn(day)
