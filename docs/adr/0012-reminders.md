@@ -10,11 +10,11 @@ The owner asked for meaningful notifications: to work out, to log things, to eat
 - Xiaomi phones stop background apps hard, and a force-stop clears alarms.
 
 ## Decision
-**One alarm, decided when due.** M³ holds one alarm for the next due reminder (and one for the end of a rest). When it fires, Kotlin reads the logs and decides whether to send anything, then sets the next one. `ReminderRules` and `Reminders` are pure and unit tested; the model is never involved (ADR 0003).
+**One alarm, decided when due.** M³ holds one alarm for the next due reminder (and one for the end of a rest). When it fires, the next alarm is set first, so a killed process can't end the chain. Then Kotlin reads the logs and decides whether to send anything. A failed send retries after 5 minutes. `ReminderRules` and `Reminders` are pure and unit tested; the model is never involved (ADR 0003).
 
 | Reminder | Default | Silent when |
 |---|---|---|
-| Morning | 07:30 | check-in and weigh-in both done |
+| Morning | 07:30 | checked in today and weighed in within 3 days (the You tab says a few mornings a week) |
 | Breakfast, Lunch, Dinner | 09:00, 13:00, 19:00 | food logged in the last 2 hours |
 | Workout | 17:30 | rest day, already trained, or a workout is open |
 | Water | from 10:30, every 3 h, not after 20:30 | 2.5 L reached or the habit ticked |

@@ -346,6 +346,16 @@ class RelevanceTest {
     private fun reminder(message: String) = CoachTools.reminderRequest(message)?.let { valid(it) as CoachAction.SetReminder }
 
     @Test
+    fun onlyAClearRequestTurnsAReminderOff() {
+        assertEquals(true, reminder("Remind me about lunch, don't let me forget")?.on)
+        assertEquals(true, reminder("Remind me to train at 18:00 after I'm off work")?.on)
+        assertEquals(false, reminder("Stop reminding me about water")?.on)
+        assertEquals(false, reminder("Turn the water reminder off")?.on)
+        assertEquals(ReminderKind.MORNING, reminder("Remind me to log my weight")?.kind)
+        assertEquals(ReminderKind.EVENING, reminder("Remind me to log my food at 21:00")?.kind)
+    }
+
+    @Test
     fun plainReminderRequestsBecomeProposals() {
         assertEquals(CoachAction.SetReminder(ReminderKind.WATER, false, null, null), reminder("Turn off water reminders"))
         assertEquals(CoachAction.SetReminder(ReminderKind.WORKOUT, true, 18 * 60, null), reminder("Remind me to train at 18:00"))

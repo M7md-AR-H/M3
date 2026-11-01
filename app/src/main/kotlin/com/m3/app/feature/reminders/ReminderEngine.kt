@@ -59,11 +59,12 @@ class ReminderEngine @Inject constructor(
     suspend fun reschedule() = running.withLock { guarded { scheduleNext(reminders.observe().first()) } }
 
     suspend fun onDue(due: LocalDateTime) = running.withLock {
-        guarded {
+        guarded(retrying = due) {
             val settings = reminders.observe().first()
-            val late = Duration.between(due, LocalDateTime.now())
-            if (late <= MAX_LATE) sendDue(due, settings)
+            // The next alarm comes first: if Android kills this process while sending, the chain still goes on.
             scheduleNext(settings)
+            val late = Duration.between(due.atZone(ZoneId.systemDefault()).toInstant(), Instant.now())
+            if (late <= MAX_LATE) sendDue(due, settings)
         }
     }
 
@@ -78,15 +79,21 @@ class ReminderEngine @Inject constructor(
         notifier.cancel(ReminderKind.WATER)
     }
 
-    /** A failure (say, storage not ready just after boot) must not end the chain of alarms. */
-    private suspend fun guarded(block: suspend () -> Unit) {
+    /**
+     * A failure (say, storage not ready just after boot) must not end the chain of alarms. The retry keeps [retrying],
+     * so the reminder that failed still goes out, until [MAX_LATE] says it's too late.
+     */
+    private suspend fun guarded(retrying: LocalDateTime? = null, block: suspend () -> Unit) {
         try {
             block()
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             // No logging: the exception text could include file paths or data.
-            if (notifier.canPost()) alarms.setNext(LocalDateTime.now().plus(RETRY_AFTER))
+            if (notifier.canPost()) {
+                val retryAt = LocalDateTime.now().plus(RETRY_AFTER)
+                alarms.setNext(due = retrying ?: retryAt, at = retryAt)
+            }
         }
     }
 
@@ -96,7 +103,7 @@ class ReminderEngine @Inject constructor(
     }
 
     private suspend fun sendDue(due: LocalDateTime, settings: ReminderSettings) {
-        // The kinds are worked out again from the settings: a retry alarm matches none and sends nothing.
+        // The kinds are worked out again from the settings: a retry after a failed reschedule matches none and sends nothing.
         val kinds = Reminders.next(settings, due.minusMinutes(1))?.takeIf { it.at == due }?.kinds ?: return
         val day = dayFacts() ?: return
         kinds.forEach { kind -> ReminderRules.message(kind, day, settings.showDetails)?.let(notifier::post) }
@@ -118,7 +125,7 @@ class ReminderEngine @Inject constructor(
             workoutDone = recent.any { it.workout.date == today },
             workoutOpen = workouts.observeOpen().first()?.date == today,
             checkIn = daily.observeCheckIn(today).first(),
-            weighedIn = body.observeWeights().first().any { it.date == today },
+            weighedRecently = body.observeWeights().first().any { !it.date.isBefore(today.minusDays(WEIGH_IN_EVERY_DAYS - 1)) },
             foodEntries = entries.size,
             lastFoodAt = entries.maxOfOrNull { it.atMillis }?.let { LocalDateTime.ofInstant(Instant.ofEpochMilli(it), zone) },
             eaten = Nutrition.totals(entries),
@@ -138,6 +145,9 @@ class ReminderEngine @Inject constructor(
     private companion object {
         /** A lunch reminder at three in the afternoon helps nobody: the phone was off, so skip it. */
         val MAX_LATE: Duration = Duration.ofMinutes(45)
-        val RETRY_AFTER: Duration = Duration.ofMinutes(30)
+        val RETRY_AFTER: Duration = Duration.ofMinutes(5)
+
+        /** The You tab says a few mornings a week: daily weight is noise, so no reminder every morning. */
+        const val WEIGH_IN_EVERY_DAYS = 3L
     }
 }

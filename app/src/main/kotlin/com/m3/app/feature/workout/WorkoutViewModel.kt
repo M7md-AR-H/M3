@@ -184,7 +184,8 @@ class WorkoutViewModel @Inject constructor(
         val bodyweight = kind == LoadKind.NONE && t.planned.equipment.isEmpty()
         val mine = sets.filter { it.variantKey == t.variantKey }
         val stored = mine.associateBy { it.setNumber }
-        val rows = (1..p.sets).map { n ->
+        // A deload accepted mid-workout lowers the planned sets; sets already logged stay on screen.
+        val rows = (1..maxOf(p.sets, mine.maxOfOrNull { it.setNumber } ?: 0)).map { n ->
             val key = RowKey(t.variantKey, n)
             val last = t.last.getOrNull(n - 1)
             val s = stored[n]

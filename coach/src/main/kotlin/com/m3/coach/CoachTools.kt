@@ -289,9 +289,11 @@ object CoachTools {
      */
     fun claimsChange(reply: String): Boolean = CLAIM_PATTERNS.any { it.containsMatchIn(reply) }
 
-    private val REMINDER_WORDS = Regex("\\b(remind|reminders?|notifications?|notify)\\b")
+    private val REMINDER_WORDS = Regex("\\b(remind|reminding|reminders?|notifications?|notify)\\b")
     private val NOT_A_REQUEST = Regex("\\b(how|why|what|when|which|did|does|are)\\b")
-    private val REMINDER_OFF = Regex("\\b(turn off|switch off|stop|disable|no more|mute|don'?t|do not)\\b|\\boff\\b")
+    private val REMINDER_OFF = Regex(
+        "\\b(turn|switch)\\b.*\\boff\\b|\\b(stop|disable|no more|mute)\\b|\\b(don'?t|do not)\\s+(remind|notify)\\b|\\b(reminders?|notifications?)\\s+off\\b",
+    )
     private val EVERY_HOURS = Regex("\\bevery\\s+(\\d{1,2})\\s*(?:h|hrs?|hours?)\\b")
     private val CLOCK_TIME = Regex("\\bat\\s+(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm)?\\b|\\b(\\d{1,2}):(\\d{2})\\b")
     private val REMINDER_KINDS = listOf(
@@ -300,8 +302,8 @@ object CoachTools {
         ReminderKind.DINNER to Regex("\\b(dinner|supper)\\b"),
         ReminderKind.WATER to Regex("\\b(water|drink|hydrate)\\b"),
         ReminderKind.WORKOUT to Regex("\\b(workouts?|train|training|gym|session)\\b"),
-        ReminderKind.MORNING to Regex("\\b(morning|check-?in|weigh)\\b"),
-        ReminderKind.EVENING to Regex("\\b(evening|log)\\b"),
+        ReminderKind.MORNING to Regex("\\b(morning|check-?in|weigh|weigh-?in|weight)\\b"),
+        ReminderKind.EVENING to Regex("\\b(evening|log (my )?(day|food|meals?))\\b"),
         ReminderKind.LIGHTS_OUT to Regex("\\b(lights out|bedtime|bed|sleep)\\b"),
         ReminderKind.WEEK_REVIEW to Regex("\\breview\\b"),
         ReminderKind.REST to Regex("\\brest\\b"),

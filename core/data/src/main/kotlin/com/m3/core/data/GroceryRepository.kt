@@ -89,11 +89,16 @@ class GroceryRepository(private val opener: DatabaseOpener) {
         }
     }
 
-    /** Undo of [remove]: the item comes back under its old id, ticked or not as it was. */
+    /** Undo of [remove]: the item comes back under its old id, unless the list has that name again by now. */
     suspend fun restore(item: StoredGroceryItem) {
-        opener.get().groceryDao().save(
-            GroceryItemEntity(item.id, item.name, item.amount, item.section.name, item.checked, item.source.name, removed = false),
-        )
+        val db = opener.get()
+        db.withTransaction {
+            val dao = db.groceryDao()
+            if (dao.all().any { !it.removed && it.id != item.id && key(it.name) == key(item.name) }) return@withTransaction
+            dao.save(
+                GroceryItemEntity(item.id, item.name, item.amount, item.section.name, item.checked, item.source.name, removed = false),
+            )
+        }
     }
 
     /** Deletes every ticked item, suggestions included (a refresh may suggest them again). */

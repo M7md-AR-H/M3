@@ -12,7 +12,7 @@ enum class ReminderKind(
     val defaultMinute: Int?,
     val defaultOn: Boolean = true,
 ) {
-    MORNING("Morning", "Check-in and weigh-in, if they're open", 7 * 60 + 30),
+    MORNING("Morning", "Check-in, and a weigh-in every few days", 7 * 60 + 30),
     BREAKFAST("Breakfast", "Unless you just logged food", 9 * 60),
     LUNCH("Lunch", "Unless you just logged food", 13 * 60),
     DINNER("Dinner", "Unless you just logged food", 19 * 60),
@@ -66,7 +66,7 @@ data class DayFacts(
     val workoutDone: Boolean,
     val workoutOpen: Boolean,
     val checkIn: CheckIn?,
-    val weighedIn: Boolean,
+    val weighedRecently: Boolean,
     val foodEntries: Int,
     val lastFoodAt: LocalDateTime?,
     val eaten: DayTotals,
@@ -165,9 +165,9 @@ object ReminderRules {
 
     private fun morning(day: DayFacts, showDetails: Boolean): ReminderMessage? {
         val text = when {
-            day.checkIn == null && !day.weighedIn -> "Check in and step on the scale: one minute for a better day."
+            day.checkIn == null && !day.weighedRecently -> "Check in and step on the scale: one minute for a better day."
             day.checkIn == null -> "Three taps for today's advice."
-            !day.weighedIn -> "Step on the scale before breakfast."
+            !day.weighedRecently -> "Step on the scale before breakfast."
             else -> return null
         }
         val session = day.session?.takeIf { showDetails && !day.workoutDone }

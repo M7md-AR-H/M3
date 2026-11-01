@@ -16,9 +16,9 @@ class ReminderAlarms @Inject constructor(@param:ApplicationContext private val c
     private val alarms = context.getSystemService(AlarmManager::class.java)
 
     /** [due] travels with the alarm as local time, so a clock change on the way can't turn it into another reminder. */
-    fun setNext(due: LocalDateTime) {
+    fun setNext(due: LocalDateTime, at: LocalDateTime = due) {
         val intent = receiverIntent(ReminderReceiver.ACTION_DUE).putExtra(ReminderReceiver.EXTRA_DUE, due.toString())
-        set(due.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(), pending(intent, NEXT_REQUEST))
+        set(at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(), pending(intent, NEXT_REQUEST))
     }
 
     fun cancelNext() = alarms.cancel(pending(receiverIntent(ReminderReceiver.ACTION_DUE), NEXT_REQUEST))

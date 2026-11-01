@@ -25,7 +25,7 @@ class RemindersTest {
         workoutDone = false,
         workoutOpen = false,
         checkIn = null,
-        weighedIn = false,
+        weighedRecently = false,
         foodEntries = 0,
         lastFoodAt = null,
         eaten = DayTotals(),
@@ -106,9 +106,9 @@ class RemindersTest {
 
     @Test
     fun morningSilentOnceBothAreDone() {
-        val done = day().copy(checkIn = CheckIn(tuesday, 4, 4, 2), weighedIn = true)
+        val done = day().copy(checkIn = CheckIn(tuesday, 4, 4, 2), weighedRecently = true)
         assertNull(ReminderRules.message(ReminderKind.MORNING, done, showDetails = true))
-        val noWeight = done.copy(weighedIn = false)
+        val noWeight = done.copy(weighedRecently = false)
         assertEquals("Step on the scale before breakfast.", ReminderRules.message(ReminderKind.MORNING, noWeight, false)?.text)
     }
 
