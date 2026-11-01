@@ -8,6 +8,7 @@ import com.m3.ai.engine.LlmBackend
 import com.m3.ai.engine.LlmEngine
 import com.m3.ai.engine.LlmLoadConfig
 import com.m3.ai.model.ModelCatalog
+import com.m3.ai.model.ModelSpec
 import com.m3.ai.model.ModelStatus
 import com.m3.ai.model.ModelStore
 import com.m3.app.di.ApplicationScope
@@ -37,10 +38,14 @@ sealed interface ModelState {
     data object Failed : ModelState
 }
 
+/** What a model is needed for: words, or reading a photo. */
+enum class ModelUse { CHAT, PHOTO }
+
 /**
- * Owns the Coach's model (ADR 0002): Gemma 4 E4B on the GPU with multi-token prediction, falling back to
- * the CPU if the GPU can't start. Loaded on first use, unloaded when the app goes to the background so it
- * never holds ~1 GB while the owner uses other apps. One generation at a time.
+ * Owns the on-device models (ADR 0002): Qwen3-4B for chat and Gemma 4 E4B for photos, one in memory at a time, on
+ * the GPU, falling back to the CPU if the GPU can't start. Chat falls back to E4B if Qwen isn't on the phone. Loaded
+ * on first use, unloaded when the app goes to the background so it never holds memory while the owner uses other
+ * apps. One generation at a time.
  */
 @Singleton
 class CoachRuntime @Inject constructor(
@@ -50,6 +55,7 @@ class CoachRuntime @Inject constructor(
 ) {
     private val mutex = Mutex()
     private var engine: LlmEngine? = null
+    private var loadedModel: ModelSpec? = null
 
     private val _state = MutableStateFlow<ModelState>(ModelState.NotLoaded)
     val state: StateFlow<ModelState> = _state.asStateFlow()
@@ -65,18 +71,22 @@ class CoachRuntime @Inject constructor(
     @Volatile
     private var backgrounded = false
 
-    /** Runs [block] with a loaded model, loading it first if needed. Throws if there's no model or it can't load. */
-    suspend fun <T> use(block: suspend (LlmEngine) -> T): T = mutex.withLock {
+    /** Runs [block] with the right model, swapping it in if needed. Throws if there's no model or it can't load. */
+    suspend fun <T> use(purpose: ModelUse = ModelUse.CHAT, block: suspend (LlmEngine) -> T): T = mutex.withLock {
         // An answer that was waiting while the app went to the background must not load the model now.
         if (backgrounded) throw CancellationException("App is in the background")
         active = currentCoroutineContext()[Job]
         try {
-            val loaded = engine ?: load()
+            val model = modelFor(purpose)
+            val loaded = engine.takeIf { loadedModel == model } ?: load(model)
             block(loaded)
         } finally {
             active = null
         }
     }
+
+    /** The current chat model's addition to each prompt; empty for a model that needs none. */
+    fun chatPromptSuffix(): String = modelFor(ModelUse.CHAT).promptSuffix
 
     /** The app is visible again; answers may load the model. */
     fun onForeground() {
@@ -89,20 +99,27 @@ class CoachRuntime @Inject constructor(
         active?.cancel()
         scope.launch(Dispatchers.IO) {
             mutex.withLock {
-                engine?.close()
-                engine = null
+                closeEngine()
                 _state.value = if (modelReady()) ModelState.NotLoaded else ModelState.NoModel
             }
         }
     }
 
-    private suspend fun load(): LlmEngine = withContext(Dispatchers.IO) {
-        if (!modelReady()) {
+    private fun closeEngine() {
+        engine?.close()
+        engine = null
+        loadedModel = null
+    }
+
+    private suspend fun load(model: ModelSpec): LlmEngine = withContext(Dispatchers.IO) {
+        // Never two models in memory: closing blocks until the first one is freed.
+        closeEngine()
+        if (store.status(model) != ModelStatus.Ready) {
             _state.value = ModelState.NoModel
             error("No model")
         }
         _state.value = ModelState.Loading
-        val file = store.fileFor(MODEL)
+        val file = store.fileFor(model)
         // Compiled programs and weights are cached so later loads are fast. Kept out of cacheDir: Android may
         // purge that while the GPU cache (~300 MB) is being written, which makes the load fail.
         // Only cache with room to spare: a full disk during a cache write can abort the runtime.
@@ -110,7 +127,7 @@ class CoachRuntime @Inject constructor(
             .takeIf { freeBytes(it) >= MIN_FREE_FOR_CACHE_BYTES }
         val attempts = buildList {
             // Emulators only fake a GPU (very slow, then fails); real phones try the GPU first.
-            if (!isEmulator()) add(Attempt(LlmBackend.GPU, mtp = true, cache = cache))
+            if (!isEmulator()) add(Attempt(LlmBackend.GPU, mtp = model.speculativeDecoding, cache = cache))
             // No cache on the CPU: its weight cache grows to about the model's size, and a failed write
             // aborts the native runtime (seen on the emulator). The CPU is only the fallback.
             add(Attempt(LlmBackend.CPU, mtp = false, cache = null))
@@ -118,8 +135,9 @@ class CoachRuntime @Inject constructor(
         for ((backend, mtp, cacheDir) in attempts) {
             val candidate = LiteRtLmEngine()
             try {
-                candidate.load(LlmLoadConfig(file, backend, speculativeDecoding = mtp, maxTokens = MAX_TOKENS, cacheDir = cacheDir))
+                candidate.load(LlmLoadConfig(file, backend, speculativeDecoding = mtp, maxTokens = MAX_TOKENS, cacheDir = cacheDir, vision = model.vision))
                 engine = candidate
+                loadedModel = model
                 _state.value = ModelState.Ready(backend)
                 return@withContext candidate
             } catch (e: CancellationException) {
@@ -134,7 +152,11 @@ class CoachRuntime @Inject constructor(
         error("Model failed to load")
     }
 
-    private fun modelReady() = store.status(MODEL) == ModelStatus.Ready
+    private fun modelFor(purpose: ModelUse): ModelSpec =
+        if (purpose == ModelUse.CHAT && store.status(CHAT_MODEL) == ModelStatus.Ready) CHAT_MODEL else PHOTO_MODEL
+
+    /** The Coach can talk with either model. */
+    private fun modelReady() = store.status(CHAT_MODEL) == ModelStatus.Ready || store.status(PHOTO_MODEL) == ModelStatus.Ready
 
     private data class Attempt(val backend: LlmBackend, val mtp: Boolean, val cache: File?)
 
@@ -147,7 +169,8 @@ class CoachRuntime @Inject constructor(
     private fun isEmulator() = Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish" || Build.PRODUCT.startsWith("sdk_")
 
     companion object {
-        val MODEL = ModelCatalog.GEMMA_4_E4B
+        val CHAT_MODEL = ModelCatalog.QWEN_3_4B
+        val PHOTO_MODEL = ModelCatalog.GEMMA_4_E4B
         const val MAX_TOKENS = 4096
 
         /** The GPU cache is about 300 MB; keep a wide margin so its write never fills the disk. */

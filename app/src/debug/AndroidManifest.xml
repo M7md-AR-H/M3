@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            Debug-only prompt eval runner, started with `adb shell am start`. It must be exported for that, so it
+            requires android.permission.DUMP: the adb shell holds it, third-party apps cannot get it, which keeps
+            other apps on the owner's phone from starting it. It uses made-up data only. Not in release builds.
+        -->
+        <activity
+            android:name=".debug.EvalActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+</manifest>

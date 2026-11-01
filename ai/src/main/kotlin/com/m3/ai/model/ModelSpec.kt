@@ -11,6 +11,12 @@ data class ModelSpec(
     val sizeBytes: Long,
     val sha256: String,
     val sourceUrl: String,
+    /** False for text-only models: asking for a vision backend they don't have fails on every answer. */
+    val vision: Boolean = true,
+    /** Multi-token prediction on the GPU. Qwen3-4B's file fails to load with it. */
+    val speculativeDecoding: Boolean = true,
+    /** Added to each chat prompt. */
+    val promptSuffix: String = "",
 )
 
 object ModelCatalog {
@@ -34,7 +40,23 @@ object ModelCatalog {
         sourceUrl = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm",
     )
 
-    val all: List<ModelSpec> = listOf(GEMMA_4_E4B, GEMMA_4_E2B)
+    /**
+     * Apache-2.0, checked against Hugging Face 2026-11-01 (the repo's `qwen3_4b_mixed_int4.litertlm`). Without
+     * `/no_think` it can spend the whole answer budget thinking and return nothing (phone eval).
+     */
+    val QWEN_3_4B = ModelSpec(
+        id = "qwen3-4b",
+        displayName = "Qwen3-4B",
+        fileName = "Qwen3-4B-int4.litertlm",
+        sizeBytes = 2_272_935_936L,
+        sha256 = "4877b236f09c0b519958612afeb3c6fc6575c7ce56080d0d3a5406150e0ff9ce",
+        sourceUrl = "https://huggingface.co/litert-community/Qwen3-4B",
+        vision = false,
+        speculativeDecoding = false,
+        promptSuffix = " /no_think",
+    )
+
+    val all: List<ModelSpec> = listOf(QWEN_3_4B, GEMMA_4_E4B, GEMMA_4_E2B)
 
     /** Matches an owner-picked file by its exact byte size; the hash is checked while copying. */
     fun forSize(sizeBytes: Long): ModelSpec? = all.firstOrNull { it.sizeBytes == sizeBytes }

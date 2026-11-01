@@ -54,10 +54,10 @@ class LiteRtLmEngine : LlmEngine {
             EngineConfig(
                 modelPath = config.modelFile.absolutePath,
                 backend = backend,
-                visionBackend = backend,
+                visionBackend = backend.takeIf { config.vision },
                 audioBackend = null,
                 maxNumTokens = config.maxTokens,
-                maxNumImages = 1,
+                maxNumImages = if (config.vision) 1 else null,
                 cacheDir = config.cacheDir?.absolutePath,
             ),
         )

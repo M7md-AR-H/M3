@@ -1,7 +1,7 @@
 # 0002 — On-device LLM: LiteRT-LM running Gemma 4
 
 - **Date:** 2026-10-16, updated 2026-10-18
-- **Status:** Accepted. Gemma 4 E4B on GPU + MTP chosen from the on-phone benchmark (2026-10-18).
+- **Status:** Accepted. Qwen3-4B on the GPU for chat, Gemma 4 E4B on the GPU for photos (2026-11-01, see the end). E4B alone was chosen first (2026-10-18).
 
 ## Context
 M³ needs one multimodal model (text + images, ideally audio) running fully on a Poco F5 (12 GB RAM, Adreno 725 GPU).
@@ -88,3 +88,23 @@ Why: evals show E4B misquotes numbers and invents tools. Figures are from the mo
 | Qwen3.8-27B | 15.4 GB | No | Not checked | Desktop-class | Doesn't fit |
 
 No card measures tool-calling accuracy, so only our own eval can say which is stronger. Order of work: raise LiteRT-LM to 0.19.0 (the crash above is in the runtime, so test E4B again first), run `CoachPromptEval` on each candidate on the emulator, then the on-phone benchmark. Keep E4B until a candidate beats it on both.
+
+## Decision (2026-11-01, from the phone's GPU)
+**Qwen3-4B for chat, E4B for photos, one in memory at a time.** Chat falls back to E4B if Qwen isn't on the phone. Earlier evals ran on the emulator's CPU, and those hid the problem below.
+
+19 eval cases on the Poco F5's GPU, every answer read:
+
+| Run | Score | False "done" claims | Digits in answers | Time per answer |
+|---|---|---|---|---|
+| E4B, 0.19.0, MTP | 13/19 | 2 | Garbled | About 10 s |
+| E4B, 0.19.0, no MTP | 17/19 | 2 | Garbled | About 10 s |
+| E4B, 0.18.0, MTP | 18/19 | 1 | Garbled | About 10 s |
+| Qwen3-4B, thinking on | 16/19 | 0 | Clean, but 5 empty answers | 30–85 s |
+| Qwen3-4B, `/no_think` | 17/19 | 0 | Clean | About 24 s |
+
+- **E4B garbles digits on this GPU:** "42.5 kg" became "422.5 kg", "78.4" became "7888.4", "6,214 steps" became "62,1414". Neither LiteRT-LM 0.19.0 nor MTP causes it. The scores hide it: the checks only look for one right number.
+- **Qwen needs `/no_think`.** Without it, it can spend all 400 output tokens thinking and return nothing.
+- **Qwen can't use MTP:** its file fails to load on the GPU with it, then falls back to the CPU. It also can't read images, so E4B stays for meal photos.
+- **Accepted cost:** answers take about 2.5 times as long. Wrong numbers from a fitness coach are worse than waiting.
+- **Still wrong sometimes:** it can mix up labels ("eaten" and "left") and add small inventions ("above average for your age"). Plain number questions stay in Kotlin. The facts now show eaten and target together (`protein 112/170g, 58g left`), which fixed the case that failed on the phone.
+- The file is `qwen3_4b_mixed_int4.litertlm` from `litert-community/Qwen3-4B` (Apache-2.0); its SHA-256 matches. Stored under the name `Qwen3-4B-int4.litertlm`.
