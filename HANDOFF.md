@@ -47,6 +47,8 @@
 - Are the default reminder times right, especially Workout at 17:30? They're easy to change in You → Reminders.
 
 ## Traps found
+- **Hidden CPU cache:** a model loaded on the CPU writes a `.xnnpack_cache` the size of the model into `no_backup/models`, even with no cache dir set. It appeared when Qwen fell back to the CPU, and it was deleted. After any CPU fallback on the phone, list that folder and delete it.
+- **Clean up after phone work (owner, 2026-11-01):** keep only what the app uses. Currently `Qwen3-4B-int4.litertlm`, `gemma-4-E4B-it.litertlm`, their `.verified` markers, and `no_backup/llm-cache`.
 - **Force-stop and reminders:** the phone rules say force-stop M³ after tests, and that clears its alarm until M³ is next opened. Say so to the owner.
 - **Intermediate DB versions:** a build with a different v8 left on the emulator shows "Couldn't open your data". That's Room's identity check, not corruption. Uninstall on the emulator. Never let this reach the phone: don't install a build with an unmerged schema there.
 - **Emulator plus Gradle:** with 15.7 GB of RAM, both at once dropped free memory to about 340 MB and gave ANRs that look like app bugs. Stop one first; check the load before blaming code.
