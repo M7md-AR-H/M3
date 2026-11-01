@@ -1,6 +1,7 @@
 package com.m3.app
 
 import com.m3.app.di.ApplicationScope
+import com.m3.app.feature.reminders.ReminderEngine
 import com.m3.core.data.PlanOverridesRepository
 import com.m3.core.data.ProfileRepository
 import java.time.DayOfWeek
@@ -38,6 +39,7 @@ class AppStartup @Inject constructor(
     private val uiConfigs: UiConfigRepository,
     private val profiles: ProfileRepository,
     private val overrides: PlanOverridesRepository,
+    private val reminders: ReminderEngine,
     @param:ApplicationScope private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow<StartupState>(StartupState.Loading)
@@ -59,6 +61,8 @@ class AppStartup @Inject constructor(
                 // Coach day overrides only apply to the current week; drop older ones.
                 overrides.pruneBefore(LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)))
                 launch { persistUiConfig() }
+                // A force-stop or a swipe on Xiaomi phones clears alarms, so every start sets the next one.
+                launch { reminders.reschedule() }
                 profiles.observeOnboardingCompleted().collect { done ->
                     _state.value = StartupState.Ready(onboardingCompleted = done)
                 }

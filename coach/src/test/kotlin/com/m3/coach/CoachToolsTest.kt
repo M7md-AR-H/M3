@@ -13,6 +13,8 @@ import com.m3.core.model.Experience
 import com.m3.core.model.Goal
 import com.m3.core.model.NutritionTargets
 import com.m3.core.model.Profile
+import com.m3.core.model.ReminderKind
+import com.m3.core.model.ReminderSetting
 import com.m3.core.model.Sex
 import com.m3.core.model.TrainingLocation
 import com.m3.core.model.TrainingSetup
@@ -290,6 +292,10 @@ class CoachPromptTest {
 
 class RelevanceTest {
     private val context = ToolContext(LocalDate.of(2026, 10, 14), TrainingSetup.Empty, ExerciseCatalog.bundled())
+
+    private fun valid(json: String) = (CoachTools.validate(json, context) as ToolResult.Valid).action
+    private fun invalid(json: String) = CoachTools.validate(json, context) is ToolResult.Invalid
+
     @Test
     fun `a plain change to the usual week is proposed by the app`() {
         val places = listOf("Gym", "Home")
@@ -335,5 +341,45 @@ class RelevanceTest {
         assertEquals(ToolResult.Ignored, CoachTools.validate("""{"name":"no_tool_line"}""", context))
         assertTrue(CoachTools.relevantTo(theme, "Switch to dark mode"))
         assertTrue(CoachTools.relevantTo(CoachAction.AllowExercise("plank", "Plank"), "anything"))
+    }
+
+    private fun reminder(message: String) = CoachTools.reminderRequest(message)?.let { valid(it) as CoachAction.SetReminder }
+
+    @Test
+    fun plainReminderRequestsBecomeProposals() {
+        assertEquals(CoachAction.SetReminder(ReminderKind.WATER, false, null, null), reminder("Turn off water reminders"))
+        assertEquals(CoachAction.SetReminder(ReminderKind.WORKOUT, true, 18 * 60, null), reminder("Remind me to train at 18:00"))
+        assertEquals(CoachAction.SetReminder(ReminderKind.WORKOUT, true, 19 * 60 + 30, null), reminder("remind me about my workout at 7:30 pm"))
+        assertEquals(CoachAction.SetReminder(ReminderKind.WATER, true, null, 2), reminder("Water reminder every 2 hours please"))
+        assertEquals(CoachAction.SetReminder(ReminderKind.LUNCH, true, 12 * 60 + 30, null), reminder("Remind me to eat lunch at 12.30"))
+        assertEquals(CoachAction.SetReminder(ReminderKind.DINNER, false, null, null), reminder("don't remind me about dinner"))
+        assertEquals(CoachAction.SetReminder(ReminderKind.LIGHTS_OUT, true, 22 * 60, null), reminder("bedtime notification at 22"))
+    }
+
+    @Test
+    fun reminderQuestionsAndOtherMessagesStayWithTheModel() {
+        assertNull(CoachTools.reminderRequest("Why did you send a water reminder?"))
+        assertNull(CoachTools.reminderRequest("How do reminders work?"))
+        assertNull(CoachTools.reminderRequest("Turn off dark mode"))
+        assertNull(CoachTools.reminderRequest("I forgot to drink water"))
+        assertNull(CoachTools.reminderRequest("Turn off reminders"))
+        assertNull(CoachTools.reminderRequest("Remind me about water and lunch"))
+        assertNull(CoachTools.reminderRequest("Remind me to train at 25:00"))
+    }
+
+    @Test
+    fun reminderToolIsCheckedLikeAnyOther() {
+        assertTrue(invalid("""{"name":"set_reminder","kind":"NAP","on":true}"""))
+        assertTrue(invalid("""{"name":"set_reminder","kind":"LUNCH","on":true,"minute":1500}"""))
+        assertTrue(invalid("""{"name":"set_reminder","kind":"LUNCH","on":true,"every":2}"""))
+        assertTrue(invalid("""{"name":"set_reminder","kind":"WATER","on":true,"every":9}"""))
+        assertTrue(invalid("""{"name":"set_reminder","kind":"REST","on":true,"minute":600}"""))
+    }
+
+    @Test
+    fun aReminderChangeKeepsWhatItDoesntMention() {
+        val setting = ReminderSetting(ReminderKind.WATER, on = false, minute = 600, everyHours = 4)
+        val changed = CoachAction.SetReminder(ReminderKind.WATER, true, null, 2).applyTo(setting)
+        assertEquals(ReminderSetting(ReminderKind.WATER, on = true, minute = 600, everyHours = 2), changed)
     }
 }

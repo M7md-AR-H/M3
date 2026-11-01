@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -42,4 +43,27 @@ interface DailyDao {
 
     @Query("DELETE FROM habit_done WHERE date = :date AND habit = :habit")
     suspend fun markNotDone(date: String, habit: String)
+
+    @Query("SELECT ml FROM water_day WHERE date = :date")
+    fun observeWater(date: String): Flow<Int?>
+
+    /** One statement, so taps in the app and on a notification can't lose each other's amounts. */
+    @Query(
+        "INSERT INTO water_day (date, ml) VALUES (:date, MAX(0, MIN(:ml, :max))) " +
+            "ON CONFLICT(date) DO UPDATE SET ml = MAX(0, MIN(ml + :ml, :max))",
+    )
+    suspend fun addWater(date: String, ml: Int, max: Int)
+
+    /** Ticks the habit on reaching the goal and unticks it on dropping below; a tick by hand otherwise stays. */
+    @Transaction
+    suspend fun addWaterAndMarkGoal(date: String, ml: Int, max: Int, goal: Int, habit: String) {
+        val before = waterOn(date) ?: 0
+        addWater(date, ml, max)
+        val after = waterOn(date) ?: 0
+        if (before < goal && after >= goal) markDone(HabitDoneEntity(date, habit))
+        if (before >= goal && after < goal) markNotDone(date, habit)
+    }
+
+    @Query("SELECT ml FROM water_day WHERE date = :date")
+    suspend fun waterOn(date: String): Int?
 }

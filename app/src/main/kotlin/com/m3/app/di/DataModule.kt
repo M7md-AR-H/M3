@@ -98,4 +98,8 @@ object DataModule {
     @Provides
     @Singleton
     fun provideDailyRepository(opener: DatabaseOpener) = com.m3.core.data.DailyRepository(opener)
+
+    @Provides
+    @Singleton
+    fun provideReminderRepository(opener: DatabaseOpener) = com.m3.core.data.ReminderRepository(opener)
 }

@@ -33,7 +33,9 @@ object PlanText {
     }
 
     /** "about 45 min": sets, work and rest added up, plus a warm-up, to the nearest 5 minutes. */
-    fun minutes(session: PlannedSession): String {
+    fun minutes(session: PlannedSession): String = "about ${estimatedMinutes(session)} min"
+
+    fun estimatedMinutes(session: PlannedSession): Int {
         val seconds = WARM_UP_SECONDS + session.exercises.sumOf { planned ->
             val p = planned.prescription
             val perSet = when (p.unit) {
@@ -43,8 +45,7 @@ object PlanText {
             }
             p.sets * (perSet + p.restSeconds)
         }
-        val minutes = ((seconds / 60f / 5f).roundToInt() * 5).coerceAtLeast(5)
-        return "about $minutes min"
+        return ((seconds / 60f / 5f).roundToInt() * 5).coerceAtLeast(5)
     }
 
     /** "6 exercises · about 45 min · Bench press first". */

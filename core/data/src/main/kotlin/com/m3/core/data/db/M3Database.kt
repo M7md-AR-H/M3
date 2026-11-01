@@ -27,8 +27,11 @@ import androidx.room.RoomDatabase
         HabitDoneEntity::class,
         DeloadWeekEntity::class,
         GroceryItemEntity::class,
+        ReminderSettingEntity::class,
+        ReminderPrefsEntity::class,
+        WaterDayEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     // Every migration so far only adds tables (chat, workouts, steps, food, body, daily), so Room does them by itself.
     autoMigrations = [
@@ -39,6 +42,7 @@ import androidx.room.RoomDatabase
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9),
     ],
 )
 abstract class M3Database : RoomDatabase() {
@@ -55,4 +59,5 @@ abstract class M3Database : RoomDatabase() {
     abstract fun dailyDao(): DailyDao
     abstract fun deloadDao(): DeloadDao
     abstract fun groceryDao(): GroceryDao
+    abstract fun reminderDao(): ReminderDao
 }

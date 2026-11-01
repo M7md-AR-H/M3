@@ -117,7 +117,7 @@ object GroceryPlanner {
 
         val fatLeft = (targets.fatG * DAYS - fatBrought).coerceAtLeast(0.0)
         roundTo(fatLeft * OIL.share / OIL_G_PER_ML, 50).takeIf { it > 0 }?.let {
-            lines += GroceryLine(OIL.name, Units.shopVolume(it), OIL.section)
+            lines += GroceryLine(OIL.name, Units.volume(it), OIL.section)
         }
         shopped(NUTS, grams(NUTS, fatLeft * NUTS.share, NUTS.fatG), 50)?.let { lines += it }
 

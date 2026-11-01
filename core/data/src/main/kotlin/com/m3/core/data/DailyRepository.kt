@@ -6,6 +6,7 @@ import com.m3.core.data.db.HabitDoneEntity
 import com.m3.core.model.CheckIn
 import com.m3.core.model.DailyCheck
 import com.m3.core.model.Habit
+import com.m3.core.model.Hydration
 import java.time.LocalDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -43,4 +44,12 @@ class DailyRepository(private val opener: DatabaseOpener) {
         val dao = opener.get().dailyDao()
         if (done) dao.markDone(HabitDoneEntity(date.toString(), habit.name)) else dao.markNotDone(date.toString(), habit.name)
     }
+
+    fun observeWater(date: LocalDate): Flow<Int> = flow { emit(opener.get()) }.flatMapLatest { db ->
+        db.dailyDao().observeWater(date.toString()).map { it ?: 0 }
+    }
+
+    /** Adds (or, with a negative amount, takes back) water. The Water habit follows the goal. */
+    suspend fun addWater(date: LocalDate, ml: Int) = opener.get().dailyDao()
+        .addWaterAndMarkGoal(date.toString(), ml, Hydration.MAX_ML, Hydration.GOAL_ML, Habit.WATER.name)
 }

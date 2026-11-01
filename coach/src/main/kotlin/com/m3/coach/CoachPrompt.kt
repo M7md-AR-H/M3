@@ -264,6 +264,7 @@ object CoachPrompt {
         LockKey.TODAY_LAYOUT to "Today cards",
         LockKey.TRAINING_PLAN to "the plan (day equipment, avoided exercises)",
         LockKey.AVAILABILITY to "free days",
+        LockKey.REMINDERS to "reminders",
     )
 
     private val INTRO = """

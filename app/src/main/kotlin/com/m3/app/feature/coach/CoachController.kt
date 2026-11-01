@@ -2,6 +2,7 @@ package com.m3.app.feature.coach
 
 import com.m3.app.data.PlanInputs
 import com.m3.app.data.PlanRepository
+import com.m3.app.feature.reminders.ReminderEngine
 import com.m3.app.feature.workout.WorkoutTargets
 import com.m3.coach.ChatRole
 import com.m3.coach.ChatTurn
@@ -23,6 +24,7 @@ import com.m3.core.data.DailyRepository
 import com.m3.core.data.FoodRepository
 import com.m3.core.data.PlanOverridesRepository
 import com.m3.core.data.ProposalStatus
+import com.m3.core.data.ReminderRepository
 import com.m3.core.data.StepRepository
 import com.m3.core.data.StoredChatMessage
 import com.m3.core.data.StoredProposal
@@ -39,6 +41,10 @@ import com.m3.core.designsystem.config.UiConfigStore
 import com.m3.core.designsystem.config.displayName
 import com.m3.core.model.EquipmentKind
 import com.m3.core.model.Nutrition
+import com.m3.core.model.ReminderKind
+import com.m3.core.model.ReminderSetting
+import com.m3.core.model.ReminderSettings
+import com.m3.core.model.Reminders
 import com.m3.core.model.WeightTrend
 import com.m3.core.training.PlanDiff
 import com.m3.core.training.WeekPlan
@@ -80,6 +86,10 @@ sealed class UndoInfo {
     @Serializable
     @SerialName("ui")
     data class Ui(val inverse: UiChange) : UndoInfo()
+
+    @Serializable
+    @SerialName("reminder")
+    data class Reminder(val kind: String, val on: Boolean, val minute: Int, val everyHours: Int) : UndoInfo()
 }
 
 /**
@@ -100,6 +110,8 @@ class CoachController @Inject constructor(
     private val steps: StepRepository,
     private val body: BodyRepository,
     private val daily: DailyRepository,
+    private val reminders: ReminderRepository,
+    private val reminderEngine: ReminderEngine,
 ) {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -120,6 +132,11 @@ class CoachController @Inject constructor(
         // Plain number questions never reach the model: it got them wrong in the eval even when told the answer.
         DailyAnswers.answer(trimmed, today)?.let { answer ->
             chat.addTurn(trimmed, answer, null)
+            return
+        }
+        // A plain reminder request is the app's to handle: the card says exactly what would change.
+        CoachTools.reminderRequest(trimmed)?.let { proposalFor(it, inputs, trimmed) }?.let { proposal ->
+            chat.addTurn(trimmed, proposal.summary, proposal)
             return
         }
         val system = CoachPrompt.system(facts(inputs, workouts.observeRecent().first(), today))
@@ -233,6 +250,11 @@ class CoachController @Inject constructor(
             is UndoInfo.Ui -> if (uiStore.apply(info.inverse, Actor.Owner) is ApplyResult.Rejected) {
                 return "Couldn't undo this change."
             }
+            is UndoInfo.Reminder -> {
+                val kind = ReminderKind.entries.firstOrNull { it.name == info.kind } ?: return "This change can't be undone."
+                reminders.save(ReminderSetting(kind, info.on, info.minute, info.everyHours))
+                reminderEngine.reschedule()
+            }
         }
         chat.setProposalStatus(messageId, ProposalStatus.UNDONE)
         null
@@ -306,19 +328,20 @@ class CoachController @Inject constructor(
                 val action = result.action
                 if (!CoachTools.relevantTo(action, ownerMessage)) return null
                 val locks = uiStore.config.value.locks
+                val reminderSettings = reminders.observe().first()
                 withContext(Dispatchers.Default) {
                     val status = when {
-                        changesNothing(action, inputs) -> ProposalStatus.NO_CHANGE
+                        changesNothing(action, inputs, reminderSettings) -> ProposalStatus.NO_CHANGE
                         action.lock in locks -> ProposalStatus.BLOCKED
                         else -> ProposalStatus.PENDING
                     }
-                    StoredProposal(toolJson, status, summary(action), planChanges(action, inputs))
+                    StoredProposal(toolJson, status, summary(action), planChanges(action, inputs, reminderSettings))
                 }
             }
         }
 
     /** True when applying [action] would leave everything as it is, so the card offers no Apply. */
-    private fun changesNothing(action: CoachAction, inputs: PlanInputs): Boolean = when (action) {
+    private fun changesNothing(action: CoachAction, inputs: PlanInputs, reminderSettings: ReminderSettings): Boolean = when (action) {
         // Whole sessions, equipment included: the same exercises with other equipment is still a change.
         is CoachAction.SetDayEquipment -> dayPlans(action, inputs).let { (before, after) ->
             before.sessionOn(action.day) == after.sessionOn(action.day)
@@ -327,6 +350,7 @@ class CoachController @Inject constructor(
         is CoachAction.AllowExercise -> action.allIds.none { it in inputs.stored.excluded }
         is CoachAction.SetAvailability -> inputs.setup.availability[action.day] == action.locationId
         is CoachAction.Ui -> (action.change as? UiChange.SetThemeMode)?.mode == uiStore.config.value.theme.mode
+        is CoachAction.SetReminder -> reminderSettings[action.kind].let { action.applyTo(it) == it }
     }
 
     /** The target day's week before and after; it may be next week, e.g. "tomorrow" on a Sunday. */
@@ -341,7 +365,7 @@ class CoachController @Inject constructor(
         return PlanDiff.describe(before, after).filter { it.startsWith(dayLabel(action.date.dayOfWeek)) }
     }
 
-    private fun planChanges(action: CoachAction, inputs: PlanInputs): List<String> {
+    private fun planChanges(action: CoachAction, inputs: PlanInputs, reminderSettings: ReminderSettings): List<String> {
         val after = when (action) {
             is CoachAction.SetDayEquipment ->
                 return dayDiff(action, inputs).ifEmpty { listOf("No change: ${dayLabel(action.date.dayOfWeek)} is a rest day or already fits.") }
@@ -353,7 +377,8 @@ class CoachController @Inject constructor(
                 val availability = inputs.setup.availability.let { if (action.locationId == null) it - action.day else it + (action.day to action.locationId) }
                 plans.preview(inputs.profile, inputs.setup.copy(availability = availability), inputs.stored)
             }
-            is CoachAction.Ui -> return if (changesNothing(action, inputs)) listOf("It's already set like this.") else emptyList()
+            is CoachAction.Ui, is CoachAction.SetReminder ->
+                return if (changesNothing(action, inputs, reminderSettings)) listOf("It's already set like this.") else emptyList()
         }
         return PlanDiff.describe(inputs.plan, after).ifEmpty { listOf("No change to this week's sessions.") }
     }
@@ -400,6 +425,12 @@ class CoachController @Inject constructor(
                     is RejectReason.Invalid -> Outcome.Refused("That change would break the app's look rules (e.g. contrast), so nothing changed.")
                 }
             }
+        }
+        is CoachAction.SetReminder -> {
+            val previous = reminders.observe().first()[action.kind]
+            reminders.save(action.applyTo(previous))
+            reminderEngine.reschedule()
+            Outcome.Done(UndoInfo.Reminder(previous.kind.name, previous.on, previous.minute, previous.everyHours))
         }
     }
 
@@ -455,6 +486,13 @@ class CoachController @Inject constructor(
             is CoachAction.SetAvailability -> {
                 val day = action.day.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
                 if (action.locationName == null) "$day: not free" else "$day: free at ${action.locationName}"
+            }
+            is CoachAction.SetReminder -> buildString {
+                append(if (action.on) "${action.kind.displayName} reminder on" else "${action.kind.displayName} reminder off")
+                if (action.on) {
+                    action.minute?.let { append(" at ${Reminders.clockText(it)}") }
+                    action.everyHours?.let { append(", every $it h") }
+                }
             }
             is CoachAction.Ui -> when (val change = action.change) {
                 is UiChange.SetThemeMode -> "Switch the theme to ${change.mode.name.lowercase()}"

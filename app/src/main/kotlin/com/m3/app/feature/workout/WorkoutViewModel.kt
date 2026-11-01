@@ -3,6 +3,7 @@ package com.m3.app.feature.workout
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.m3.app.data.PlanRepository
+import com.m3.app.feature.reminders.ReminderAlarms
 import com.m3.app.feature.train.PlanText
 import com.m3.core.data.StoredSet
 import com.m3.core.data.StoredWorkout
@@ -113,6 +114,7 @@ private data class Edits(
 class WorkoutViewModel @Inject constructor(
     private val workouts: WorkoutRepository,
     plans: PlanRepository,
+    private val alarms: ReminderAlarms,
 ) : ViewModel() {
     private val index = MutableStateFlow<Int?>(null)
     private val edits = MutableStateFlow(Edits())
@@ -350,6 +352,7 @@ class WorkoutViewModel @Inject constructor(
 
     fun skipRest() {
         rest.value = null
+        alarms.cancelRest()
     }
 
     /** Ends the workout (sets already logged are kept; an empty workout is dropped) and then calls [onDone]. */
@@ -372,6 +375,7 @@ class WorkoutViewModel @Inject constructor(
                 }
             }
             if (ok) {
+                alarms.cancelRest()
                 onDone()
             } else {
                 finishing.set(false)
@@ -387,7 +391,10 @@ class WorkoutViewModel @Inject constructor(
     private fun startRest(seconds: Int) {
         if (seconds <= 0) return
         val total = seconds * MILLIS_PER_SECOND
-        rest.value = RestTimer(endAt = System.currentTimeMillis() + total, totalMillis = total)
+        val endAt = System.currentTimeMillis() + total
+        rest.value = RestTimer(endAt = endAt, totalMillis = total)
+        // Only speaks up if the owner left the screen; the timer itself is on screen otherwise.
+        alarms.setRest(endAt)
     }
 
     private fun storedFrom(sessionId: Long, t: ExerciseTarget, setNumber: Int, kg: Double?, amount: Int?, rpe: Double?): StoredSet {
