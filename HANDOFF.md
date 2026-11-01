@@ -6,7 +6,7 @@
 - **`main`** holds everything through session 7's PR: reminders (ADR 0012), the water log, deload weeks, the grocery list, DB v9. Tests and lint pass. Checked on the emulator, **not yet on the phone**.
 - **Branch `feat/debug-eval`** (pushed, **not merged**): LiteRT-LM 0.19.0 and optional vision (from `feat/runtime-0.19`), plus the debug-only eval runner, with `main` merged in. It supersedes `feat/runtime-0.19`. **Don't merge until M³ has run on the phone's GPU with 0.19.0**: every eval so far was on the CPU.
 - **Phone:** was unplugged all of session 7. It still has the build from before the weekly review (PR #13 level, DB v7, LiteRT-LM 0.18.0).
-- **PC:** `models/` holds E4B, E2B and `Qwen3-4B-int4.litertlm` (checksum verified: 4877b236…, 2,272,935,936 bytes). The emulator has test data, PIN 1234 and E2B in M³'s model folder.
+- **PC:** no emulator or adb server left running. `models/` holds E4B, E2B and `Qwen3-4B-int4.litertlm` (checksum verified: 4877b236…, 2,272,935,936 bytes). The emulator has test data, PIN 1234 and E2B in M³'s model folder.
 - **Owner's setup:** works locally. Claude merges without asking once local checks pass and the final check is done (CLAUDE.md); there's no CI.
 
 ## ▶ Next steps, in order
@@ -30,6 +30,7 @@
 ## Eval evidence so far (19 cases, CPU, emulator; read every answer)
 - **E4B on LiteRT-LM 0.19.0:** 17/19, 2 false "done" claims, no crash. Failures: theme with no tool line (the app's fallback covers it, the eval doesn't run that), "hotel tomorrow" got `set_day`. It still invented "78.0 kg last week".
 - **E4B on 0.18.0:** 15/19. It said 53 g when told 58 g, and invented an `adjust_weight` tool.
+- **E2B through `scripts/phone-eval.sh` (2026-11-01, emulator CPU, LiteRT-LM 0.19.0):** 15/19, no false claims flagged, about 7 minutes. This run proved the runner itself: start from adb, full report, a missing-model error, clean-up. The answers weren't read for quality, because E2B isn't a candidate.
 - **Qwen3-4B on the emulator:** no result. It finished no case in 52 CPU minutes on 6 GB. That says nothing about the phone's GPU. Don't rerun it on the emulator.
 - **Conclusion:** the model can't be trusted to repeat numbers, so plain number questions go to `DailyAnswers` in Kotlin. Free-form advice can still contain wrong numbers (known limitation).
 
