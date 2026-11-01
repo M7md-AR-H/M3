@@ -40,7 +40,7 @@ internal interface EvalEntryPoint {
  * Debug-only: runs the Coach prompt eval on this device with the real engine config (GPU first, like the Coach).
  * Start: `adb shell am start -n com.m3.app/.debug.EvalActivity --ez vision true --es model <file name>`.
  * `model` is a file name in the app's model folder (default: the Coach's model); `vision` defaults to true.
- * `--ez mtp false` turns off multi-token prediction on the GPU.
+ * `--ez mtp false` turns off multi-token prediction on the GPU. `--es suffix <text>` is added to each prompt (Qwen: "/no_think").
  *
  * Uses only the made-up facts in [EvalFixture]. It never opens the database, profile, chat or photos, so it
  * needs no unlock. The report goes to filesDir/m3-eval/result.txt (app-private), rewritten after each case.
@@ -71,7 +71,8 @@ class EvalActivity : ComponentActivity() {
         val vision = intent.getBooleanExtra("vision", true)
         val model = intent.getStringExtra("model")
         val mtp = intent.getBooleanExtra("mtp", true)
-        scope.launch { run(vision, model, mtp) }
+        val suffix = intent.getStringExtra("suffix").orEmpty()
+        scope.launch { run(vision, model, mtp, suffix) }
     }
 
     override fun onDestroy() {
@@ -84,7 +85,7 @@ class EvalActivity : ComponentActivity() {
         runOnUiThread { view.text = text }
     }
 
-    private suspend fun run(vision: Boolean, requestedModel: String?, gpuMtp: Boolean) {
+    private suspend fun run(vision: Boolean, requestedModel: String?, gpuMtp: Boolean, suffix: String) {
         val entries = mutableListOf<EvalEntry>()
         var header = EvalHeader(requestedModel ?: CoachRuntime.MODEL.fileName, "not loaded", vision, 0.0, EvalCases.all.size)
         var failure: String? = null
@@ -113,7 +114,7 @@ class EvalActivity : ComponentActivity() {
                     show("Case ${index + 1} of ${EvalCases.all.size} · ${case.message}\n\n${header.backend}, ${modelFile.name}")
                     val start = System.nanoTime()
                     val result = loaded.engine.generate(
-                        fixture.promptFor(case),
+                        fixture.promptFor(case) + suffix.takeIf { it.isNotEmpty() }?.let { " $it" }.orEmpty(),
                         systemInstruction = fixture.systemFor(case),
                         // Same as the Coach (CoachController.MAX_OUTPUT_TOKENS).
                         maxOutputTokens = 400,

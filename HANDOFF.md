@@ -27,6 +27,12 @@
 - **Review:** Sonnet reviewed the whole diff. Fixed: next alarm before sending, retry keeps the failed reminder, lateness in real time, tighter Coach wording, logged sets stay visible after a deload, grocery Undo can't duplicate. Left as limitations in the README: Undo over newer manual changes, workouts in a cleared deload week.
 - **Emulator checks passed:** alarm fires from a dead process; private text and "M³" as the public version; tap asks for the unlock, then opens the tab, and the notification clears; alarm survives an update and a reboot (and is lost on a force-stop until M³ opens, as Android intends); Rest over on time in the background; +250 ml reaches Habits; deload 3 → 2 sets; grocery list reads sensibly; 12 of 12 database tests including v7 → v8 → v9.
 
+## Phone GPU eval, 2026-11-01 (19 cases, real GPU, read every answer)
+- **Big finding: E4B garbles digits on the phone's GPU.** "42.5 kg" becomes "422.5 kg", "78.4" becomes "7888.4", "6,214 steps" becomes "62,1414". The digits look repeated, not invented. This was never seen on the emulator's CPU.
+- **Not caused by 0.19.0 or multi-token prediction:** 0.19.0 + MTP 13/19, 0.19.0 no MTP 17/19, 0.18.0 + MTP 18/19, all with garbled digits. The installed app has always had this in free-form advice; `DailyAnswers` protects plain number questions. Scores are unreliable here: the checks only look for one right number. Reports: `build/eval/e4b-gpu-*.txt` on the PC.
+- **Speed:** 19 cases in about 3 minutes; about 11 tok/s without MTP, 10–17 with it.
+- **Options if Qwen doesn't fix it:** a Kotlin check of reply numbers against the facts, or a CPU comparison on the phone.
+
 ## Eval evidence so far (19 cases, CPU, emulator; read every answer)
 - **E4B on LiteRT-LM 0.19.0:** 17/19, 2 false "done" claims, no crash. Failures: theme with no tool line (the app's fallback covers it, the eval doesn't run that), "hotel tomorrow" got `set_day`. It still invented "78.0 kg last week".
 - **E4B on 0.18.0:** 15/19. It said 53 g when told 58 g, and invented an `adjust_weight` tool.
