@@ -3,21 +3,23 @@
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 
 ## Where things stand
-- **`main`** holds everything through session 7's PR: reminders (ADR 0012), the water log, deload weeks, the grocery list, DB v9. Tests and lint pass. Checked on the emulator, **not yet on the phone**.
-- **Branch `feat/debug-eval`** (pushed, **not merged**): LiteRT-LM 0.19.0 and optional vision (from `feat/runtime-0.19`), plus the debug-only eval runner, with `main` merged in. It supersedes `feat/runtime-0.19`. **Don't merge until M³ has run on the phone's GPU with 0.19.0**: every eval so far was on the CPU.
-- **Phone:** was unplugged all of session 7. It still has the build from before the weekly review (PR #13 level, DB v7, LiteRT-LM 0.18.0).
-- **PC:** `models/` holds E4B, E2B and `Qwen3-4B-int4.litertlm` (checksum verified: 4877b236…, 2,272,935,936 bytes). The emulator has test data, PIN 1234 and E2B in M³'s model folder.
+- **`main`** holds everything through session 7: reminders (ADR 0012), the water log, deload weeks, the grocery list, DB v9, LiteRT-LM 0.19.0, Qwen3-4B for chat with E4B for photos (ADR 0002), and the debug eval runner.
+- **Phone:** has this build. Checked on it with real data: DB v7 → v9 upgrade kept everything, Coach on Qwen on the GPU, meal photo swaps to E4B on the GPU, reminder cards with Apply and Undo, a test reminder, and a live alarm chain. No crash. Models on the phone: Qwen and E4B, both verified. Test chat removed.
+- **Not confirmed:** whether the owner did OWNER_TASKS #7, and why the real 19:30 water reminder stayed silent. The alarm fired and moved on to 21:00, and silence is right if Water was ticked or 2.5 L reached. If it wasn't, this is a bug.
+- **PC:** `models/` holds E4B, E2B and Qwen. The emulator has test data, PIN 1234 and E2B in M³'s model folder. Eval reports are in `build/eval/` (ignored by git).
 - **Owner's setup:** works locally. Claude merges without asking once local checks pass and the final check is done (CLAUDE.md); there's no CI.
 
 ## ▶ Next steps, in order
 1. Normal session start: CLAUDE.md, docs/WORKING_RULES.md, this file, README roadmap + decision log, `git status`, `git log -5`. Give a time estimate first.
-2. **When the phone is connected, install `main`** (DB v7 → v9 runs on first open; tested on the emulator with encrypted data). Then force-stop M³ per the phone rules, and tell the owner to open it once: a force-stopped app gets no alarms until it's opened.
-3. **Owner does OWNER_TASKS #7** (Autostart, No restrictions). Only the owner can; Claude changes no settings. Without it Xiaomi may stop reminders.
-4. **Phone check of reminders:** owner taps Turn on reminders and Send a test reminder. Check a reminder fires with M³ swiped away. Check "Turn off water reminders" in the Coach, with Apply and Undo: the emulator has no Send without a model, so that path only has unit tests.
-5. **Phone check of `feat/debug-eval`:** install it, unlock, ask the Coach one advice question and snap one meal on the GPU. Run `M3_SERIAL=<serial> bash scripts/phone-eval.sh gemma-4-E4B-it.litertlm true`, then read every answer in `build/eval/`. Then merge.
-6. **Model decision (ADR 0002).** Copy Qwen with resumable `adb exec-in run-as com.m3.app …` (README decision log), then `bash scripts/phone-eval.sh Qwen3-4B-int4.litertlm false`. E4B stays until a candidate beats it on both the eval and the phone. If Qwen wins: add it to `ModelCatalog` with size and SHA-256, keep E4B for meal photos (one model loaded at a time, through `CoachRuntime`), set `vision = false`, handle thinking output in `ReplyParser` if it shows. LFM3-Omni-2B is second.
-7. **Look at the weekly review card on the phone.** It shows from the first Monday after a week with logs.
-8. **Needs the phone or owner:** fridge photo ideas, progress photos with ghost overlay (needs CameraX: decision-log entry), barcode (needs `:research` and the owner's allowlist decision), live form check. Grooming and style come after.
+2. **Ask the owner** about the 19:30 water reminder, and whether reminders arrived with M³ closed. If one was missed with Water open, debug it first. Check OWNER_TASKS #7 is done.
+3. **Watch Qwen in daily use.** Answers take about 24 s. If the owner finds that too slow, or the label mix-ups keep coming, consider a Kotlin check of reply numbers against the facts. The "owner" wording in answers comes from the prompt: replace it, with an eval run.
+4. **Look at the weekly review card on the phone.** It shows from the first Monday after a week with logs.
+5. **Needs the phone or owner:** fridge photo ideas, progress photos with ghost overlay (needs CameraX: decision-log entry), barcode (needs `:research` and the owner's allowlist decision), live form check. Grooming and style come after.
+
+## Phone GPU eval, 2026-11-01 (19 cases, read every answer)
+- **E4B garbles digits on the phone's GPU** ("422.5 kg" for 42.5, "62,1414 steps"), on 0.18.0 and 0.19.0, with or without MTP. Never seen on the emulator's CPU. Scores hid it: 13–18/19.
+- **Qwen3-4B with `/no_think`:** 17/19, 0 false claims, digits clean, about 24 s an answer. Without `/no_think`, 5 answers came back empty. It won't load on the GPU with MTP. Full table: ADR 0002.
+- **Commands:** `M3_SERIAL=<serial> bash scripts/phone-eval.sh Qwen3-4B-int4.litertlm false false /no_think`; `... gemma-4-E4B-it.litertlm true`. Arguments: model, vision, MTP, prompt suffix. **The script force-stops M³, which clears its alarms:** open M³ afterwards.
 
 ## Session 7 (2026-11-01): what was done
 - **Reminders (ADR 0012):** morning, three meals, workout, water, log your day, lights out, weekly review, rest over. Each reads the logs when due and stays silent if it's done. Private text unless "Show my numbers" is on. You → Reminders; plain requests to the Coach become cards with Undo and a `REMINDERS` lock.
@@ -27,20 +29,15 @@
 - **Review:** Sonnet reviewed the whole diff. Fixed: next alarm before sending, retry keeps the failed reminder, lateness in real time, tighter Coach wording, logged sets stay visible after a deload, grocery Undo can't duplicate. Left as limitations in the README: Undo over newer manual changes, workouts in a cleared deload week.
 - **Emulator checks passed:** alarm fires from a dead process; private text and "M³" as the public version; tap asks for the unlock, then opens the tab, and the notification clears; alarm survives an update and a reboot (and is lost on a force-stop until M³ opens, as Android intends); Rest over on time in the background; +250 ml reaches Habits; deload 3 → 2 sets; grocery list reads sensibly; 12 of 12 database tests including v7 → v8 → v9.
 
-## Phone GPU eval, 2026-11-01 (19 cases, real GPU, read every answer)
-- **Big finding: E4B garbles digits on the phone's GPU.** "42.5 kg" becomes "422.5 kg", "78.4" becomes "7888.4", "6,214 steps" becomes "62,1414". The digits look repeated, not invented. This was never seen on the emulator's CPU.
-- **Not caused by 0.19.0 or multi-token prediction:** 0.19.0 + MTP 13/19, 0.19.0 no MTP 17/19, 0.18.0 + MTP 18/19, all with garbled digits. The installed app has always had this in free-form advice; `DailyAnswers` protects plain number questions. Scores are unreliable here: the checks only look for one right number. Reports: `build/eval/e4b-gpu-*.txt` on the PC.
-- **Speed:** 19 cases in about 3 minutes; about 11 tok/s without MTP, 10–17 with it.
-- **Options if Qwen doesn't fix it:** a Kotlin check of reply numbers against the facts, or a CPU comparison on the phone.
 
-## Eval evidence so far (19 cases, CPU, emulator; read every answer)
+## Older eval evidence (19 cases, CPU, emulator)
 - **E4B on LiteRT-LM 0.19.0:** 17/19, 2 false "done" claims, no crash. Failures: theme with no tool line (the app's fallback covers it, the eval doesn't run that), "hotel tomorrow" got `set_day`. It still invented "78.0 kg last week".
 - **E4B on 0.18.0:** 15/19. It said 53 g when told 58 g, and invented an `adjust_weight` tool.
-- **Qwen3-4B on the emulator:** no result. It finished no case in 52 CPU minutes on 6 GB. That says nothing about the phone's GPU. Don't rerun it on the emulator.
+- **Qwen3-4B on the emulator:** finished no case in 52 CPU minutes. Only test it on the phone.
 - **Conclusion:** the model can't be trusted to repeat numbers, so plain number questions go to `DailyAnswers` in Kotlin. Free-form advice can still contain wrong numbers (known limitation).
 
 ## How to run the eval
-- **Phone or emulator, real install:** `M3_SERIAL=<serial> bash scripts/phone-eval.sh <model-file> [vision true|false]`, from `feat/debug-eval`. The model file must be in `no_backup/models`. The report lands in `build/eval/<name>.txt`, and nothing stays on the phone.
+- **Phone or emulator, real install:** `scripts/phone-eval.sh` (see above). The model file must be in `no_backup/models`. The report lands in `build/eval/<name>.txt`, and nothing stays on the phone.
 - **Emulator only:** `bash scripts/run-eval.sh gemma-4-E4B-it.litertlm eval-e4b` (wipes test data on purpose; add `false` for a text-only model). About 40 minutes; run in the background.
 
 ## Open questions for the owner
