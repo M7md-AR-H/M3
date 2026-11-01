@@ -13,6 +13,8 @@ data class LlmLoadConfig(
     val maxTokens: Int = 4096,
     /** Lets the runtime cache compiled GPU programs so the next load is faster. */
     val cacheDir: File? = null,
+    /** False for text-only models: asking for a vision backend they don't have fails on every answer. */
+    val vision: Boolean = true,
 )
 
 data class GenerationStats(

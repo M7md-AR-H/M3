@@ -137,7 +137,10 @@ class CoachPromptEval {
         Log.i(TAG, "system prompt chars=${system.length}")
         val cache = File(InstrumentationRegistry.getInstrumentation().targetContext.filesDir, "llm-eval").apply { mkdirs() }
         LiteRtLmEngine().use { engine ->
-            val loadSeconds = engine.load(LlmLoadConfig(model, LlmBackend.CPU, speculativeDecoding = false, maxTokens = 4096, cacheDir = cache))
+            val vision = InstrumentationRegistry.getArguments().getString("vision") != "false"
+            val loadSeconds = engine.load(
+                LlmLoadConfig(model, LlmBackend.CPU, speculativeDecoding = false, maxTokens = 4096, cacheDir = cache, vision = vision),
+            )
             Log.i(TAG, "loaded in ${"%.1f".format(loadSeconds)} s")
             var passed = 0
             var claims = 0
