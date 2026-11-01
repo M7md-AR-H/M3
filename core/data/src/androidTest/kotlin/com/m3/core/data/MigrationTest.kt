@@ -10,6 +10,8 @@ import com.m3.core.data.db.M3Database
 import com.m3.core.model.BodyPart
 import com.m3.core.model.CheckIn
 import com.m3.core.model.FoodEntry
+import com.m3.core.model.GroceryLine
+import com.m3.core.model.GrocerySection
 import com.m3.core.model.Habit
 import com.m3.core.model.Measurement
 import com.m3.core.model.StepReading
@@ -79,6 +81,64 @@ class MigrationTest {
         val stored = overrides.observe().first()
         assertEquals(emptySet<Any>(), stored.dayEquipment[LocalDate.of(2026, 10, 19)])
         assertEquals("knee", stored.excluded["back_squat"])
+        opener.get().close()
+    }
+
+    /** v8 adds deload weeks and the grocery list and keeps check-ins, habits and the food log. */
+    @Test
+    fun encryptedV7WithDataOpensAsV8AndKeepsDeloadsAndGroceries() = runTest {
+        helper.createDatabase(DatabaseOpener.DATABASE_NAME, 7).apply {
+            execSQL("INSERT INTO app_state (id, onboardingCompleted, schemaVersion) VALUES (1, 1, 7)")
+            execSQL("INSERT INTO check_in (date, sleep, energy, soreness) VALUES ('2026-10-30', 4, 3, 2)")
+            execSQL("INSERT INTO habit_done (date, habit) VALUES ('2026-10-30', 'WATER')")
+            execSQL("INSERT INTO excluded_exercise (exerciseId, reason, createdAt) VALUES ('walking_lunge', 'knee pain', 1)")
+            close()
+        }
+
+        val opener = DatabaseOpener(context, { key.copyOf() })
+        val day = LocalDate.of(2026, 10, 30)
+        assertEquals(3, DailyRepository(opener).observeCheckIn(day).first()?.energy)
+        assertEquals(setOf(Habit.WATER), DailyRepository(opener).observeHabits(day).first())
+
+        // Deload weeks: stored by Monday, answered once, undone by deleting.
+        val overrides = PlanOverridesRepository(opener)
+        val monday = LocalDate.of(2026, 11, 2)
+        assertEquals("knee pain", overrides.observe().first().excluded["walking_lunge"])
+        overrides.setDeload(monday, DeloadState.ACCEPTED)
+        overrides.setDeload(monday.minusWeeks(1), DeloadState.DECLINED)
+        assertEquals(setOf(monday), overrides.observe().first().deloadWeeks)
+        assertEquals(setOf(monday.minusWeeks(1)), overrides.observe().first().deloadDeclined)
+        overrides.pruneBefore(monday)
+        assertEquals(setOf(monday), overrides.observe().first().deloadWeeks)
+        overrides.setDeload(monday, null)
+        assertTrue(overrides.observe().first().deloadWeeks.isEmpty())
+
+        // Grocery list: a removed suggestion stays gone, ticked rows survive a refresh, undo restores.
+        val grocery = GroceryRepository(opener)
+        assertTrue(grocery.isEmpty())
+        val lines = listOf(
+            GroceryLine("Oats", "700 g", GrocerySection.CARBS),
+            GroceryLine("Eggs", "12 eggs", GrocerySection.PROTEIN),
+            GroceryLine("Rice (dry)", "1 kg", GrocerySection.CARBS),
+        )
+        grocery.refresh(lines)
+        var items = grocery.observe().first()
+        assertEquals(listOf("Oats", "Eggs", "Rice (dry)"), items.map { it.name })
+        val oats = items.first { it.name == "Oats" }
+        val eggs = items.first { it.name == "Eggs" }
+        grocery.setChecked(oats.id, true)
+        val removed = grocery.remove(eggs.id)!!
+        assertTrue(grocery.add("Skyr"))
+        assertTrue(!grocery.add(" skyr "))
+        grocery.refresh(lines)
+        items = grocery.observe().first()
+        assertEquals(listOf("Oats", "Skyr", "Rice (dry)"), items.map { it.name })
+        assertTrue(items.first { it.name == "Oats" }.checked)
+        grocery.restore(removed)
+        assertTrue(grocery.observe().first().any { it.name == "Eggs" })
+        grocery.clearTicked()
+        assertEquals(listOf("Eggs", "Skyr", "Rice (dry)"), grocery.observe().first().map { it.name })
+        assertTrue(!grocery.isEmpty())
         opener.get().close()
     }
 

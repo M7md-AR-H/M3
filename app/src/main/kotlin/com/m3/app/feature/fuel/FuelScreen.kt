@@ -30,6 +30,7 @@ import com.m3.app.feature.train.rememberToday
 import com.m3.core.designsystem.component.DoubleRule
 import com.m3.core.designsystem.component.HairRule
 import com.m3.core.designsystem.component.Kicker
+import com.m3.core.designsystem.component.LinkRow
 import com.m3.core.designsystem.component.M3Button
 import com.m3.core.designsystem.component.M3OutlineButton
 import com.m3.core.designsystem.component.M3Snackbar
@@ -46,7 +47,7 @@ import java.time.ZoneId
 import kotlinx.coroutines.launch
 
 @Composable
-fun FuelScreen(onAddFood: () -> Unit, onSnapMeal: () -> Unit, viewModel: FuelViewModel = hiltViewModel()) {
+fun FuelScreen(onAddFood: () -> Unit, onSnapMeal: () -> Unit, onOpenGrocery: () -> Unit, viewModel: FuelViewModel = hiltViewModel()) {
     val today by rememberToday()
     val flow = remember(today) { viewModel.day(today) }
     val state by flow.collectAsStateWithLifecycle(initialValue = FuelState.Loading)
@@ -86,6 +87,7 @@ fun FuelScreen(onAddFood: () -> Unit, onSnapMeal: () -> Unit, viewModel: FuelVie
                         M3OutlineButton(text = "Add food", onClick = onAddFood, modifier = Modifier.weight(1f))
                     }
                     Plates(entries = s.entries, onRemove = remove)
+                    LinkRow(title = "Grocery list", supportingText = "This week's shop, from your targets", onClick = onOpenGrocery)
                     s.targets?.let { targets -> HowItWorks(targets) }
                 }
             }

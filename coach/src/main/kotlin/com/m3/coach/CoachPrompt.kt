@@ -47,6 +47,8 @@ data class CoachFacts(
     val workoutsLast28Days: Int = 0,
     val lastWorkout: LocalDate? = null,
     val daily: DailyFacts = DailyFacts(),
+    /** This week is an accepted deload week (the plan already has the lighter sets and loads). */
+    val deloadThisWeek: Boolean = false,
 )
 
 /** How today is going, from the logs. Every number is the app's; the model only explains them. */
@@ -152,6 +154,7 @@ object CoachPrompt {
         val lastWorkout = f.lastWorkout?.let { "; last on ${it.format(SHORT_DATE)}" } ?: ""
         appendLine("Workouts in the last 4 weeks: ${f.workoutsLast28Days}$lastWorkout.")
         appendDaily(f.daily)
+        if (f.deloadThisWeek) appendLine("This week is a deload week: fewer sets, lighter loads.")
         appendLine("This week's plan (\"last\" = logged, \"next\" = the app's target):")
         DayOfWeek.entries.forEach { day ->
             val todayMark = if (day == f.today.dayOfWeek) " (today)" else ""
@@ -237,7 +240,7 @@ object CoachPrompt {
     private const val SECONDS_PER_MINUTE = 60
 
     private val SHORT_DATE =DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
-    private val NEXT_WORDS = mapOf(TargetKind.START to "first time", TargetKind.INCREASE to "up", TargetKind.HOLD to "same", TargetKind.DECREASE to "lighter")
+    private val NEXT_WORDS = mapOf(TargetKind.START to "first time", TargetKind.INCREASE to "up", TargetKind.HOLD to "same", TargetKind.DECREASE to "lighter", TargetKind.DELOAD to "deload")
 
     private fun amount(planned: PlannedExercise): String {
         val p = planned.prescription

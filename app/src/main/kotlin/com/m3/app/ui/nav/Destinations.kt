@@ -59,6 +59,10 @@ data object MealPhotoRoute
 @Serializable
 data object FoodEntryRoute
 
+/** Not a tab: opened from Fuel → Grocery list. */
+@Serializable
+data object GroceryRoute
+
 /** Not a tab: opened from You → On-device AI. */
 @Serializable
 data object AiModelRoute

@@ -205,6 +205,10 @@ interface WorkoutDao {
     )
     fun observeRecentFinishedSets(sessions: Int): Flow<List<WorkoutSetEntity>>
 
+    /** The dates of finished workouts in a range (both ends included), for the deload rule. */
+    @Query("SELECT date FROM workout_session WHERE endedAt IS NOT NULL AND date BETWEEN :from AND :to")
+    suspend fun finishedDates(from: String, to: String): List<String>
+
     @Query("SELECT * FROM workout_session WHERE endedAt IS NOT NULL ORDER BY startedAt DESC LIMIT :limit")
     fun observeRecentFinished(limit: Int): Flow<List<WorkoutSessionEntity>>
 }

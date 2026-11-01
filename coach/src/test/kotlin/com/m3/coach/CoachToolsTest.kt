@@ -246,6 +246,13 @@ class CoachPromptTest {
     }
 
     @Test
+    fun `a deload week adds one line to the facts`() {
+        val line = "This week is a deload week: fewer sets, lighter loads."
+        assertTrue(line !in CoachPrompt.system(facts()))
+        assertTrue(line in CoachPrompt.system(facts().copy(deloadThisWeek = true)))
+    }
+
+    @Test
     fun `system prompt plus a full history fits the context window`() {
         val history = (1..40).map { ChatTurn(if (it % 2 == 0) ChatRole.COACH else ChatRole.OWNER, "message number $it ".repeat(12)) }
         val turn = CoachPrompt.turn(history, "Can I swap squats today?")
@@ -266,11 +273,13 @@ class CoachPromptTest {
             weeklyChangeKg = -0.4,
             checkIn = CheckIn(LocalDate.of(2026, 10, 18), 4, 3, 2),
         )
-        val systemChars = CoachPrompt.system(
-            facts().copy(progress = all, workoutsLast28Days = 20, lastWorkout = LocalDate.of(2026, 10, 16), daily = fullDay),
-        ).length
+        val worst = facts().copy(progress = all, workoutsLast28Days = 20, lastWorkout = LocalDate.of(2026, 10, 16), daily = fullDay)
+        val systemChars = CoachPrompt.system(worst).length
         // Leave room for the owner's message (2,000 max) and some history inside the app's own budget.
         assertTrue("system prompt too long: $systemChars chars", systemChars + 2_000 + 1_000 <= CoachPrompt.PROMPT_CHARS)
+        // The deload line (about 55 chars) on top of that worst case still leaves the message and some history.
+        val withDeload = CoachPrompt.system(worst.copy(deloadThisWeek = true)).length
+        assertTrue("deload prompt too long: $withDeload chars", withDeload + 2_000 + 900 <= CoachPrompt.PROMPT_CHARS)
         val totalChars = systemChars + turn.length
         // ~4 characters per token; leave room for a 512-token answer in 4096.
         assertTrue("prompt too long: $totalChars chars", totalChars / 4 < 4096 - 512)

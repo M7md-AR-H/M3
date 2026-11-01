@@ -93,5 +93,9 @@ object DataModule {
 
     @Provides
     @Singleton
+    fun provideGroceryRepository(opener: DatabaseOpener) = com.m3.core.data.GroceryRepository(opener)
+
+    @Provides
+    @Singleton
     fun provideDailyRepository(opener: DatabaseOpener) = com.m3.core.data.DailyRepository(opener)
 }

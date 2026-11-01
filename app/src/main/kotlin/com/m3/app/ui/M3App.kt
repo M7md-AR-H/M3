@@ -17,6 +17,8 @@ import com.m3.app.feature.aimodel.AiModelScreen
 import com.m3.app.feature.coach.CoachScreen
 import com.m3.app.feature.fuel.FoodEntryScreen
 import com.m3.app.feature.fuel.FuelScreen
+import com.m3.app.feature.fuel.GroceryScreen
+import com.m3.app.ui.nav.GroceryRoute
 import com.m3.app.feature.fuel.MealPhotoScreen
 import com.m3.app.ui.nav.MealPhotoRoute
 import com.m3.app.feature.workout.LocalOpenWorkout
@@ -98,8 +100,10 @@ fun M3App(config: UiConfig) {
                 FuelScreen(
                     onAddFood = { navController.navigate(FoodEntryRoute) },
                     onSnapMeal = { navController.navigate(MealPhotoRoute) },
+                    onOpenGrocery = { navController.navigate(GroceryRoute) },
                 )
             }
+            composable<GroceryRoute> { GroceryScreen(onBack = { navController.popBackStack() }) }
             composable<MealPhotoRoute> { MealPhotoScreen(onBack = { navController.popBackStack() }) }
             composable<FoodEntryRoute> { FoodEntryScreen(onBack = { navController.popBackStack() }) }
             composable<YouRoute> {

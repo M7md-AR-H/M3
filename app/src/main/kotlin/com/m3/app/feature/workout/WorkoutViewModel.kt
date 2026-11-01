@@ -8,6 +8,7 @@ import com.m3.core.data.StoredSet
 import com.m3.core.data.StoredWorkout
 import com.m3.core.data.WorkoutRepository
 import com.m3.core.model.EquipmentKind
+import com.m3.core.training.Deload
 import com.m3.core.training.ExerciseUnit
 import com.m3.core.training.LoadKind
 import com.m3.core.training.PlannedSession
@@ -139,7 +140,9 @@ class WorkoutViewModel @Inject constructor(
             if (session == null || session.exercises.isEmpty()) {
                 Base.Missing(open)
             } else {
-                val targets = WorkoutTargets.forSession(session, inputs.setup, recent)
+                // The workout's own week decides, not today's: a session left open over Sunday keeps its week's loads.
+                val deload = Deload.mondayOf(open.date) in inputs.deloadWeeks
+                val targets = WorkoutTargets.forSession(session, inputs.setup, recent, inputs.deloadWeeks, deload)
                 val listed = targets.associate { it.variantKey to WorkoutTargets.listedKg(inputs.setup, session.locationId, it.planned.equipment) }
                 Base.Found(open, session, targets, listed)
             }

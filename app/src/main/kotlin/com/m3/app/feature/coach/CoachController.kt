@@ -271,9 +271,9 @@ class CoachController @Inject constructor(
         val date = LocalDate.now()
         // Every number here comes from Progression; the model only explains them.
         val progress = inputs.plan.sessions.flatMap { session ->
-            WorkoutTargets.forSession(session, inputs.setup, recent).filter { it.last.isNotEmpty() }.map { t ->
+            WorkoutTargets.forSession(session, inputs.setup, recent, inputs.deloadWeeks, inputs.deloadThisWeek).filter { it.last.isNotEmpty() }.map { t ->
                 progressKey(session.day, t.variantKey) to
-                    ExerciseProgress(WorkoutTargets.history(t.variantKey, recent).first().date, t.last, t.target)
+                    ExerciseProgress(WorkoutTargets.history(t.variantKey, recent, inputs.deloadWeeks).first().date, t.last, t.target)
             }
         }.toMap()
         return CoachFacts(
@@ -285,6 +285,7 @@ class CoachController @Inject constructor(
             profile = inputs.profile,
             setup = inputs.setup,
             plan = inputs.plan,
+            deloadThisWeek = inputs.deloadThisWeek,
             avoided = inputs.stored.excluded.mapValues { (id, reason) -> (plans.catalog[id]?.name ?: id) to reason },
             dayEquipment = inputs.stored.dayEquipment.filterKeys { !it.isBefore(LocalDate.now()) },
             themeMode = config.theme.mode,
