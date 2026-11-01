@@ -26,11 +26,14 @@ import com.m3.core.data.DailyRepository
 import com.m3.core.designsystem.component.M3CheckRow
 import com.m3.core.designsystem.component.M3SquareButton
 import com.m3.core.designsystem.component.SectionHeader
+import com.m3.core.designsystem.component.TextAction
 import com.m3.core.designsystem.theme.M3
 import com.m3.core.model.CheckIn
 import com.m3.core.model.DailyCheck
 import com.m3.core.model.Habit
+import com.m3.core.model.Hydration
 import com.m3.core.model.Readiness
+import com.m3.core.model.Units
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
@@ -47,6 +50,10 @@ class DailyViewModel @Inject constructor(private val daily: DailyRepository) : V
     fun save(checkIn: CheckIn) = write { daily.saveCheckIn(checkIn) }
 
     fun setHabit(date: LocalDate, habit: Habit, done: Boolean) = write { daily.setHabit(date, habit, done) }
+
+    fun water(date: LocalDate): Flow<Int> = daily.observeWater(date)
+
+    fun addWater(date: LocalDate, ml: Int) = write { daily.addWater(date, ml) }
 
     private fun write(block: suspend () -> Unit) {
         viewModelScope.launch {
@@ -137,6 +144,8 @@ fun HabitsCard(viewModel: DailyViewModel = hiltViewModel()) {
     val today by rememberToday()
     val flow = remember(today) { viewModel.habits(today) }
     val done by flow.collectAsStateWithLifecycle(initialValue = emptySet())
+    val waterFlow = remember(today) { viewModel.water(today) }
+    val water by waterFlow.collectAsStateWithLifecycle(initialValue = 0)
     Column {
         SectionHeader(title = "Habits") {
             Text(text = "${done.size} of ${Habit.entries.size}", style = M3.typography.bodySmall, color = M3.colors.muted)
@@ -144,10 +153,16 @@ fun HabitsCard(viewModel: DailyViewModel = hiltViewModel()) {
         Habit.entries.forEach { habit ->
             M3CheckRow(
                 label = habit.displayName,
-                supportingText = habit.detail,
+                supportingText = if (habit == Habit.WATER) "${Units.volume(water)} of ${Units.volume(Hydration.GOAL_ML)}" else habit.detail,
                 checked = habit in done,
                 onCheckedChange = { viewModel.setHabit(today, habit, it) },
             )
+            if (habit == Habit.WATER) {
+                Row(horizontalArrangement = Arrangement.spacedBy(M3.spacing.l)) {
+                    TextAction(text = "+${Hydration.GLASS_ML} ml", onClick = { viewModel.addWater(today, Hydration.GLASS_ML) }, color = M3.colors.accent)
+                    if (water > 0) TextAction(text = "−${Hydration.GLASS_ML} ml", onClick = { viewModel.addWater(today, -Hydration.GLASS_ML) })
+                }
+            }
         }
     }
 }

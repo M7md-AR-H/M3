@@ -35,6 +35,7 @@ fun YouScreen(
     onOpenTrainingSetup: () -> Unit,
     onOpenAiModel: () -> Unit,
     onOpenMeasurements: () -> Unit,
+    onOpenReminders: () -> Unit,
     viewModel: YouViewModel = hiltViewModel(),
 ) {
     val config by viewModel.config.collectAsStateWithLifecycle()
@@ -70,6 +71,7 @@ fun YouScreen(
                 SectionHeader(title = "Your setup")
                 LinkRow(title = "Profile", supportingText = "Body, goal, experience, injuries", onClick = onOpenProfile)
                 LinkRow(title = "Training setup", supportingText = "Places, equipment, free days", onClick = onOpenTrainingSetup)
+                LinkRow(title = "Reminders", supportingText = "Workout, meals, water, logging", onClick = onOpenReminders)
                 LinkRow(title = "AI model & benchmark", supportingText = "The Coach's on-device model", onClick = onOpenAiModel)
             }
             SectionHeader(title = "Customize")

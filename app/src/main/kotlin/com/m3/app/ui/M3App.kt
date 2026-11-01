@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -17,6 +18,8 @@ import com.m3.app.feature.aimodel.AiModelScreen
 import com.m3.app.feature.coach.CoachScreen
 import com.m3.app.feature.fuel.FoodEntryScreen
 import com.m3.app.feature.fuel.FuelScreen
+import com.m3.app.feature.fuel.GroceryScreen
+import com.m3.app.ui.nav.GroceryRoute
 import com.m3.app.feature.fuel.MealPhotoScreen
 import com.m3.app.ui.nav.MealPhotoRoute
 import com.m3.app.feature.workout.LocalOpenWorkout
@@ -38,6 +41,8 @@ import com.m3.app.feature.progress.MeasurementsScreen
 import com.m3.app.ui.nav.MeasurementsRoute
 import com.m3.app.feature.onboarding.ProfileEditScreen
 import com.m3.app.feature.onboarding.TrainingSetupScreen
+import com.m3.app.feature.reminders.RemindersScreen
+import com.m3.app.ui.nav.RemindersRoute
 import com.m3.app.ui.nav.TodayRoute
 import com.m3.app.ui.nav.TrainRoute
 import com.m3.app.ui.nav.YouRoute
@@ -54,7 +59,7 @@ val LocalOpenCoach = compositionLocalOf<() -> Unit> { {} }
 val LocalOpenFuel = compositionLocalOf<() -> Unit> { {} }
 
 @Composable
-fun M3App(config: UiConfig) {
+fun M3App(config: UiConfig, tabRequest: TabId? = null, onTabRequestHandled: () -> Unit = {}) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
@@ -65,6 +70,12 @@ fun M3App(config: UiConfig) {
             launchSingleTop = true
             restoreState = true
         }
+    }
+    LaunchedEffect(tabRequest) {
+        if (tabRequest == null) return@LaunchedEffect
+        // A workout in progress stays where it is: the rest reminder only brings the owner back to it.
+        if (!inWorkout) openTab(tabRequest)
+        onTabRequestHandled()
     }
 
     Scaffold(
@@ -98,8 +109,10 @@ fun M3App(config: UiConfig) {
                 FuelScreen(
                     onAddFood = { navController.navigate(FoodEntryRoute) },
                     onSnapMeal = { navController.navigate(MealPhotoRoute) },
+                    onOpenGrocery = { navController.navigate(GroceryRoute) },
                 )
             }
+            composable<GroceryRoute> { GroceryScreen(onBack = { navController.popBackStack() }) }
             composable<MealPhotoRoute> { MealPhotoScreen(onBack = { navController.popBackStack() }) }
             composable<FoodEntryRoute> { FoodEntryScreen(onBack = { navController.popBackStack() }) }
             composable<YouRoute> {
@@ -108,8 +121,10 @@ fun M3App(config: UiConfig) {
                     onOpenTrainingSetup = { navController.navigate(TrainingSetupRoute) },
                     onOpenAiModel = { navController.navigate(AiModelRoute) },
                     onOpenMeasurements = { navController.navigate(MeasurementsRoute) },
+                    onOpenReminders = { navController.navigate(RemindersRoute) },
                 )
             }
+            composable<RemindersRoute> { RemindersScreen(onBack = { navController.popBackStack() }) }
             composable<AiModelRoute> { AiModelScreen(onBack = { navController.popBackStack() }) }
             composable<MeasurementsRoute> { MeasurementsScreen(onBack = { navController.popBackStack() }) }
             composable<ProfileEditRoute> { ProfileEditScreen(onBack = { navController.popBackStack() }) }

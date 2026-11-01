@@ -116,6 +116,10 @@ class WorkoutRepository(
         }
     }
 
+    /** The dates of finished workouts between two dates, both included (a day with two workouts appears twice). */
+    suspend fun datesBetween(from: LocalDate, to: LocalDate): List<LocalDate> =
+        opener.get().workoutDao().finishedDates(from.toString(), to.toString()).map(LocalDate::parse)
+
     private fun WorkoutSessionEntity.toStored() =
         StoredWorkout(id, LocalDate.parse(date), sessionType, locationId, locationName, startedAt, endedAt)
 

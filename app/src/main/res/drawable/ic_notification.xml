@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A bold M with a small superscript square: Android shows notification icons as one flat colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,20V6h3.2L11,13.5 15.8,6H19v14h-3V11.2l-4.2,6.4h-1.6L6,11.2V20z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M19,2h3v3h-3z" />
+</vector>
