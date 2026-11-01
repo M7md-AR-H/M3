@@ -33,6 +33,14 @@ object Units {
 
     fun grams(value: Int): String = "$value g"
 
+    /** Shopping mass: "400 g", "1.4 kg" from 1,000 g up. */
+    fun shopMass(grams: Int): String =
+        if (grams < 1_000) grams(grams) else "${number(BigDecimal(grams).divide(BigDecimal(1_000)).setScale(2, RoundingMode.HALF_UP).toDouble())} $KG"
+
+    /** "150 ml", "1.5 L" from 1,000 ml up. */
+    fun volume(ml: Int): String =
+        if (ml < 1_000) "$ml ml" else "${number(BigDecimal(ml).divide(BigDecimal(1_000)).setScale(2, RoundingMode.HALF_UP).toDouble())} L"
+
     /** 24-hour time, "08:05". */
     fun clock(time: LocalTime): String = String.format(Locale.ROOT, "%02d:%02d", time.hour, time.minute)
 

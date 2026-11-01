@@ -2,7 +2,7 @@
 
 A private AI coach that lives on your phone: personal trainer, nutritionist and food critic, progress analyst, and later groomer and stylist. All AI runs on-device; personal data never leaves the phone.
 
-**Status (2026-10-31):** Phase 1 code, the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)), Phase 2 core with meal photos, Phase 3 core, check-in and habits, and the Coach's view of the day are merged. Checked on the phone with the real model and real data; progression with real history on the emulator. The Coach answers plain number questions in Kotlin. The weekly review is built (not yet seen on the phone). Model options: [ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md). Next: deload weeks, grocery list.
+**Status (2026-11-01):** Phase 1 code, the UI pass ([ADR 0011](docs/adr/0011-design-guidelines-editorial-pass.md)), Phase 2 core with meal photos, Phase 3 core, check-in and habits, and the Coach's view of the day are merged. Checked on the phone with the real model and real data; progression with real history on the emulator. The Coach answers plain number questions in Kotlin. New and checked on the emulator, not yet on the phone: reminders ([ADR 0012](docs/adr/0012-reminders.md)), the water log, deload weeks, the grocery list. The weekly review is built (not yet seen on the phone). Model options: [ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md). Next: phone check of all of this, then the model decision.
 
 **Earlier (2026-10-21):** Phase 1c-1 and 1c-2 checked on the phone. Fixes from that check: PR #6. Phase 1c-3 (workout logging, focus mode, progressive overload): PR #7 on `feat/phase-1c-logging`, stacked on PR #6. Both re-checked on the phone (2026-10-21, Claude driving the phone over adb); one bug found and fixed (screen kept on behind the lock). Earlier:  Phase 0 complete. Phase 1a done: M³ is installed on the Poco F5, Gemma 4 E4B runs on the phone's GPU (about 16 tokens/s, first words in under a second). Phase 1b done: app lock, encrypted database (SQLCipher + Keystore), saved customizations, onboarding with training locations, equipment and weekly schedule. Phase 1b is on the phone (PR #3 merged). Phase 1c-1 merged (PR #4): the Coach plans the week from your availability, goal and equipment. Phase 1c-2 (branch `feat/phase-1c-coach`): chat with the on-device Coach, which proposes validated, undoable changes. Next: phone check, then logging and progression (1c-3).
 
@@ -138,7 +138,24 @@ TDEE/macros, meal photo → estimate + critique, barcode scanning, fridge mode, 
 - [x] Meal photo: camera or gallery, read by the on-device model, parsed and range-checked, opened in the form to check before saving; no photo kept; emulator check up to the model
 - [x] Meal photo with the real model on the phone (2026-10-31): camera and gallery give estimates in about 30 s, a non-food photo is refused, no file stays behind
 - [x] The Coach sees the food log, steps, weight trend and check-in; number questions answered instantly on the phone
-- [ ] Barcode, fridge mode, grocery list
+- [x] Grocery list on Fuel: the week's shop worked out from your targets, plus foods you log often and your own items; refresh keeps what you ticked, added or removed
+- [ ] Barcode, fridge mode
+
+**Deload weeks (branch `feat/deload-grocery`)**
+- [x] `Deload` in Kotlin: suggests a lighter week after 5–8 hard weeks, or 3 with tired check-ins; about 60% of the sets, about 10% lighter, rounded to weights you can load; unit tests
+- [x] DB v8 (auto-migration, new tables only): `deload_week`, `grocery_item`; emulator test from an encrypted v7 DB with data
+- [x] Train: suggestion with Apply and Not now, "Take a deload week", Undo, "Back to normal". Progression skips deload weeks. The Coach sees it in the plan header
+- [x] Emulator check: 3 sets became 2, Back to normal shown, grocery list read through
+- [ ] Phone check
+
+**Reminders (branch `feat/notifications`, [ADR 0012](docs/adr/0012-reminders.md))**
+- [x] `Reminders` and `ReminderRules` in Kotlin: when each one is due, and whether it's still worth sending; unit tests
+- [x] Nine daily reminders plus Rest over: You → Reminders with switches, times, water interval and "Show my numbers"
+- [x] Water log: DB v9 (auto-migration, new tables only), Habits card with +250 ml, the habit ticks itself at 2.5 L, +250 ml on the notification
+- [x] One exact alarm, set again after boot, update, clock change and every start; retries a failed send
+- [x] Plain requests to the Coach ("turn off water reminders") become proposal cards, with Undo and a `REMINDERS` lock
+- [x] Emulator check: fires from a dead process, private text and "M³" on the lock screen, tap opens the right tab behind the unlock, alarm survives update and reboot, Rest over on time
+- [ ] Phone check: Autostart and battery settings (OWNER_TASKS #7), Coach requests with the real model loaded
 
 ### Phase 3 — Progress (v0.3)
 Ghost-overlay progress photos, measurements, weight trend, weekly review that adjusts plans.
@@ -277,6 +294,15 @@ M3/
 | 2026-10-31 | The weekly review is plain Kotlin from the logs, with one piece of advice per week, urgent rules first: eating far too little (points to a doctor or dietitian), losing over 1% a week, then sessions, protein, sleep, a flat trend. It advises and doesn't change anything yet | The model can't be trusted with these numbers, and the spec requires a change of tone for very low intake. A real plan or calorie change needs an undoable tool |
 | 2026-10-31 | Next model to try: Qwen3-4B (int4) for chat with E4B kept for photos, then LFM3-Omni-2B as an all-in-one. Not Gemma 4 12B: its file is 6.9 GB, it needs about 7.3–7.9 GB of GPU memory, and no Android GPU support is listed | From the model cards ([ADR 0002](docs/adr/0002-on-device-llm-litert-lm-gemma.md)); none is proven on this phone. A switch still needs the on-phone benchmark and the eval |
 | 2026-10-30 | Standing permission to merge: squash-merge once local checks pass and the Opus final check is done | Owner's OK ("any merges"). The repo has no CI, so local checks are the gate |
+| 2026-11-01 | Reminders decide when due, from the logs, and stay silent if the thing is done; one exact alarm at a time with `USE_EXACT_ALARM`, no WorkManager | Owner asked for meaningful reminders on their daily phone. A plain timer can't know what's done. The Play policy on that permission doesn't apply: M³ isn't on any store. No new dependency ([ADR 0012](docs/adr/0012-reminders.md)) |
+| 2026-11-01 | Notification text carries no numbers or plan details unless "Show my numbers" is on; the lock screen only shows "M³" | The shade can be read without M³'s unlock, and notification listeners can read it too. Privacy is the default; useful numbers are the owner's choice |
+| 2026-11-01 | Water is a real log (ml per day), the habit ticks itself at 2.5 L, and "+250 ml" works from the notification without unlocking M³ | A yes/no habit can't say when to stop reminding. The action only adds a glass and shows nothing |
+| 2026-11-01 | Plain reminder requests to the Coach are parsed in Kotlin and skip the model | No prompt space or eval needed, and it can't state a wrong time. Still a card with Apply, Undo and a lock (ADR 0007) |
+| 2026-11-01 | The weigh-in nudge waits 3 days since the last weigh-in | The You tab says a few mornings a week, and daily weight is noise |
+| 2026-11-01 | Deload weeks are suggested, never automatic; workouts in a deload week don't count for progression | Plan changes need the owner's OK (ADR 0008). Light loads would otherwise pull the next target down |
+| 2026-11-01 | The deload is named in the plan header, not in a line of its own | A separate line went 52 characters past the 7,500-character prompt budget. The budget stays as it was |
+| 2026-11-01 | Grocery amounts come from a table of staples and fixed shares of the week's macros, rounded to what shops sell. No pork or alcohol in the table | Numbers stay in Kotlin (ADR 0003). The owner removes what they don't want, and a removed line stays gone after a refresh |
+| 2026-11-01 | Debug-only eval runner (`EvalActivity`, `scripts/phone-eval.sh`), in `src/debug` only, startable only from adb (`DUMP` permission) | `connectedAndroidTest` on `:app` wipes the owner's data, so the eval couldn't run on the phone's GPU any other way |
 | 2026-10-30 | Added the Linux `aapt2` jar to dependency verification (SHA-256 of the jar from Google Maven, whose published SHA-1 matched) | Only the Windows jar was listed, so Linux builds would fail. Verification stays on |
 
 ---
@@ -324,9 +350,18 @@ M3/
 | Release (minified) builds compile but weren't run on a device in Phase 1b | The phone gets debug builds (same key as the installed app); R8 rules for Tink/SQLCipher come from their own packages | Run the release build on the emulator before the first release install |
 | The app can't make the model propose something it chose not to; only theme requests have a code fallback (eval: 11/12, and the model still claims changes in about 1 in 4 replies) | Equipment, pain and schedule need the model to read free text; a keyword guess would be unsafe | Better prompts measured by the eval, or a larger model |
 | The workout screen's tap handling (queue, "later sets follow", double-tap Finish) has no automated test; the pure parts (`WorkoutLogic`, `Progression`) do | It needs a fake repository and a coroutine test setup that isn't in the project yet | A `WorkoutViewModel` test with an in-memory Room DB |
-| No planned deload week; loads only drop after two missed workouts | Needs weeks of logged history to tune | Weekly review (Phase 3) can schedule deloads from the trend |
+| The deload rule's thresholds (5–8 hard weeks, soreness 4, energy 2) are standard defaults, not tuned to the owner | Needs months of logged history | Tune them from the logs |
+| "Back to normal" after training in a deload week puts those light workouts back into progression; workouts done before accepting a mid-week deload drop out of it | Whether a workout counts follows its week, not the workout | Store the deload flag on each workout |
+| A workout left open from Sunday into a deload Monday gets deload sets with normal loads | The plan follows today's week, targets follow the workout's week | Freeze the week on the workout, if it's ever seen |
+| Reminders stop if M³ is force-stopped or Xiaomi stops it, until M³ is next opened | Android delivers no alarm or broadcast to a stopped app | Autostart and No restrictions (OWNER_TASKS #7) |
+| No Snooze on reminders, and they don't learn when you usually train | Smallest useful version | A snooze action; a workout time from logged start times |
+| Reminders don't mention steps | Android gives background apps no sensor events | A foreground service, which means a permanent notification |
+| The Coach changes one reminder per message, and can't turn them all off at once; a bare "at 5" means 05:00 | One proposal per reply; 24-hour time. The card shows the time before Apply | Several proposals in one card |
+| Undo on a Coach reminder card overwrites a manual change made after it | Same as other Coach cards: Undo restores what was there | Compare before undoing |
+| "+250 ml" on a notification works without unlocking M³ | It's one small write and reveals nothing; requiring an unlock would defeat the point | `setAuthenticationRequired`, if ever wanted |
+| Grocery amounts are a general week of staples, not a meal plan, and ignore allergies and what's already at home | No meal planner or diet preferences yet | Diet settings; meal plans |
 | Machine stacks are assumed to move in 5 kg steps | Stacks differ between gyms and aren't in the equipment details yet | A per-place step setting, like the kg lists |
-| The rest timer only shows on screen: no sound, vibration or notification | Notifications need a new permission; the screen stays on during a workout | Add a vibration (no runtime permission) or notification if the owner wants it |
+| The rest timer has no sound or vibration while M³ is on screen; a notification only comes when you've left it | The screen stays on during a workout | Add a vibration (no runtime permission) if the owner wants it |
 | Progression doesn't use RPE beyond "10 = don't increase" | Most sets won't have RPE; the rule must work without it | RPE-based autoregulation once enough RPE is logged |
 | The theme cross-fade recomposes every colour reader for ~220 ms | Seven animated colour tokens; simplest correct approach | Animate one progress value and lerp, if it ever stutters on the phone |
 | Steps taken since the last app open are lost if the phone restarts first, and a day you don't open M³ gets an estimated share of the gap | Android gives background apps no step events, and the sensor's total resets at reboot | A foreground service with a permanent notification, if the owner ever wants exact days |

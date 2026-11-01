@@ -3,6 +3,8 @@ package com.m3.coach
 import com.m3.core.designsystem.config.LockKey
 import com.m3.core.designsystem.config.UiChange
 import com.m3.core.model.EquipmentKind
+import com.m3.core.model.ReminderKind
+import com.m3.core.model.ReminderSetting
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -50,6 +52,17 @@ sealed interface CoachAction {
     /** Where the owner is free to train on a weekday; null location = not free (ADR 0009). */
     data class SetAvailability(val day: DayOfWeek, val locationId: String?, val locationName: String?) : CoachAction {
         override val lock get() = LockKey.AVAILABILITY
+    }
+
+    /** Turns a reminder on or off, or moves it. Null [minute] or [everyHours] keeps what's set. */
+    data class SetReminder(val kind: ReminderKind, val on: Boolean, val minute: Int?, val everyHours: Int?) : CoachAction {
+        override val lock get() = LockKey.REMINDERS
+
+        fun applyTo(setting: ReminderSetting) = setting.copy(
+            on = on,
+            minute = minute ?: setting.minute,
+            everyHours = everyHours ?: setting.everyHours,
+        )
     }
 
     /** A look/layout change, applied through the UiConfigStore with the Coach as actor (ADR 0007). */

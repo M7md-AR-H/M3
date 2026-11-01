@@ -32,7 +32,8 @@ enum class LoadKind {
     NONE,
 }
 
-enum class TargetKind { START, INCREASE, HOLD, DECREASE }
+/** DELOAD: lighter on purpose, in an accepted deload week (see [Deload]). */
+enum class TargetKind { START, INCREASE, HOLD, DECREASE, DELOAD }
 
 /** What to aim for next time. [kg] null = no load to suggest (bodyweight, fixed load, or first time). */
 data class Target(val kind: TargetKind, val kg: Double?, val reason: String)
@@ -128,7 +129,7 @@ object Progression {
         LoadKind.NONE -> null
     }
 
-    private fun bellStep(equipment: Set<EquipmentKind>) =
+    internal fun bellStep(equipment: Set<EquipmentKind>) =
         if (EquipmentKind.DUMBBELLS in equipment) DUMBBELL_STEP_KG else KETTLEBELL_STEP_KG
 
     private fun bellName(equipment: Set<EquipmentKind>) = if (EquipmentKind.DUMBBELLS in equipment) "dumbbells" else "kettlebell"
@@ -136,7 +137,7 @@ object Progression {
 
     private const val FIRST_TIME = "First time: pick a weight you could lift 2–3 more times at the end of each set."
     private const val MAX_RPE = 10.0
-    private const val EPSILON = 1e-6
+    internal const val EPSILON = 1e-6
 
     private val PLATE_KINDS = setOf(
         EquipmentKind.BARBELL, EquipmentKind.EZ_BAR, EquipmentKind.TRAP_BAR, EquipmentKind.SMITH_MACHINE, EquipmentKind.LANDMINE,

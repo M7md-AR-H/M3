@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.m3.core.data.db.ChatMessageEntity
 import com.m3.core.data.db.DatabaseOpener
 import com.m3.core.data.db.DayOverrideEntity
+import com.m3.core.data.db.DeloadWeekEntity
 import com.m3.core.data.db.ExcludedExerciseEntity
 import com.m3.core.model.EquipmentKind
 import java.time.LocalDate
@@ -108,7 +109,14 @@ data class StoredOverrides(
     val dayEquipment: Map<LocalDate, Set<EquipmentKind>> = emptyMap(),
     /** Exercise id → reason. */
     val excluded: Map<String, String> = emptyMap(),
+    /** Mondays of the weeks the owner accepted as deload weeks. */
+    val deloadWeeks: Set<LocalDate> = emptySet(),
+    /** Mondays whose deload suggestion the owner dismissed. */
+    val deloadDeclined: Set<LocalDate> = emptySet(),
 )
+
+/** Stored by name. */
+enum class DeloadState { ACCEPTED, DECLINED }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlanOverridesRepository(
@@ -119,8 +127,12 @@ class PlanOverridesRepository(
 
     fun observe(): Flow<StoredOverrides> = flow { emit(opener.get()) }.flatMapLatest { db ->
         val dao = db.planOverridesDao()
-        combine(dao.observeDayOverrides(), dao.observeExcluded()) { days, excluded ->
+        combine(dao.observeDayOverrides(), dao.observeExcluded(), db.deloadDao().observeAll()) { days, excluded, deloads ->
+            fun mondays(state: DeloadState) = deloads.filter { it.state == state.name }
+                .mapNotNull { runCatching { LocalDate.parse(it.monday) }.getOrNull() }.toSet()
             StoredOverrides(
+                deloadWeeks = mondays(DeloadState.ACCEPTED),
+                deloadDeclined = mondays(DeloadState.DECLINED),
                 dayEquipment = days.mapNotNull { row ->
                     val date = runCatching { LocalDate.parse(row.date) }.getOrNull() ?: return@mapNotNull null
                     date to decodeItems(row.itemsJson)
@@ -156,6 +168,12 @@ class PlanOverridesRepository(
     suspend fun setExcluded(changes: Map<String, String?>) {
         val db = opener.get()
         db.withTransaction { changes.forEach { (id, reason) -> setExcluded(id, reason) } }
+    }
+
+    /** Null removes the answer for that week. Deload rows are kept (they're history that progression and the next suggestion read). */
+    suspend fun setDeload(monday: LocalDate, state: DeloadState?) {
+        val dao = opener.get().deloadDao()
+        if (state == null) dao.delete(monday.toString()) else dao.upsert(DeloadWeekEntity(monday.toString(), state.name))
     }
 
     /** Day overrides only matter for the current week; older ones are dropped. */

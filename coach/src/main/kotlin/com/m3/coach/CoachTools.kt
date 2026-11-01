@@ -5,6 +5,8 @@ import com.m3.core.designsystem.config.ThemeMode
 import com.m3.core.designsystem.config.UiChange
 import com.m3.core.designsystem.config.displayName
 import com.m3.core.model.EquipmentKind
+import com.m3.core.model.ReminderKind
+import com.m3.core.model.Reminders
 import com.m3.core.model.TrainingSetup
 import com.m3.core.training.ExerciseCatalog
 import com.m3.core.training.MovementPattern
@@ -40,6 +42,10 @@ internal object ToolSchemas {
 
     @Serializable
     data class Card(val name: String, val card: String, val action: String)
+
+    /** Written by the app from the owner's own words, never by the model; checked the same way. */
+    @Serializable
+    data class SetReminder(val name: String, val kind: String, val on: Boolean, val minute: Int? = null, val every: Int? = null)
 }
 
 /** What the validator needs to know about the owner's current state. */
@@ -77,6 +83,7 @@ object CoachTools {
                 "set_day" -> setDay(decode(ToolSchemas.SetDay.serializer(), obj), context)
                 "theme" -> theme(decode(ToolSchemas.Theme.serializer(), obj))
                 "card" -> card(decode(ToolSchemas.Card.serializer(), obj))
+                "set_reminder" -> setReminder(decode(ToolSchemas.SetReminder.serializer(), obj))
                 else -> ToolResult.Ignored
             }
         } catch (_: SerializationException) {
@@ -163,6 +170,51 @@ object CoachTools {
         return ToolResult.Valid(CoachAction.Ui(change))
     }
 
+    private fun setReminder(call: ToolSchemas.SetReminder): ToolResult {
+        val kind = ReminderKind.entries.firstOrNull { it.name == call.kind } ?: return invalid("That isn't a reminder M³ has.")
+        if (call.minute != null && (kind.defaultMinute == null || !Reminders.validMinute(call.minute))) {
+            return invalid("That reminder can't take that time.")
+        }
+        if (call.every != null && (kind != ReminderKind.WATER || call.every !in Reminders.WATER_HOURS)) {
+            return invalid("Water reminders can be 1 to 6 hours apart.")
+        }
+        return ToolResult.Valid(CoachAction.SetReminder(kind, call.on, call.minute, call.every))
+    }
+
+    /**
+     * The `set_reminder` call for a plain request ("turn off water reminders", "remind me to train at 18:00",
+     * "water reminder every 2 hours"), or null. The model isn't asked: this needs no prompt space, the app's words
+     * can't be wrong, and it still needs Apply, so a false match costs one tap. One reminder at a time.
+     */
+    fun reminderRequest(ownerMessage: String): String? {
+        val text = ownerMessage.lowercase()
+        if (!REMINDER_WORDS.containsMatchIn(text) || NOT_A_REQUEST.containsMatchIn(text)) return null
+        val kind = REMINDER_KINDS.filter { (_, words) -> words.containsMatchIn(text) }.map { it.first }.singleOrNull() ?: return null
+        val at = CLOCK_TIME.find(text)
+        val minute = at?.let { clockMinute(it) ?: return null }
+        val every = EVERY_HOURS.find(text)?.groupValues?.get(1)?.toIntOrNull()
+        return buildJsonObject {
+            put("name", "set_reminder")
+            put("kind", kind.name)
+            put("on", !REMINDER_OFF.containsMatchIn(text))
+            minute?.let { put("minute", it) }
+            every?.let { put("every", it) }
+        }.toString()
+    }
+
+    /** "at 18", "at 7:30 pm", "18:00" as minutes after midnight, or null when it isn't a real time. */
+    private fun clockMinute(match: MatchResult): Int? {
+        val (hourText, minuteText, half) = match.destructured
+        val hour = hourText.ifEmpty { match.groupValues[4] }.toIntOrNull() ?: return null
+        val minutes = minuteText.ifEmpty { match.groupValues[5] }.ifEmpty { "0" }.toInt()
+        val hour24 = when {
+            half == "pm" && hour in 1..11 -> hour + 12
+            half == "am" && hour == 12 -> 0
+            else -> hour
+        }
+        return (hour24 * 60 + minutes).takeIf { hour24 < 24 && minutes < 60 }
+    }
+
     /**
      * Guard against the model attaching an unrelated look change to an answer (seen in evals): a theme or
      * Today-card change is only kept when the owner's message is about the theme or the cards.
@@ -236,6 +288,26 @@ object CoachTools {
      * "the planner will automatically…"). Only the owner's Apply changes anything, so the app adds a correction.
      */
     fun claimsChange(reply: String): Boolean = CLAIM_PATTERNS.any { it.containsMatchIn(reply) }
+
+    private val REMINDER_WORDS = Regex("\\b(remind|reminding|reminders?|notifications?|notify)\\b")
+    private val NOT_A_REQUEST = Regex("\\b(how|why|what|when|which|did|does|are)\\b")
+    private val REMINDER_OFF = Regex(
+        "\\b(turn|switch)\\b.*\\boff\\b|\\b(stop|disable|no more|mute)\\b|\\b(don'?t|do not)\\s+(remind|notify)\\b|\\b(reminders?|notifications?)\\s+off\\b",
+    )
+    private val EVERY_HOURS = Regex("\\bevery\\s+(\\d{1,2})\\s*(?:h|hrs?|hours?)\\b")
+    private val CLOCK_TIME = Regex("\\bat\\s+(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm)?\\b|\\b(\\d{1,2}):(\\d{2})\\b")
+    private val REMINDER_KINDS = listOf(
+        ReminderKind.BREAKFAST to Regex("\\bbreakfast\\b"),
+        ReminderKind.LUNCH to Regex("\\blunch\\b"),
+        ReminderKind.DINNER to Regex("\\b(dinner|supper)\\b"),
+        ReminderKind.WATER to Regex("\\b(water|drink|hydrate)\\b"),
+        ReminderKind.WORKOUT to Regex("\\b(workouts?|train|training|gym|session)\\b"),
+        ReminderKind.MORNING to Regex("\\b(morning|check-?in|weigh|weigh-?in|weight)\\b"),
+        ReminderKind.EVENING to Regex("\\b(evening|log (my )?(day|food|meals?))\\b"),
+        ReminderKind.LIGHTS_OUT to Regex("\\b(lights out|bedtime|bed|sleep)\\b"),
+        ReminderKind.WEEK_REVIEW to Regex("\\breview\\b"),
+        ReminderKind.REST to Regex("\\brest\\b"),
+    )
 
     private val CLAIM_PATTERNS = listOf(
         Regex(

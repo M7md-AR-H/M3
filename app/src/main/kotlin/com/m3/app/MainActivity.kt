@@ -1,5 +1,6 @@
 package com.m3.app
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.WindowManager
@@ -20,12 +21,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3.app.feature.coach.CoachRuntime
 import com.m3.app.feature.onboarding.OnboardingScreen
+import com.m3.app.feature.reminders.AppVisibility
 import com.m3.app.feature.steps.StepTracker
 import com.m3.app.ui.LoadingScreen
 import com.m3.app.ui.LocalAppLocked
 import com.m3.app.ui.LockScreen
 import com.m3.app.ui.M3App
 import com.m3.app.ui.StorageErrorScreen
+import com.m3.core.designsystem.config.TabId
 import com.m3.core.designsystem.config.ThemeMode
 import com.m3.core.designsystem.theme.M3Theme
 import com.m3.core.security.AppLock
@@ -49,12 +52,19 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var unlockPrompt: UnlockPrompt
 
+    @Inject
+    lateinit var appVisibility: AppVisibility
+
     private val lockMessage = mutableStateOf<String?>(null)
+
+    /** The tab a tapped notification asked for. It only moves the app underneath: the lock still shows first. */
+    private val tabRequest = mutableStateOf<TabId?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         unlockPrompt = UnlockPrompt(this)
+        if (savedInstanceState == null) readTabRequest(intent)
         enableEdgeToEdge()
         setContent {
             val config by viewModel.config.collectAsStateWithLifecycle()
@@ -82,7 +92,11 @@ class MainActivity : ComponentActivity() {
                             StartupState.Failed -> StorageErrorScreen(onRetry = viewModel::retryStartup)
                             StartupState.Loading -> LoadingScreen()
                             is StartupState.Ready -> CompositionLocalProvider(LocalAppLocked provides locked) {
-                                if (state.onboardingCompleted) M3App(config) else OnboardingScreen()
+                                if (state.onboardingCompleted) {
+                                    M3App(config, tabRequest = tabRequest.value, onTabRequestHandled = { tabRequest.value = null })
+                                } else {
+                                    OnboardingScreen()
+                                }
                             }
                         }
                     }
@@ -92,8 +106,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        readTabRequest(intent)
+    }
+
+    /** Anyone can start this activity with extras, so only a known tab name counts, and it changes nothing but the tab. */
+    private fun readTabRequest(intent: Intent) {
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        val name = intent.getStringExtra(EXTRA_OPEN_TAB) ?: return
+        tabRequest.value = TabId.entries.firstOrNull { it.name == name }
+    }
+
     override fun onStart() {
         super.onStart()
+        appVisibility.visible = true
         appLock.onForeground()
         coachRuntime.onForeground()
         stepTracker.start()
@@ -106,6 +133,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        appVisibility.visible = false
         appLock.onBackground()
         stepTracker.stop()
         // Free the Coach's ~1 GB model while the owner uses other apps (ADR 0002). Not on rotation.
@@ -130,5 +158,9 @@ class MainActivity : ComponentActivity() {
                         "Security, then tap Unlock. M³ won't open without one, to keep your data private."
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_OPEN_TAB = "com.m3.app.extra.OPEN_TAB"
     }
 }

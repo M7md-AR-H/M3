@@ -3,11 +3,13 @@ package com.m3.app.feature.workout
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.m3.app.data.PlanRepository
+import com.m3.app.feature.reminders.ReminderAlarms
 import com.m3.app.feature.train.PlanText
 import com.m3.core.data.StoredSet
 import com.m3.core.data.StoredWorkout
 import com.m3.core.data.WorkoutRepository
 import com.m3.core.model.EquipmentKind
+import com.m3.core.training.Deload
 import com.m3.core.training.ExerciseUnit
 import com.m3.core.training.LoadKind
 import com.m3.core.training.PlannedSession
@@ -112,6 +114,7 @@ private data class Edits(
 class WorkoutViewModel @Inject constructor(
     private val workouts: WorkoutRepository,
     plans: PlanRepository,
+    private val alarms: ReminderAlarms,
 ) : ViewModel() {
     private val index = MutableStateFlow<Int?>(null)
     private val edits = MutableStateFlow(Edits())
@@ -139,7 +142,9 @@ class WorkoutViewModel @Inject constructor(
             if (session == null || session.exercises.isEmpty()) {
                 Base.Missing(open)
             } else {
-                val targets = WorkoutTargets.forSession(session, inputs.setup, recent)
+                // The workout's own week decides, not today's: a session left open over Sunday keeps its week's loads.
+                val deload = Deload.mondayOf(open.date) in inputs.deloadWeeks
+                val targets = WorkoutTargets.forSession(session, inputs.setup, recent, inputs.deloadWeeks, deload)
                 val listed = targets.associate { it.variantKey to WorkoutTargets.listedKg(inputs.setup, session.locationId, it.planned.equipment) }
                 Base.Found(open, session, targets, listed)
             }
@@ -179,7 +184,8 @@ class WorkoutViewModel @Inject constructor(
         val bodyweight = kind == LoadKind.NONE && t.planned.equipment.isEmpty()
         val mine = sets.filter { it.variantKey == t.variantKey }
         val stored = mine.associateBy { it.setNumber }
-        val rows = (1..p.sets).map { n ->
+        // A deload accepted mid-workout lowers the planned sets; sets already logged stay on screen.
+        val rows = (1..maxOf(p.sets, mine.maxOfOrNull { it.setNumber } ?: 0)).map { n ->
             val key = RowKey(t.variantKey, n)
             val last = t.last.getOrNull(n - 1)
             val s = stored[n]
@@ -347,6 +353,7 @@ class WorkoutViewModel @Inject constructor(
 
     fun skipRest() {
         rest.value = null
+        alarms.cancelRest()
     }
 
     /** Ends the workout (sets already logged are kept; an empty workout is dropped) and then calls [onDone]. */
@@ -369,6 +376,7 @@ class WorkoutViewModel @Inject constructor(
                 }
             }
             if (ok) {
+                alarms.cancelRest()
                 onDone()
             } else {
                 finishing.set(false)
@@ -384,7 +392,10 @@ class WorkoutViewModel @Inject constructor(
     private fun startRest(seconds: Int) {
         if (seconds <= 0) return
         val total = seconds * MILLIS_PER_SECOND
-        rest.value = RestTimer(endAt = System.currentTimeMillis() + total, totalMillis = total)
+        val endAt = System.currentTimeMillis() + total
+        rest.value = RestTimer(endAt = endAt, totalMillis = total)
+        // Only speaks up if the owner left the screen; the timer itself is on screen otherwise.
+        alarms.setRest(endAt)
     }
 
     private fun storedFrom(sessionId: Long, t: ExerciseTarget, setNumber: Int, kg: Double?, amount: Int?, rpe: Double?): StoredSet {

@@ -6,6 +6,7 @@ import com.m3.core.data.StoredOverrides
 import com.m3.core.data.TrainingSetupRepository
 import com.m3.core.model.Profile
 import com.m3.core.model.TrainingSetup
+import com.m3.core.training.Deload
 import com.m3.core.training.ExerciseCatalog
 import com.m3.core.training.PlanGenerator
 import com.m3.core.training.PlanOverrides
@@ -27,6 +28,10 @@ data class PlanInputs(
     val setup: TrainingSetup,
     val stored: StoredOverrides,
     val plan: WeekPlan,
+    /** True when this week is an accepted deload week; [plan] already has the lighter sets. */
+    val deloadThisWeek: Boolean = false,
+    /** Mondays of every accepted deload week (progression skips workouts done in them). */
+    val deloadWeeks: Set<LocalDate> = emptySet(),
 )
 
 /**
@@ -44,14 +49,24 @@ class PlanRepository @Inject constructor(
 
     fun observeInputs(today: () -> LocalDate = LocalDate::now): Flow<PlanInputs> =
         combine(profiles.observe(), setups.observe(), overrides.observe()) { profile, setup, stored ->
-            PlanInputs(profile, setup, stored, generator.generate(profile, setup, forThisWeek(stored, today())))
+            val now = today()
+            PlanInputs(
+                profile, setup, stored, weekPlan(profile, setup, stored, now),
+                deloadThisWeek = Deload.mondayOf(now) in stored.deloadWeeks, deloadWeeks = stored.deloadWeeks,
+            )
         }.flowOn(Dispatchers.Default)
 
     fun observeWeek(): Flow<WeekPlan> = observeInputs().map { it.plan }
 
     /** A plan for hypothetical inputs (previews and proposal diffs). Call off the main thread. */
     fun preview(profile: Profile?, setup: TrainingSetup, stored: StoredOverrides = StoredOverrides(), today: LocalDate = LocalDate.now()): WeekPlan =
-        generator.generate(profile, setup, forThisWeek(stored, today))
+        weekPlan(profile, setup, stored, today)
+
+    /** The generated week, with the lighter sets when that week's Monday is an accepted deload. */
+    private fun weekPlan(profile: Profile?, setup: TrainingSetup, stored: StoredOverrides, today: LocalDate): WeekPlan {
+        val plan = generator.generate(profile, setup, forThisWeek(stored, today))
+        return if (Deload.mondayOf(today) in stored.deloadWeeks) Deload.apply(plan) else plan
+    }
 
     companion object {
         /** Day overrides count only for dates in the current Monday–Sunday week, from today on. */

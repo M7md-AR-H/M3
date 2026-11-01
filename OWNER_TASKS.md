@@ -115,7 +115,47 @@ A cloud session runs Claude on a machine in the cloud, so it keeps working after
 
 ---
 
+## 7. Let M³ send reminders on your Xiaomi phone
+- [ ] Done
+
+Xiaomi phones stop apps in the background, and a stopped app gets no alarms. Only you can change these settings. It takes about a minute, after the next install.
+
+1. Press and hold the **M³** icon, then tap **App info**.
+2. Turn on **Autostart**.
+3. Tap **Battery saver** and choose **No restrictions**.
+4. Back in **App info**, tap **Notifications** and make sure **Show notifications** is on.
+5. Optional: in the Recent apps screen, press and hold M³ and tap the lock icon, so swiping everything away doesn't stop it.
+
+**How to check it worked:** in M³, go to **YOU → Reminders → Send a test reminder**. A notification should appear. Then close M³ and wait for the next reminder's time.
+
+---
+
 ## Try it yourself
+
+### Reminders (Claude checked this on the emulator on 2026-11-01; only your phone can show if Xiaomi lets them through)
+1. Do task 7 above. Open **YOU → Reminders** and tap **Turn on reminders**, then **Allow**.
+2. **Expect:** each reminder with a switch and a time. Tap **Send a test reminder**: a notification appears.
+3. Move **Workout** to a few minutes from now on a training day, then leave M³. **Expect:** "Workout today" on time. Tap it. **Expect:** the unlock prompt, then TRAIN.
+4. Log food, then wait for a meal reminder within 2 hours. **Expect:** nothing. A reminder for something done stays silent.
+5. On **Drink some water**, tap **+250 ml**. **Expect:** the notification goes. **TODAY → Habits** shows 250 ml more. At 2.5 L the Water habit ticks itself and water reminders stop for the day.
+6. Lock the phone. **Expect:** the lock screen only says M³.
+7. Turn on **Show my numbers**. **Expect:** meal reminders now say what's left, such as "1,400 kcal and 100 g protein left today."
+8. During a workout, tick a set and leave M³. **Expect:** "Rest over" when the rest ends. Stay on the workout screen: no notification.
+9. In **COACH**, type **Turn off water reminders**. **Expect:** a card, right away. Apply turns it off in **YOU → Reminders**; Undo brings it back.
+10. **Broken if:** a reminder shows numbers with Show my numbers off, a tap opens M³ without the unlock, or reminders stop for good after you open M³.
+
+### Deload weeks (Claude checked this on the emulator on 2026-11-01)
+1. Open **TRAIN** and tap **Take a deload week**. **Expect:** "Deload week" at the top, fewer sets on each exercise, and **Deload week on · Undo**.
+2. Start the workout. **Expect:** loads about 10% lighter than your target, with a note saying it's lighter on purpose.
+3. Tap **Back to normal**. **Expect:** the sets return.
+4. After 5–8 weeks of training in a row, or 3 weeks with sore or tired check-ins, TRAIN suggests a lighter week with **Apply** and **Not now**.
+5. **Broken if:** next week's weights drop because of a deload week.
+
+### Grocery list (Claude checked this on the emulator on 2026-11-01)
+1. Open **FUEL → Grocery list**. **Expect:** a week's shop in sections, with amounts in g, kg, ml or eggs.
+2. Tick something, remove something with **×**, add your own item. Tap **Refresh from my targets**. **Expect:** the tick and your item stay, and the removed line doesn't come back.
+3. Tap **Clear ticked**. **Expect:** ticked lines go.
+4. **Broken if:** amounts look absurd for you, or a removed line returns after a refresh.
 
 ### Snap meal (needs your phone: the emulator has no AI model)
 1. Open **FUEL** and tap **Snap meal**, then **Take a photo**. Photograph a plate and confirm.
