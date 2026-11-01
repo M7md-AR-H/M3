@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the Coach prompt eval inside the debug build on the owner's phone (GPU first, like the real Coach).
-# Usage: M3_SERIAL=<serial> bash scripts/phone-eval.sh <model-file> [vision true|false]
+# Usage: M3_SERIAL=<serial> bash scripts/phone-eval.sh <model-file> [vision true|false] [mtp true|false]
 #   <model-file> is a file name in com.m3.app's model folder (noBackupFilesDir/models), e.g. gemma-4-E4B-it.litertlm
 # Needs the debug build installed (:app:installDebug) and the model file already in place. Never use
 # connectedAndroidTest on the phone: it uninstalls M3 and wipes the owner's data.
@@ -10,8 +10,9 @@ cd "$(dirname "$0")/.." || exit 1
 export MSYS_NO_PATHCONV=1
 ADB="$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe"
 S="${M3_SERIAL:?set M3_SERIAL to the device serial (adb devices)}"
-MODEL="${1:?usage: phone-eval.sh <model-file> [vision true|false]}"
+MODEL="${1:?usage: phone-eval.sh <model-file> [vision true|false] [mtp true|false]}"
 VISION="${2:-true}"
+MTP="${3:-true}"
 NAME="${MODEL%.litertlm}"
 OUT="build/eval/$NAME.txt"
 LIMIT_MINUTES=180
@@ -27,7 +28,7 @@ cleanup() {
 
 # Start with no old report, so a previous run's DONE is never mistaken for this one.
 a shell run-as com.m3.app rm -rf files/m3-eval > /dev/null 2>&1
-a shell am start -n com.m3.app/.debug.EvalActivity --ez vision "$VISION" --es model "$MODEL" | tail -1
+a shell am start -n com.m3.app/.debug.EvalActivity --ez vision "$VISION" --ez mtp "$MTP" --es model "$MODEL" | tail -1
 
 START=$(date +%s)
 GONE=0

@@ -40,6 +40,7 @@ internal interface EvalEntryPoint {
  * Debug-only: runs the Coach prompt eval on this device with the real engine config (GPU first, like the Coach).
  * Start: `adb shell am start -n com.m3.app/.debug.EvalActivity --ez vision true --es model <file name>`.
  * `model` is a file name in the app's model folder (default: the Coach's model); `vision` defaults to true.
+ * `--ez mtp false` turns off multi-token prediction on the GPU.
  *
  * Uses only the made-up facts in [EvalFixture]. It never opens the database, profile, chat or photos, so it
  * needs no unlock. The report goes to filesDir/m3-eval/result.txt (app-private), rewritten after each case.
@@ -69,7 +70,8 @@ class EvalActivity : ComponentActivity() {
         running = true
         val vision = intent.getBooleanExtra("vision", true)
         val model = intent.getStringExtra("model")
-        scope.launch { run(vision, model) }
+        val mtp = intent.getBooleanExtra("mtp", true)
+        scope.launch { run(vision, model, mtp) }
     }
 
     override fun onDestroy() {
@@ -82,7 +84,7 @@ class EvalActivity : ComponentActivity() {
         runOnUiThread { view.text = text }
     }
 
-    private suspend fun run(vision: Boolean, requestedModel: String?) {
+    private suspend fun run(vision: Boolean, requestedModel: String?, gpuMtp: Boolean) {
         val entries = mutableListOf<EvalEntry>()
         var header = EvalHeader(requestedModel ?: CoachRuntime.MODEL.fileName, "not loaded", vision, 0.0, EvalCases.all.size)
         var failure: String? = null
@@ -103,7 +105,7 @@ class EvalActivity : ComponentActivity() {
 
             val fixture = EvalFixture.build()
             show("Loading ${modelFile.name}")
-            val loaded = loadEngine(modelFile, vision)
+            val loaded = loadEngine(modelFile, vision, gpuMtp)
             header = header.copy(backend = loaded.backend, loadSeconds = loaded.seconds, notes = loaded.notes)
             write()
             try {
@@ -152,13 +154,13 @@ class EvalActivity : ComponentActivity() {
     private class Loaded(val engine: LiteRtLmEngine, val backend: String, val seconds: Double, val notes: List<String>)
 
     /** The same attempts as CoachRuntime: GPU with multi-token prediction and a cache (real phones), then CPU. */
-    private suspend fun loadEngine(file: File, vision: Boolean): Loaded = withContext(Dispatchers.IO) {
+    private suspend fun loadEngine(file: File, vision: Boolean, gpuMtp: Boolean): Loaded = withContext(Dispatchers.IO) {
         val storage = getSystemService(StorageManager::class.java)
         val cache = File(noBackupFilesDir, "llm-cache").apply { mkdirs() }
             .takeIf { runCatching { storage.getAllocatableBytes(storage.getUuidForPath(it)) }.getOrDefault(0L) >= CoachRuntime.MIN_FREE_FOR_CACHE_BYTES }
         val emulator = Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish" || Build.PRODUCT.startsWith("sdk_")
         val attempts = buildList {
-            if (!emulator) add(Triple(LlmBackend.GPU, true, cache))
+            if (!emulator) add(Triple(LlmBackend.GPU, gpuMtp, cache))
             add(Triple(LlmBackend.CPU, false, null))
         }
         val notes = mutableListOf<String>()
