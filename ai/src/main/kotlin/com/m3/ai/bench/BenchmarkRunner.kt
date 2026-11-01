@@ -64,9 +64,9 @@ class BenchmarkRunner(
 ) {
     fun casesFor(models: List<ModelSpec>): List<BenchmarkCase> =
         models.filter { store.status(it) == ModelStatus.Ready }.flatMap { model ->
-            listOf(
+            listOfNotNull(
                 BenchmarkCase(model, LlmBackend.GPU, speculativeDecoding = false),
-                BenchmarkCase(model, LlmBackend.GPU, speculativeDecoding = true),
+                BenchmarkCase(model, LlmBackend.GPU, speculativeDecoding = true).takeIf { model.speculativeDecoding },
                 BenchmarkCase(model, LlmBackend.CPU, speculativeDecoding = false),
             )
         }
@@ -91,12 +91,13 @@ class BenchmarkRunner(
                             modelFile = store.fileFor(case.model),
                             backend = case.backend,
                             speculativeDecoding = case.speculativeDecoding,
+                            vision = case.model.vision,
                             cacheDir = cacheDir,
                         ),
                     )
                     afterLoad = memory()
                 }
-                for ((promptIndex, prompt) in prompts.withIndex()) {
+                for ((promptIndex, prompt) in prompts.filter { !it.withImage || case.model.vision }.withIndex()) {
                     if (error != null) break
                     emit(progress("prompt ${promptIndex + 1}/${prompts.size} (${prompt.id})"))
                     error = attempt {

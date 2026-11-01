@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.m3.app.feature.coach.CoachRuntime
+import com.m3.app.feature.coach.ModelUse
 import com.m3.coach.MealEstimate
 import com.m3.coach.MealReading
 import com.m3.coach.MealVision
@@ -59,7 +60,7 @@ class MealPhotoViewModel @Inject constructor(
                         photoFile().delete()
                     }
                 }
-                val raw = runtime.use { engine ->
+                val raw = runtime.use(ModelUse.PHOTO) { engine ->
                     engine.generate(prompt = MealVision.PROMPT, imagePng = image, maxOutputTokens = MealVision.MAX_OUTPUT_TOKENS).text
                 }
                 _state.value = when (val reading = MealVision.parse(raw)) {

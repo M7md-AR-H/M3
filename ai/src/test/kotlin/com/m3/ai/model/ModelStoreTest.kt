@@ -124,6 +124,7 @@ class ModelStoreTest {
     fun `catalog models are matched by exact size`() {
         assertEquals(ModelCatalog.GEMMA_4_E4B, ModelCatalog.forSize(3_659_530_240L))
         assertEquals(ModelCatalog.GEMMA_4_E2B, ModelCatalog.forSize(2_588_147_712L))
+        assertEquals(ModelCatalog.QWEN_3_4B, ModelCatalog.forSize(2_272_935_936L))
         assertEquals(null, ModelCatalog.forSize(123L))
     }
 }

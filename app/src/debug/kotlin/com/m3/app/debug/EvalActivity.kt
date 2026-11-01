@@ -87,7 +87,7 @@ class EvalActivity : ComponentActivity() {
 
     private suspend fun run(vision: Boolean, requestedModel: String?, gpuMtp: Boolean, suffix: String) {
         val entries = mutableListOf<EvalEntry>()
-        var header = EvalHeader(requestedModel ?: CoachRuntime.MODEL.fileName, "not loaded", vision, 0.0, EvalCases.all.size)
+        var header = EvalHeader(requestedModel ?: CoachRuntime.CHAT_MODEL.fileName, "not loaded", vision, 0.0, EvalCases.all.size)
         var failure: String? = null
         val report = File(filesDir, "m3-eval").apply { mkdirs() }.let { File(it, "result.txt") }
         fun write(finished: Boolean = false) {

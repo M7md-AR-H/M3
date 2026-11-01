@@ -143,7 +143,7 @@ class CoachController @Inject constructor(
         val raw = runtime.use { engine ->
             val streamed = StringBuilder()
             engine.generate(
-                prompt = CoachPrompt.turn(history, trimmed, systemChars = system.length),
+                prompt = CoachPrompt.turn(history, trimmed, systemChars = system.length) + runtime.chatPromptSuffix(),
                 systemInstruction = system,
                 maxOutputTokens = MAX_OUTPUT_TOKENS,
                 onText = { piece ->
