@@ -13,7 +13,11 @@ import com.m3.core.model.FoodEntry
 import com.m3.core.model.GroceryLine
 import com.m3.core.model.GrocerySection
 import com.m3.core.model.Habit
+import com.m3.core.model.Hydration
 import com.m3.core.model.Measurement
+import com.m3.core.model.ReminderKind
+import com.m3.core.model.ReminderSetting
+import com.m3.core.model.ReminderSettings
 import com.m3.core.model.StepReading
 import com.m3.core.model.WeightEntry
 import java.time.DayOfWeek
@@ -81,6 +85,46 @@ class MigrationTest {
         val stored = overrides.observe().first()
         assertEquals(emptySet<Any>(), stored.dayEquipment[LocalDate.of(2026, 10, 19)])
         assertEquals("knee", stored.excluded["back_squat"])
+        opener.get().close()
+    }
+
+    /** v9 adds reminder settings and the water log; a tick by hand survives water going up and down below the goal. */
+    @Test
+    fun encryptedV8WithDataOpensAsV9AndLogsWater() = runTest {
+        val day = LocalDate.of(2026, 10, 30)
+        helper.createDatabase(DatabaseOpener.DATABASE_NAME, 8).apply {
+            execSQL("INSERT INTO app_state (id, onboardingCompleted, schemaVersion) VALUES (1, 1, 8)")
+            execSQL("INSERT INTO habit_done (date, habit) VALUES ('2026-10-30', 'MOBILITY')")
+            close()
+        }
+
+        val opener = DatabaseOpener(context, { key.copyOf() })
+        val daily = DailyRepository(opener)
+        assertEquals(setOf(Habit.MOBILITY), daily.observeHabits(day).first())
+
+        daily.addWater(day, 1_000)
+        daily.addWater(day, -2_000)
+        assertEquals(0, daily.observeWater(day).first())
+        daily.setHabit(day, Habit.WATER, true)
+        daily.addWater(day, Hydration.GLASS_ML)
+        assertTrue(Habit.WATER in daily.observeHabits(day).first())
+        daily.setHabit(day, Habit.WATER, false)
+
+        daily.addWater(day, Hydration.GOAL_ML)
+        assertTrue(Habit.WATER in daily.observeHabits(day).first())
+        daily.addWater(day, -Hydration.GOAL_ML)
+        assertEquals(setOf(Habit.MOBILITY), daily.observeHabits(day).first())
+        daily.addWater(day, Hydration.MAX_ML * 2)
+        assertEquals(Hydration.MAX_ML, daily.observeWater(day).first())
+
+        val reminders = ReminderRepository(opener)
+        assertEquals(ReminderSettings(), reminders.observe().first())
+        reminders.save(ReminderSetting(ReminderKind.WATER, on = false, minute = 600, everyHours = 2))
+        reminders.setShowDetails(true)
+        val saved = reminders.observe().first()
+        assertEquals(ReminderSetting(ReminderKind.WATER, on = false, minute = 600, everyHours = 2), saved[ReminderKind.WATER])
+        assertEquals(ReminderSetting(ReminderKind.LUNCH), saved[ReminderKind.LUNCH])
+        assertTrue(saved.showDetails)
         opener.get().close()
     }
 

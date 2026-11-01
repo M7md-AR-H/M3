@@ -73,8 +73,8 @@ class GroceryTest {
         // No protein or carbs, so all the fat is bought: 400 g fat a week, 60% as oil = 240 g = 260.9 ml -> 250 ml.
         val oil = GroceryPlanner.week(targets(0, 0, 400 / 7 + 1), emptyList()).first { it.name == "Olive oil" }
         assertEquals("250 ml", oil.amount)
-        assertEquals("1 l", Units.volume(1_000))
-        assertEquals("1.5 l", Units.volume(1_500))
+        assertEquals("1 L", Units.volume(1_000))
+        assertEquals("1.5 L", Units.volume(1_500))
         assertEquals("50 ml", Units.volume(50))
     }
 
