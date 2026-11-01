@@ -11,10 +11,14 @@
 
 ## ▶ Next steps, in order
 1. Normal session start: CLAUDE.md, docs/WORKING_RULES.md, this file, README roadmap + decision log, `git status`, `git log -5`. Give a time estimate first.
-2. **Ask the owner** about the 19:30 water reminder, and whether reminders arrived with M³ closed. If one was missed with Water open, debug it first. Check OWNER_TASKS #7 is done.
-3. **Watch Qwen in daily use.** Answers take about 24 s. If the owner finds that too slow, or the label mix-ups keep coming, consider a Kotlin check of reply numbers against the facts. The "owner" wording in answers comes from the prompt: replace it, with an eval run.
-4. **Look at the weekly review card on the phone.** It shows from the first Monday after a week with logs.
-5. **Needs the phone or owner:** fridge photo ideas, progress photos with ghost overlay (needs CameraX: decision-log entry), barcode (needs `:research` and the owner's allowlist decision), live form check. Grooming and style come after.
+2. **Owner's three tasks (2026-11-01), do these first, in this order:**
+   1. **Remove Qwen and try Llama 3.2 (3B and 1B) and SmolLM2 1.7B.** See if they're better than Gemma. Use `scripts/phone-eval.sh` on the GPU and read every answer: digits, false claims, tool lines, time per answer. First check each has a `.litertlm` build that runs on LiteRT-LM and what its licence allows. Delete Qwen from the phone with Remove in You → AI model (chat falls back to E4B), and delete each trial file and any `.xnnpack_cache` afterwards. Scores alone hid the garbled digits. If none beats Gemma, say so plainly and propose what to do about E4B's digits.
+   2. **More control for the Coach.** The owner asked it to change their workout time and notify them at that time. No card appeared and nothing changed. Likely cause, not yet confirmed: `CoachTools.reminderRequest` needs a word like "remind" or "notification", so a message without one goes to the model, which has no reminder tool. Widen the Kotlin matching, and give the model a validated reminder tool if the eval supports it. **The Coach must never say it did something unless an approved card did it:** today `claimsChange` only adds a note, and only for wordings it recognises. Make this hold for every reply, measured with eval cases.
+   3. **Screenshots of the app.** The owner wants to take them. `FLAG_SECURE` in `MainActivity` blocks them, and it also blanks M³ in Recent apps. The owner has asked for this, so the choice is theirs: replace the flag with a setting under You, or remove it. Update the known-limitations row, and the Phase 0 test list in OWNER_TASKS, which says screenshots are blocked.
+3. **Ask the owner** about the 19:30 water reminder, and whether reminders arrived with M³ closed. If one was missed with Water open, debug it first. Check OWNER_TASKS #7 is done.
+4. **Keep an eye on the chat model** after the trial. Consider a Kotlin check of reply numbers against the facts if wrong numbers continue. The "owner" wording in answers comes from the prompt: replace it, with an eval run.
+5. **Look at the weekly review card on the phone.** It shows from the first Monday after a week with logs.
+6. **Needs the phone or owner:** fridge photo ideas, progress photos with ghost overlay (needs CameraX: decision-log entry), barcode (needs `:research` and the owner's allowlist decision), live form check. Grooming and style come after.
 
 ## Phone GPU eval, 2026-11-01 (19 cases, read every answer)
 - **E4B garbles digits on the phone's GPU** ("422.5 kg" for 42.5, "62,1414 steps"), on 0.18.0 and 0.19.0, with or without MTP. Never seen on the emulator's CPU. Scores hid it: 13–18/19.
