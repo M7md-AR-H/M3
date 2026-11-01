@@ -1,4 +1,4 @@
-# HANDOFF — 2026-10-31 (end of session 6)
+# HANDOFF — 2026-11-01 (end of session 6)
 
 > Keep this file current **throughout** each session (owner's request): rewrite it after every meaningful step, not only at the end.
 
@@ -11,8 +11,8 @@
 
 ## ▶ Next steps, in order
 1. Normal session start: CLAUDE.md, docs/WORKING_RULES.md, this file, README roadmap + decision log, `git status`, `git log -5`. Give a time estimate first.
-2. **QWEN_STATUS**
-3. **Model decision (ADR 0002 has the candidates).** E4B stays until a candidate beats it on both the eval and the phone. If Qwen wins: add it to `ModelCatalog` with its size and SHA-256, keep E4B for meal photos (one model loaded at a time, through `CoachRuntime`), and handle thinking output in `ReplyParser` if it shows. LFM3-Omni-2B is second (3.23 GB, reads photos, licence limited for organisations with $10M+ revenue).
+2. **Qwen3-4B has no eval result, and the emulator can't give one.** It loaded (100–155 s), then finished no case in 52 CPU minutes on the emulator's 6 GB: `kswapd` at 78%, 3.1 GB resident. That says nothing about the phone's GPU, where the model is built to run. Don't rerun it on the emulator.
+3. **Model decision (ADR 0002 has the candidates).** E4B stays until a candidate beats it on both the eval and the phone. Test Qwen on the phone's GPU: add a debug-only way to run the eval cases in the app with the model chosen in You → AI model (`connectedAndroidTest` on `:app` uninstalls M³ and wipes the owner's data, so never run it on the phone). Copy the model with resumable `adb exec-in run-as com.m3.app …` (README decision log). If Qwen wins: add it to `ModelCatalog` with its size and SHA-256, keep E4B for meal photos (one model loaded at a time, through `CoachRuntime`), set `vision = false`, and handle thinking output in `ReplyParser` if it shows. LFM3-Omni-2B is second (3.23 GB, reads photos, licence limited for organisations with $10M+ revenue).
 4. **Phone check of `feat/runtime-0.19`:** install, unlock, ask the Coach one advice question and snap one meal on the GPU. The GPU engines of 0.18.x crash on Qwen's file, so also run You → AI model & benchmark if the model changes. Then merge.
 5. **Deload weeks, grocery list** (no phone needed).
 6. **Look at the weekly review card on the phone.** It shows from the first Monday after a week with logs; it has never been seen on a screen.
@@ -40,6 +40,7 @@
 
 ## Traps found
 - **Downloads:** never start a second download of a file while the first may still be running: two writers corrupted the Qwen file. Check `ps -W | grep curl` first, resume with `curl -C -` from one process, and compare the SHA-256 with the Hugging Face API (`/api/models/<repo>/tree/main`). A background curl can look dead while still running.
+- **Timers:** a background `sleep` doesn't survive the PC sleeping. Don't promise an exact stop time from one.
 - **Text-only models:** set `vision = false` or every answer fails with "tf_lite_vision_encoder not found".
 - **Eval memory:** the CPU weight cache needs about 3 GB free or the native code aborts; with no cache the low-memory killer stops the run. `-wipe-data` frees the disk.
 - **Reading evals:** a passing score can hide wrong numbers. An expected-text check only looks for one right number.
