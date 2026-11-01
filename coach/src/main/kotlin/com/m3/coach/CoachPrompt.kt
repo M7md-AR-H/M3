@@ -201,9 +201,9 @@ object CoachPrompt {
         daily.targets?.let { t ->
             val left = t.kcal - eaten.kcal
             // Remaining amounts are spelled out: the model got the subtraction wrong in the eval.
-            fun macro(name: String, done: Int, target: Int) = "$name ${done}g, ${(target - done).coerceAtLeast(0)}g left"
+            fun macro(name: String, done: Int, target: Int) = "$name ${done}/${target}g, ${(target - done).coerceAtLeast(0)}g left"
             appendLine(
-                "Food today: ${eaten.kcal} of ${t.kcal} kcal, ${if (left >= 0) "$left left" else "${-left} over"}; " +
+                "Food: ${eaten.kcal}/${t.kcal} kcal, ${if (left >= 0) "$left left" else "${-left} over"}; " +
                     "${macro("protein", eaten.proteinG, t.proteinG)}; ${macro("carbs", eaten.carbsG, t.carbsG)}; " +
                     macro("fat", eaten.fatG, t.fatG) +
                     if (daily.foods.isEmpty()) "." else "; ${daily.foods.joinToString(", ") { it.oneLine(18) }}.",

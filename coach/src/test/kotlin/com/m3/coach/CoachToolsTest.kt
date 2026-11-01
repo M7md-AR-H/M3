@@ -208,7 +208,7 @@ class CoachPromptTest {
             checkIn = CheckIn(LocalDate.of(2026, 10, 18), 4, 3, 2),
         )
         val system = CoachPrompt.system(facts().copy(daily = daily))
-        listOf("2600 of 2450 kcal", "150 over", "protein 112g, 58g left", "Chicken rice", "Steps today: 6214, goal 8000",
+        listOf("2600/2450 kcal", "150 over", "protein 112/170g, 58g left", "Chicken rice", "Steps today: 6214, goal 8000",
             "Weight trend: 78.4 kg, -0.4 kg a week", "sleep 4, energy 3, soreness 2").forEach {
             assertTrue("missing $it", it in system)
         }
@@ -219,7 +219,7 @@ class CoachPromptTest {
         val system = CoachPrompt.system(facts())
         assertTrue("Weight trend: no weigh-ins." in system)
         assertTrue("Check-in: not done." in system)
-        assertTrue("Food today" !in system)
+        assertTrue("Food:" !in system)
     }
 
     @Test
